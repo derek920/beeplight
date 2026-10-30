@@ -107,6 +107,18 @@ test('path parameters, wrong methods, and a failing route', async () => {
   assert.equal((await call(h, { url: '/api/thing' })).status, 200, 'still serving after a failure');
 });
 
+test('cleaning up stored data is for this Mac only and reports what it did', async () => {
+  const lan = fakeLan();
+  const store = { prune: () => 3, flush: () => 64 * 1024 };
+  const h = createHandler({ routes: apiRoutes({ lan, store }), lan, port: PORT, log: quiet });
+  const prune = (o) => call(h, { method: 'POST', url: '/api/store/prune', headers: { 'x-beeplight': '1' }, ...o });
+  assert.equal((await prune(phone({ url: '/api/store/prune?t=tok' }))).status, 403);
+  const r = await prune({});
+  assert.equal(r.status, 200);
+  assert.equal(r.json.removed, 3);
+  assert.equal(r.json.message, 'Removed 3 entries. The data file is now 64 KB.');
+});
+
 test('pairing by code: refused on this Mac, wrong code answers 401 instead of crashing', async () => {
   const lan = fakeLan();
   const h = createHandler({ routes: apiRoutes({ lan }), lan, port: PORT, log: quiet });

@@ -217,7 +217,7 @@ Beeplight runs entirely on your Mac. It has no accounts, telemetry, analytics or
 
 - **What it reads**: Claude Code's files under `~/.claude` (`sessions/`, the transcripts in `projects/`, and `jobs/`), plus the process list. It only reads them.
 - **What leaves your Mac**: to write titles and verdicts, Beeplight sends an excerpt of each session's recent conversation to Claude Haiku through your own `claude` CLI login. It goes to Anthropic the same way your Claude Code sessions do, and it counts toward your usage. The limit probes are tiny requests through the same login. There is no switch for summaries yet; one is planned.
-- **What it stores**: titles, verdicts, timelines and settings, in `~/Library/Application Support/Beeplight` (or `./data` when you run `npm start`).
+- **What it stores**: titles, verdicts, timelines and settings, in `~/Library/Application Support/Beeplight` (or `./data` when you run `npm start`). History is kept for 30 days at most; Settings → Advanced can shorten that or clean up right away.
 - **Network**: the service listens only on `127.0.0.1` and checks every request's `Host` header. Phone access is off until you turn it on; see [Phone access](#phone-access-lan).
 
 ## Configuration

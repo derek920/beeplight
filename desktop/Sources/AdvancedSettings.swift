@@ -47,6 +47,16 @@ struct ConfigInfo: Decodable {
     struct Group: Decodable, Identifiable {
         var id: String
         var label: String
+        /// Buttons under the group, e.g. cleaning up stored data now.
+        var actions: [Action]?
+    }
+
+    /// A button that POSTs to a local-only route and shows the message it returns.
+    struct Action: Decodable, Identifiable {
+        var id: String
+        var label: String
+        var help: String
+        var path: String
     }
 
     /// An entry of the config file or the environment that was ignored.
@@ -74,7 +84,11 @@ final class ConfigController: ObservableObject {
     @Published private(set) var info: ConfigInfo?
     @Published private(set) var errors: [String: String] = [:]
     @Published var error: String?
+    /// The service's message after an action ran, by action id.
+    @Published private(set) var results: [String: String] = [:]
+    @Published private(set) var running: Set<String> = []
 
+    private let service = "http://127.0.0.1:7333"
     private let url = URL(string: "http://127.0.0.1:7333/api/config")!
 
     func refresh() async {
@@ -101,6 +115,24 @@ final class ConfigController: ObservableObject {
         info = i
         error = nil
         errors[key] = i.errors?[key]
+    }
+
+    func run(_ action: ConfigInfo.Action) async {
+        guard action.path.hasPrefix("/api/"), let url = URL(string: service + action.path) else { return }
+        running.insert(action.id)
+        defer { running.remove(action.id) }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("1", forHTTPHeaderField: "x-beeplight")
+        struct Reply: Decodable {
+            var message: String?
+            var error: String?
+        }
+        guard let (data, _) = try? await URLSession.shared.data(for: req), let r = try? JSONDecoder().decode(Reply.self, from: data) else {
+            results[action.id] = String(localized: "Couldn't apply the change. Is the Beeplight service running?")
+            return
+        }
+        results[action.id] = r.message ?? r.error
     }
 }
 
@@ -129,7 +161,8 @@ struct AdvancedSettingsView: View {
                     VStack(alignment: .leading, spacing: 18) {
                         ForEach(info.groups) { g in
                             let params = info.params.filter { $0.group == g.id }
-                            if !params.isEmpty { section(g.label, params) }
+                            let actions = g.actions ?? []
+                            if !params.isEmpty || !actions.isEmpty { section(g.label, params, actions) }
                         }
                     }
                     .padding(.trailing, 14)
@@ -158,14 +191,38 @@ struct AdvancedSettingsView: View {
         }
     }
 
-    private func section(_ title: String, _ params: [ConfigParam]) -> some View {
+    private func section(_ title: String, _ params: [ConfigParam], _ actions: [ConfigInfo.Action]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(title).font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary).padding(.bottom, 4)
             ForEach(params) { p in
                 row(p)
-                if p.id != params.last?.id { Divider().opacity(0.5) }
+                if p.id != params.last?.id || !actions.isEmpty { Divider().opacity(0.5) }
+            }
+            ForEach(actions) { actionRow($0) }
+        }
+    }
+
+    private func actionRow(_ a: ConfigInfo.Action) -> some View {
+        HStack(alignment: .top, spacing: 16) {
+            Text(a.help)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .trailing, spacing: 3) {
+                Button(a.label) { Task { await config.run(a) } }
+                    .controlSize(.small)
+                    .disabled(config.running.contains(a.id))
+                if let m = config.results[a.id] {
+                    Text(m)
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.trailing)
+                        .frame(maxWidth: 260, alignment: .trailing)
+                }
             }
         }
+        .padding(.vertical, 8)
     }
 
     private func row(_ p: ConfigParam) -> some View {

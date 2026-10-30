@@ -1,3 +1,6 @@
+// Every runtime parameter, one row each, and the groups the settings page shows them in. A group
+// can carry actions: buttons that POST to a local-only route and show the message it returns.
+//
 // Every runtime parameter, one row each. src/config/index.js loads them (default < <data dir>/config.json
 // < environment), /api/config reads and edits them, and the Mac app's Advanced settings page is
 // built from this table, so a new parameter needs only a row here (plus its Chinese label and help
@@ -12,6 +15,13 @@
 
 export const GROUPS = [
   { id: 'collector', label: 'Monitoring' },
+  {
+    id: 'store', label: 'Data',
+    actions: [{
+      id: 'store.prune', label: 'Clean up now', path: '/api/store/prune',
+      help: 'Deletes what is past these limits right away, instead of waiting for the hourly check.',
+    }],
+  },
   { id: 'summarizer', label: 'Titles and verdicts' },
   { id: 'limits', label: 'Usage limits' },
   { id: 'usage', label: 'Token usage' },
@@ -39,6 +49,12 @@ export const PARAMS = [
     key: 'collector.retainHours', type: 'number', default: 12, min: 1, max: 168, aliases: ['BEEPLIGHT_RETAIN_HOURS'],
     label: 'Keep finished tasks (hours)',
     help: 'Finished or quiet tasks leave the board after this long.',
+  },
+
+  {
+    key: 'store.keepDays', type: 'int', default: 30, min: 1, max: 30,
+    label: 'Keep history (days)',
+    help: 'Task titles, results, timelines and removed tasks older than this are deleted, checked every hour. 30 days at most.',
   },
 
   {

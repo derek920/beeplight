@@ -197,7 +197,7 @@ Beeplight 完全在本机运行，没有账号、遥测、统计或更新检查�
 
 - **读取什么**：`~/.claude` 下 Claude Code 自己的文件（`sessions/`、`projects/` 里的 transcript、`jobs/`），以及进程列表。只读，不装 hook，也不改 Claude Code 的设置。
 - **什么会离开本机**：为了生成标题和结果判定，Beeplight 会把每个会话最近对话的摘录，通过你自己的 `claude` CLI 登录发给 Claude Haiku。它和你平时用 Claude Code 一样发到 Anthropic，也会计入你的用量。额度探测是同一登录下的极小请求。总结目前还不能关闭，开关在计划中。
-- **存了什么**：标题、判定、状态轨迹和设置，在 `~/Library/Application Support/Beeplight`（`npm start` 时在 `./data`）。
+- **存了什么**：标题、判定、状态轨迹和设置，在 `~/Library/Application Support/Beeplight`（`npm start` 时在 `./data`）。历史数据最长保留 30 天，可以在设置 → 高级里调短，或立即清理。
 - **网络**：服务只监听 `127.0.0.1`，并校验每个请求的 `Host` 头。手机访问默认关闭，见上面的「手机访问」。
 
 ## 配置

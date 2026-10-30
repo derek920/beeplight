@@ -833,12 +833,34 @@ button {
 .card.urgent {
   --accent: var(--failed);
   --soft: var(--failed-soft);
-  animation: breathe 2s ease-in-out infinite;
 }
 
-@keyframes breathe {
+/* The card clips its overflow, so the breathing ring sits just inside its edge. */
+.card.urgent::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 0 2px color-mix(in srgb, var(--failed) 55%, transparent),
+    inset 0 0 18px color-mix(in srgb, var(--failed) 35%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+/* Glows that breathe are drawn once and pulsed through opacity, which the compositor animates
+   on its own. Animating box-shadow redrew the blur on every frame, all day on a phone left on as
+   a status screen. glow-pulse fades a glow in from opacity 0; glow-dim fades one out from 1. */
+@keyframes glow-pulse {
   50% {
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--failed) 55%, transparent), 0 0 18px color-mix(in srgb, var(--failed) 35%, transparent);
+    opacity: 1;
+  }
+}
+
+@keyframes glow-dim {
+  50% {
+    opacity: 0;
   }
 }
 
@@ -1898,24 +1920,39 @@ body.mode-ambient > :not(.ambient):not(.toast):not(.pairing) {
     radial-gradient(circle at 35% 28%, rgb(255 255 255 / 0.22), transparent 38%),
     radial-gradient(circle at 50% 60%, color-mix(in srgb, var(--tone) 45%, transparent), transparent 70%),
     radial-gradient(circle, #0a0d26 0%, #04050f 100%);
+}
+
+/* The orb's glow breathes by crossfading its resting shadow (::before) with its bright one (::after). */
+.core-orb::before,
+.core-orb::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  animation: 4.8s ease-in-out infinite;
+}
+
+.core-orb::before {
   box-shadow:
     0 0 0 1px rgb(255 255 255 / 0.1) inset,
     0 0 30px color-mix(in srgb, var(--tone) 55%, transparent),
     0 0 90px color-mix(in srgb, var(--tone2) 35%, transparent);
-  animation: amb-orb 4.8s ease-in-out infinite;
+  animation-name: glow-dim;
 }
 
-.ambient[data-tone='waiting'] .core-orb {
+.core-orb::after {
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.14) inset,
+    0 0 46px color-mix(in srgb, var(--tone) 75%, transparent),
+    0 0 140px color-mix(in srgb, var(--tone2) 50%, transparent);
+  opacity: 0;
+  animation-name: glow-pulse;
+}
+
+.ambient[data-tone='waiting'] .core-orb::before,
+.ambient[data-tone='waiting'] .core-orb::after {
   animation-duration: 1.8s;
-}
-
-@keyframes amb-orb {
-  50% {
-    box-shadow:
-      0 0 0 1px rgb(255 255 255 / 0.14) inset,
-      0 0 46px color-mix(in srgb, var(--tone) 75%, transparent),
-      0 0 140px color-mix(in srgb, var(--tone2) 50%, transparent);
-  }
 }
 
 /* Ripples leaving the core when it wants you: waiting, or a fresh finish. */
@@ -2413,14 +2450,18 @@ body.mode-ambient > :not(.ambient):not(.toast):not(.pairing) {
   100% { transform: translateX(100%); }
 }
 
-.amb-row.s-waiting {
-  animation: amb-in 0.5s ease both, amb-call 1.8s ease-in-out infinite;
-}
-
-@keyframes amb-call {
-  50% {
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 70%, transparent), 0 0 22px color-mix(in srgb, var(--c) 35%, transparent);
-  }
+/* The row clips its overflow, so the calling glow sits just inside its edge. */
+.amb-row.s-waiting::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--c) 70%, transparent),
+    inset 0 0 22px color-mix(in srgb, var(--c) 35%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  animation: glow-pulse 1.8s ease-in-out infinite;
 }
 
 .amb-row.unread {

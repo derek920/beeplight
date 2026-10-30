@@ -1,10 +1,14 @@
 import { config as defaultConfig, STORE_FILE } from '../config/index.js';
-import { readJson, writeJsonAtomic } from '../lib/util.js';
+import { readJson, writeFileAtomic } from '../lib/util.js';
 
-const SUMMARY_TTL_MS = 7 * 24 * 3600_000;
+const DAY = 86_400_000;
+const PRUNE_EVERY_MS = 3600_000;
 
 // data/state.json: LLM summaries (so restarts don't re-summarize), the last view of
 // sessions that ended, items the user dismissed, per-session state histories and today's totals.
+// Nothing in it is kept longer than store.keepDays (30 days at most); what only the board uses
+// (ended sessions, unread marks) goes after collector.retainHours. Settings (flags) are not
+// history and stay. Pruned at startup, every hour, when either setting changes, and on request.
 export class Store {
   constructor(file = STORE_FILE, config = defaultConfig) {
     this.file = file;
@@ -20,7 +24,16 @@ export class Store {
     this.unread = d.unread || {};
     this.flags = d.flags || {};
     this.timer = null;
-    this.prune();
+    this.prune('startup');
+  }
+
+  /** Hourly pruning, and at once when a retention setting changes. */
+  start() {
+    this.pruneTimer = setInterval(() => this.prune('hourly'), PRUNE_EVERY_MS);
+    this.pruneTimer.unref();
+    this.config.on('change', (keys) => {
+      if (keys.includes('store.keepDays') || keys.includes('collector.retainHours')) this.prune('setting changed');
+    });
   }
 
   getSummary(sid) {
@@ -85,14 +98,31 @@ export class Store {
     return at != null && (since == null || since <= at);
   }
 
-  prune() {
+  /** @returns {number} how many entries were removed */
+  prune(reason) {
     const now = Date.now();
-    const retain = this.config.get('collector.retainHours') * 3600_000;
-    for (const [sid, s] of Object.entries(this.summaries)) if (now - (s.at || 0) > SUMMARY_TTL_MS) delete this.summaries[sid];
-    for (const [sid, v] of Object.entries(this.ended)) if (now - (v.endedAt || 0) > retain) delete this.ended[sid];
-    for (const [sid, at] of Object.entries(this.dismissed)) if (now - at > SUMMARY_TTL_MS) delete this.dismissed[sid];
-    for (const [sid, u] of Object.entries(this.unread)) if (now - (u.at || 0) > retain) delete this.unread[sid];
-    for (const [sid, h] of Object.entries(this.histories)) if (!h.length || now - h[h.length - 1].t > SUMMARY_TTL_MS) delete this.histories[sid];
+    const keep = this.config.get('store.keepDays') * DAY;
+    const board = Math.min(keep, this.config.get('collector.retainHours') * 3600_000);
+    let removed = 0;
+    const drop = (map, expired) => {
+      for (const [sid, v] of Object.entries(map)) {
+        if (!expired(v)) continue;
+        delete map[sid];
+        removed++;
+      }
+    };
+    drop(this.summaries, (s) => now - (s.at || 0) > keep);
+    drop(this.dismissed, (at) => now - at > keep);
+    drop(this.histories, (h) => h.length > 0 && now - h[h.length - 1].t > keep);
+    drop(this.ended, (v) => now - (v.endedAt || 0) > board);
+    drop(this.unread, (u) => now - (u.at || 0) > board);
+    // Empty histories are placeholders for sessions with nothing recorded yet, not data.
+    for (const [sid, h] of Object.entries(this.histories)) if (!h.length) delete this.histories[sid];
+    if (removed) {
+      console.log(`[store] ${reason}: removed ${removed} entries`);
+      this.save();
+    }
+    return removed;
   }
 
   save() {
@@ -100,11 +130,12 @@ export class Store {
     this.timer = setTimeout(() => this.flush(), 1000);
   }
 
+  /** Writes now. @returns {number} the file's size in bytes, 0 if it could not be written */
   flush() {
     clearTimeout(this.timer);
     this.timer = null;
     try {
-      writeJsonAtomic(this.file, {
+      const text = JSON.stringify({
         v: 1,
         summaries: this.summaries,
         ended: this.ended,
@@ -115,8 +146,11 @@ export class Store {
         unread: this.unread,
         flags: this.flags,
       });
+      writeFileAtomic(this.file, text);
+      return Buffer.byteLength(text);
     } catch (e) {
       console.warn(`[store] save failed: ${e.message}`);
+      return 0;
     }
   }
 }

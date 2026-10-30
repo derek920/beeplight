@@ -78,7 +78,7 @@ desktop/build/Beeplight.app/Contents/MacOS/Beeplight --snapshot /tmp/snap   # �
 - 只在变化时推送：state 按签名去重；每秒都在变的数据（今日统计、用量）放在 meta 里，不进 state 签名。SSE 每个事件只序列化一次。
 - 外部命令按固定节奏调用，并且只在需要时调用：`ps` 每 2 秒一次；`osascript` 只在跳转时调用，另外在有未读任务时由 `seen.js` 每 1.5 秒调用一次。
 - LLM 调用一律经过 `Summarizer` 的队列，由它负责去重、并发、每小时上限和失败退避；额度探测也有固定间隔。不要在别处直接调 `claude -p`。
-- 常驻内存的数据都要有上限或过期时间：解析结果只保留最近若干条，用量记录和额度样本只保留 8 天，store 里的条目都带过期时间。待改：store 目前只在启动时清理一次，app 长时间不重启时会一直累积。
+- 常驻内存和存盘的数据都要有上限或过期时间：解析结果只保留最近若干条，用量记录和额度样本只保留 8 天，store 里的历史最长保留 `store.keepDays` 天（见「LLM 总结」的持久化）。
 
 Mac 应用：
 
@@ -93,7 +93,8 @@ Mac 应用：
 网页：
 
 - 列表按任务 id 原地更新（`patchList()`），不整体重建。
-- 常驻动画只改 CSS 的 `transform` 和 `opacity`，它们由合成器处理，不触发布局和重绘。`box-shadow` 这类属性每帧都要重绘。待改：现有的 `breathe`、`amb-orb` 还在循环动画 `box-shadow`。
+- 常驻动画只改 CSS 的 `transform` 和 `opacity`，它们由合成器处理，不触发布局和重绘；`box-shadow`、`background-position` 这类属性每帧都要重绘。要让发光循环变亮变暗，就把阴影画在伪元素上、固定不变，只循环它的 `opacity`（关键帧 `glow-pulse`、`glow-dim`）。元素带 `overflow: hidden` 时，伪元素向外的阴影会被裁掉，只能画在边缘内侧。
+- 待改：状态屏标题的文字流光 `amb-shine` 循环改 `background-position`，每帧重绘这一行字。渐变裁剪在文字形状上（`background-clip: text`），换不成 `transform`。
 
 验证：
 
@@ -107,6 +108,7 @@ Mac 应用：
 - 优先级：默认值 < 数据目录下的 `config.json` < 环境变量。环境变量名是 `BEEPLIGHT_<键名大写下划线>`，旧的变量名作为 `aliases` 保留。
 - `config.json` 每 2 秒检查一次修改时间，手改后自动重新加载。JSON 写坏时保留上一次的有效值；未知的键和非法值会被忽略，但在文件里原样保留，并在设置页列出来。
 - `GET/POST /api/config` 只对本机开放，POST 是全有或全无。Mac 的「高级」设置页（`AdvancedSettings.swift`）完全按接口返回的描述生成。
+- 参数组可以带操作按钮（schema 里 `GROUPS` 的 `actions`，例如「数据」组的「立即清理」）：按钮向一个只限本机的接口发 POST，再显示它返回的 `message`。页面同样按描述生成，加按钮不用改 Swift。
 
 约束：
 
@@ -157,6 +159,7 @@ LLM 总结（`src/services/summarizer.js`）：
 - 去重键：`endKey(a) = <本轮首条 prompt uuid>@<最新时间线时间戳>`。Claude 在同一轮里恢复工作后（例如收到后台任务通知）键会变，旧判定随之失效；会话关闭后则沿用这一轮最后一次判定。
 - 失败处理：连续失败全局指数退避（30 秒到 10 分钟），失败记录带 `retryAfter`，到点由 Collector 重新请求。
 - 持久化：结果存在 `data/state.json`（`src/core/store.js`），同时保存已结束会话的视图。重启后 `restoreEnded()` 会把这些会话重新挂上 transcript，而不是展示冻结的快照。
+- 保留期限：标题和判定、状态轨迹、移除记录最长保留 `store.keepDays` 天（默认 30，上限也是 30）；只在看板上用的已结束视图和未读标记按 `collector.retainHours`，同样不超过这个上限；设置项（flags）不清理。启动时、每小时、改了这两个参数时，以及「高级」页点「立即清理」（`POST /api/store/prune`，只限本机）时都会清理，最后一种会马上写盘并返回文件大小。
 
 Token 用量与额度：
 

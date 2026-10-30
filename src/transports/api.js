@@ -64,6 +64,18 @@ export function apiRoutes({ collector, store, config, lan, relay, limits, stream
         json(res, Object.keys(errors).length ? 400 : 200, { ...config.describe(), errors });
       },
     },
+    {
+      // Deletes what is past the retention settings now, instead of at the next hourly check.
+      method: 'POST', path: '/api/store/prune', access: 'local',
+      handle: ({ res }) => {
+        const removed = store.prune('requested');
+        const size = Math.max(1, Math.round(store.flush() / 1024));
+        const message = removed
+          ? t('Removed {n} entries. The data file is now {size} KB.', { n: removed, size })
+          : t('Nothing to remove. The data file is {size} KB.', { size });
+        json(res, 200, { ok: true, removed, message });
+      },
+    },
     // Syncing with your other devices through a relay.
     { method: 'GET', path: '/api/relay', access: 'local', handle: ({ res }) => json(res, 200, relay.info()) },
     {

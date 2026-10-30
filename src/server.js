@@ -59,6 +59,7 @@ const server = http.createServer(handler);
 server.listen(PORT, HOST, () => {
   console.log(`Beeplight running at http://localhost:${PORT} (checks every ${config.get('collector.tickMs')}ms, summarizer: ${claudeBin()}, config: ${config.file})`);
   config.watch();
+  store.start();
   collector.start();
   stream.start();
   seen.start();

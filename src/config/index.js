@@ -216,7 +216,11 @@ export class Config extends EventEmitter {
   describe() {
     return {
       file: this.file,
-      groups: GROUPS.map((g) => ({ id: g.id, label: t(g.label) })),
+      groups: GROUPS.map((g) => ({
+        id: g.id,
+        label: t(g.label),
+        actions: (g.actions || []).map((a) => ({ id: a.id, label: t(a.label), help: t(a.help), path: a.path })),
+      })),
       params: [...this.params.values()].map((p) => {
         const env = this.env[p.key]?.name ?? null;
         const value = this.get(p.key);

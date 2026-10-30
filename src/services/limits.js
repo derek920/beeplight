@@ -44,7 +44,8 @@ export class Limits {
     const u7 = sevenDay?.utilization;
     if (!last || at - last.t >= SAMPLE_MIN_GAP_MS || last.u5 !== u5 || last.u7 !== u7) {
       this.samples.push({ t: at, u5, r5: fiveHour?.resetsAt, u7, r7: sevenDay?.resetsAt });
-      while (this.samples.length && at - this.samples[0].t > SAMPLE_KEEP_MS) this.samples.shift();
+      const keep = Math.min(SAMPLE_KEEP_MS, this.config.get('store.keepDays') * 86400_000);
+      while (this.samples.length && at - this.samples[0].t > keep) this.samples.shift();
     }
     this.version++;
     this.save();
