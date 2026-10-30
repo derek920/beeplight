@@ -4,7 +4,7 @@ import SwiftUI
 @main
 struct BeeplightApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
-    @ObservedObject private var monitor: Monitor
+    private let monitor = Monitor.shared
 
     init() {
         // Before Monitor and Appearance read their settings.
@@ -15,7 +15,6 @@ struct BeeplightApp: App {
         if UserDefaults.standard.object(forKey: slot) == nil {
             UserDefaults.standard.set(400.0, forKey: slot)
         }
-        _monitor = ObservedObject(wrappedValue: .shared)
     }
 
     var body: some Scene {

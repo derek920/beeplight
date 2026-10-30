@@ -73,7 +73,13 @@ Token 用量与额度：
 Mac 应用（`desktop/`）：
 
 - `Server.swift`：健康检查，端口上没有服务时用内置代码拉起 Node。`build.sh` 打包的是官方 Node.js（版本固定在 `NODE_DIST`），第一次构建时从 nodejs.org 下载、按 SHASUMS256.txt 校验，缓存在 `desktop/build/node`；`--dist` 用 `lipo` 把 arm64 和 x64 合成通用版，平时只打本机架构（`NODE=` 可以换成指定的 node，`--dist` 不用它）。它放在 `Contents/MacOS/node`，许可证放在 `Resources/node-LICENSE`，所以用户不用装 Node；`findNode()` 优先用它。因为 app 跑的不再是 nvm 的 node，`config.js` 的 `resolveClaudeBin()` 会自己去 `~/.nvm/versions/node/*/bin` 找 claude。
-- `Monitor.swift`：SSE 客户端（`URLSession.bytes.lines` 会丢掉空行，所以收到 `data:` 行就立刻处理）、通知触发、菜单栏徽章。徽章在有任务执行时以 12fps 用 `ImageRenderer` 重绘。
+- `Monitor.swift`：SSE 客户端（`URLSession.bytes.lines` 会丢掉空行，所以收到 `data:` 行就立刻处理）、通知触发、菜单栏徽章。
+  - `Monitor` 是 `@Observable`：视图只在自己读过的属性变化时重算。所以属性一律变了才赋值（`assign`）；meta 拆成 `hz`、`today`、`summarizer`、`usage`、`limits` 分开存。
+  - 每秒变一次的 `now` 只在 `Ticking(monitor) { now in … }` 这类叶子视图里读，不要在列表或窗口的 body 里读，否则整个窗口每秒重算。按分钟显示的倒计时读 `minute`；任务是否紧急读 `isUrgent(_:)`，它不依赖时钟。
+  - 快照里只有文字或数字变化时不加动画，只有任务增减、换位置或换状态才用弹簧动画。
+  - 有任务执行时，菜单栏徽章每秒换 12 帧。帧按计数、样式、相位、主题、深浅缓存，像素相同的帧共用一张图，图没变就不调用 `setImage`。
+- 常驻动画（转圈、紧急卡片的呼吸发光、等待图标的脉冲）写在 `LayerEffects.swift` 里，用 Core Animation 图层实现，由窗口服务器驱动，app 每帧没有开销。不要用 `TimelineView(.animation)`、`.symbolEffect`、`repeatForever` 或按时钟切换的 `.animation` 做常驻动画：SwiftUI 每帧都会让整个窗口重新布局，并在 CPU 上重画。卡片阴影由底板形状投射（`themedCard`），不要给整张卡片加 `.shadow`，否则卡片里任何文字一变，就要连同模糊效果整张重画。
+- 查 CPU：`sample <pid> 4 -file <文件>`，看主线程里 `CA::Transaction::commit`、`_layoutSubtreeWithOldSize`、`NSStatusItem _updateReplicants` 的占比。截图验证用 `--snapshot`，它能截到图层画的效果。
 - `Board.swift` / `Panel.swift`：两套界面。
 - `Glyphs.swift`：状态图标、时间轴和菜单栏渲染。
 - 菜单栏图标「看不见」有两种情况，先用 `CGWindowListCopyWindowInfo` 看 layer 25 的窗口：

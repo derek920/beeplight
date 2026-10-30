@@ -226,15 +226,15 @@ private struct TopRow: View {
 }
 
 struct QuotaRow: View {
-    @ObservedObject var monitor: Monitor
+    let monitor: Monitor
 
     var body: some View {
-        let u = monitor.meta?.usage
+        let u = monitor.usage
         HStack(alignment: .top, spacing: 14) {
             QuotaCard(title: String(localized: "5-hour limit"), window: u?.limits?.fiveHour, local: u?.fiveHour, range: u?.windows?.fiveHour,
-                      buckets: u?.buckets5h ?? [], now: monitor.now)
+                      buckets: u?.buckets5h ?? [], now: monitor.minute)
             QuotaCard(title: String(localized: "Weekly limit"), window: u?.limits?.sevenDay, local: u?.sevenDay, range: u?.windows?.sevenDay,
-                      buckets: u?.buckets7d ?? [], now: monitor.now, withDay: true)
+                      buckets: u?.buckets7d ?? [], now: monitor.minute, withDay: true)
             TopSessionsCard(rows: u?.top ?? [], weekly: u?.limits?.sevenDay?.utilization, note: monitor.limitsNote,
                             onTap: { monitor.focus($0) }, onRefresh: { monitor.refreshLimits() })
         }
@@ -244,10 +244,10 @@ struct QuotaRow: View {
 
 /// Two thin bars for the menu bar panel.
 struct CompactQuota: View {
-    @ObservedObject var monitor: Monitor
+    let monitor: Monitor
 
     var body: some View {
-        let L = monitor.meta?.usage?.limits
+        let L = monitor.limits
         VStack(spacing: 5) {
             line(String(localized: "5h"), L?.fiveHour, withDay: false)
             line(String(localized: "Week"), L?.sevenDay, withDay: true)

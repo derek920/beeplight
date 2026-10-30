@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Main window: three columns (Waiting / Doing / Done) of task cards.
 struct BoardView: View {
-    @ObservedObject var monitor: Monitor
+    let monitor: Monitor
     @ObservedObject var appearance = Appearance.shared
     @Namespace private var ns
     @State private var doneFilter = "all"
@@ -76,7 +76,7 @@ struct BoardView: View {
 }
 
 private struct BoardHeader: View {
-    @ObservedObject var monitor: Monitor
+    let monitor: Monitor
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -96,20 +96,29 @@ private struct BoardHeader: View {
                 }
                 Spacer(minLength: 20)
                 VStack(alignment: .trailing, spacing: 6) {
-                    LiveBadge(connected: monitor.connected, hz: monitor.meta?.hz)
+                    LiveBadge(monitor: monitor)
                     SettingsMenu(monitor: monitor)
                 }
             }
-            if let t = monitor.meta?.today {
-                TodayLine(today: t)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 7)
-                    .background(RoundedRectangle(cornerRadius: 9).fill(Color.primary.opacity(0.05)))
-            }
+            TodayBanner(monitor: monitor)
         }
         .padding(.horizontal, 20)
         .padding(.top, 14)
         .padding(.bottom, 14)
+    }
+}
+
+/// Today's totals change every second while Claude works, so only this view reads them.
+private struct TodayBanner: View {
+    let monitor: Monitor
+
+    var body: some View {
+        if let t = monitor.today {
+            TodayLine(today: t)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(RoundedRectangle(cornerRadius: 9).fill(Color.primary.opacity(0.05)))
+        }
     }
 }
 
@@ -161,7 +170,7 @@ private struct BoardColumn<Accessory: View>: View {
     let items: [TaskItem]
     let empty: String
     let ns: Namespace.ID
-    @ObservedObject var monitor: Monitor
+    let monitor: Monitor
     let unread: Int
     var accessory: Accessory
 
@@ -238,15 +247,12 @@ private struct BoardColumn<Accessory: View>: View {
 
 struct TaskCard: View {
     let item: TaskItem
-    @ObservedObject var monitor: Monitor
+    let monitor: Monitor
     @State private var hover = false
 
     var body: some View {
-        let now = monitor.now
-        let urgent = item.isUrgent(now: now)
+        let urgent = monitor.isUrgent(item)
         let color = Theme.color(item.phase, urgent: urgent)
-        // Driven by the 1 s clock: an urgent card's glow breathes.
-        let glow = urgent && Theme.breathing && Int(now.timeIntervalSince1970) % 2 == 0
 
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
@@ -260,9 +266,11 @@ struct TaskCard: View {
                     }
                 }
                 Spacer()
-                Text(Fmt.elapsed(item, now: now))
-                    .font(.system(size: 11.5).monospacedDigit())
-                    .foregroundStyle(urgent ? Theme.urgent : .secondary)
+                Ticking(monitor) { now in
+                    Text(Fmt.elapsed(item, now: now))
+                        .font(.system(size: 11.5).monospacedDigit())
+                        .foregroundStyle(urgent ? Theme.urgent : .secondary)
+                }
             }
 
             Text(item.title)
@@ -314,17 +322,19 @@ struct TaskCard: View {
             }
 
             VStack(alignment: .leading, spacing: 4) {
-                StateStrip(history: item.history ?? [], now: now, height: 5)
-                HStack {
-                    Text("Last 30 min")
-                    Spacer()
-                    let s = item.turnStats(now: now)
-                    if s.work >= 1 || s.wait >= 1 {
-                        Text(s.wait >= 1 ? String(localized: "This turn: ran \(Fmt.dur(s.work)) · waited \(Fmt.dur(s.wait))") : String(localized: "This turn: ran \(Fmt.dur(s.work))"))
+                Ticking(monitor) { now in
+                    StateStrip(history: item.history ?? [], now: now, height: 5)
+                    HStack {
+                        Text("Last 30 min")
+                        Spacer()
+                        let s = item.turnStats(now: now)
+                        if s.work >= 1 || s.wait >= 1 {
+                            Text(s.wait >= 1 ? String(localized: "This turn: ran \(Fmt.dur(s.work)) · waited \(Fmt.dur(s.wait))") : String(localized: "This turn: ran \(Fmt.dur(s.work))"))
+                        }
                     }
+                    .font(.system(size: 10.5).monospacedDigit())
+                    .foregroundStyle(.tertiary)
                 }
-                .font(.system(size: 10.5).monospacedDigit())
-                .foregroundStyle(.tertiary)
             }
 
             HStack(spacing: 5) {
@@ -361,9 +371,14 @@ struct TaskCard: View {
                 .stateGlow(color)
         }
         .themedCard(accent: urgent ? color : item.unread == true ? Theme.doing : color,
-                    emphasized: urgent || item.unread == true, glowBoost: glow || hover)
+                    emphasized: urgent || item.unread == true, glowBoost: hover)
+        .background {
+            // An urgent card's glow breathes; only glowing themes show it.
+            if urgent, Theme.breathing, Theme.palette.glow > 0 {
+                BreathingGlow(color: color, corner: Theme.palette.corner, radius: Theme.palette.glow * 1.6)
+            }
+        }
         .opacity(item.ended == true ? 0.82 : 1)
-        .animation(Theme.animated ? .easeInOut(duration: 0.9) : nil, value: glow)
         .scaleEffect(hover ? 1.012 : 1)
         .animation(.easeOut(duration: 0.15), value: hover)
         .contentShape(RoundedRectangle(cornerRadius: 12))
@@ -396,8 +411,9 @@ private struct IconButton: View {
     }
 }
 
+@MainActor
 private struct FooterLine: View {
-    @ObservedObject var monitor: Monitor
+    let monitor: Monitor
 
     var body: some View {
         HStack {
@@ -412,13 +428,13 @@ private struct FooterLine: View {
         var parts: [String] = []
         if monitor.idleCount > 0 { parts.append(String(localized: "Empty sessions hidden: \(monitor.idleCount)")) }
         if monitor.staleCount > 0 { parts.append(String(localized: "Sessions quiet for 12+ hr hidden: \(monitor.staleCount)")) }
-        if let s = monitor.meta?.summarizer {
+        if let s = monitor.summarizer {
             var t = String(localized: "Haiku summaries: \(s.ok) done")
             if s.inflight + s.queued > 0 { t += String(localized: ", \(s.inflight) running, \(s.queued) queued") }
             if s.failed > 0 { t += String(localized: ", \(s.failed) failed") }
             parts.append(t)
         }
-        if let me = monitor.meta?.usage?.limits?.monitorSelf, let calls = me.calls, calls > 0 {
+        if let me = monitor.limits?.monitorSelf, let calls = me.calls, calls > 0 {
             parts.append(String(localized: "Beeplight's Haiku calls today: \(calls) ≈\(Fmt.usd(me.cost ?? 0))"))
         }
         return parts.joined(separator: " · ")

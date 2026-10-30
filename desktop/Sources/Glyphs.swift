@@ -13,11 +13,17 @@ struct StatusGlyph: View {
             case .doing:
                 Spinner(color: Theme.doing, size: size)
             case .waiting:
-                Image(systemName: urgent ? "exclamationmark.triangle.fill" : "hand.raised.fill")
-                    .font(.system(size: size * 0.78, weight: .semibold))
-                    .foregroundStyle(Theme.color(.waiting, urgent: urgent))
-                    .symbolEffect(.pulse, isActive: Theme.breathing)
-                    .shadow(color: Theme.color(.waiting, urgent: urgent).opacity(0.5), radius: urgent ? 5 : max(2, Theme.palette.glow * 0.5))
+                let name = urgent ? "exclamationmark.triangle.fill" : "hand.raised.fill"
+                let color = Theme.color(.waiting, urgent: urgent)
+                let glow = urgent ? 5 : max(2, Theme.palette.glow * 0.5)
+                if Theme.breathing {
+                    PulsingSymbol(name: name, color: color, pointSize: size * 0.78, weight: .semibold, glow: glow)
+                } else {
+                    Image(systemName: name)
+                        .font(.system(size: size * 0.78, weight: .semibold))
+                        .foregroundStyle(color)
+                        .shadow(color: color.opacity(0.5), radius: glow)
+                }
             case .success:
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: size * 0.86, weight: .semibold))
@@ -41,11 +47,11 @@ struct Spinner: View {
     var body: some View {
         let line = max(1.6, size / 7.5)
         if Theme.animated {
-            let period = Theme.motion == .soft ? 2.2 : 1.1
-            TimelineView(.animation(minimumInterval: 1.0 / 30)) { ctx in
-                ring(line, angle: ctx.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: period) / period * 360)
-            }
-            .frame(width: size, height: size)
+            // Turned by Core Animation in the window server, so a running task costs the app no
+            // work per frame. (A TimelineView here redrew the ring 30 times a second and relaid
+            // out its whole window each time.)
+            SpinnerLayer(color: color, line: line, glow: Theme.palette.glow, period: Theme.motion == .soft ? 2.2 : 1.1)
+                .frame(width: size, height: size)
         } else {
             ring(line, angle: -90).frame(width: size, height: size)
         }
@@ -174,7 +180,7 @@ struct UnreadDot: View {
 
 // MARK: - menu bar
 
-struct MenuBarCounts: Equatable {
+struct MenuBarCounts: Hashable {
     var waiting = 0
     var doing = 0
     var newDone = 0
@@ -191,8 +197,13 @@ struct MenuBarCounts: Equatable {
 /// Renders the menu bar badge. Colored states are bitmaps; the quiet state is a template symbol.
 @MainActor
 enum MenuBarRenderer {
-    static func idle(hasTasks: Bool) -> NSImage {
-        let name = hasTasks ? "checkmark.circle" : "circle.dotted"
+    /// The same two images every time, so an idle menu bar never builds a new one.
+    static func idle(hasTasks: Bool) -> NSImage { hasTasks ? idleWithTasks : idleEmpty }
+
+    private static let idleWithTasks = symbol("checkmark.circle")
+    private static let idleEmpty = symbol("circle.dotted")
+
+    private static func symbol(_ name: String) -> NSImage {
         let base = NSImage(systemSymbolName: name, accessibilityDescription: "Beeplight") ?? NSImage()
         let img = base.withSymbolConfiguration(.init(pointSize: 14, weight: .medium)) ?? base
         img.isTemplate = true
@@ -439,7 +450,7 @@ struct MenuBarBadge: View {
 }
 
 struct MenuBarLabel: View {
-    @ObservedObject var monitor: Monitor
+    let monitor: Monitor
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {

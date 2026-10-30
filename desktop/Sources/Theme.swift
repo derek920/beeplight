@@ -70,10 +70,18 @@ enum Fmt {
 
     /// "14:05", or with the weekday, e.g. "Wed 14:05".
     static func clock(_ ms: Double, withDay: Bool = false) -> String {
+        (withDay ? dayClock : plainClock).string(from: Date(timeIntervalSince1970: ms / 1000))
+    }
+
+    // Creating a DateFormatter is costly and `clock` runs in view bodies; these are used on the main thread only.
+    private static let plainClock = formatter("HHmm")
+    private static let dayClock = formatter("EEEHHmm")
+
+    private static func formatter(_ template: String) -> DateFormatter {
         let f = DateFormatter()
         f.locale = locale
-        f.setLocalizedDateFormatFromTemplate(withDay ? "EEEHHmm" : "HHmm")
-        return f.string(from: Date(timeIntervalSince1970: ms / 1000))
+        f.setLocalizedDateFormatFromTemplate(template)
+        return f
     }
 
     static func elapsed(_ item: TaskItem, now: Date) -> String {

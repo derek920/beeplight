@@ -240,7 +240,7 @@ final class IslandController {
 
 struct IslandView: View {
     @ObservedObject var model: IslandModel
-    @ObservedObject var monitor: Monitor
+    let monitor: Monitor
     @ObservedObject var appearance: Appearance
 
     var body: some View {
@@ -265,7 +265,7 @@ struct IslandView: View {
     /// Narrower wings for the idle eyes, which stay out all the time.
     private let idleWing: CGFloat = 46
     private var faceOn: Bool { appearance.config.character != Characters.classic }
-    private var limits: LimitsInfo? { monitor.meta?.usage?.limits }
+    private var limits: LimitsInfo? { monitor.limits }
 
     private var size: CGSize {
         if model.open {
@@ -362,7 +362,7 @@ struct IslandView: View {
 
     private var leadGlyph: some View {
         Group {
-            if let w = monitor.waiting.first { StatusGlyph(phase: .waiting, urgent: w.isUrgent(now: monitor.now), size: 15) }
+            if let w = monitor.waiting.first { StatusGlyph(phase: .waiting, urgent: monitor.isUrgent(w), size: 15) }
             else if let d = monitor.unreadDone.first { StatusGlyph(phase: d.phase, size: 15) }
             else if !monitor.doing.isEmpty { StatusGlyph(phase: .doing, size: 15) }
             else if faceOn { LiveCharacter(character: appearance.config.character, height: 17) }
@@ -455,7 +455,7 @@ struct IslandView: View {
                 counts
                 if model.pinned { Image(systemName: "pin.fill").font(.system(size: 9)).foregroundStyle(.white.opacity(0.45)) }
                 Spacer()
-                if let L = monitor.meta?.usage?.limits {
+                if let L = monitor.limits {
                     Text("5h \(Fmt.pct(L.fiveHour?.utilization)) · wk \(Fmt.pct(L.sevenDay?.utilization))")
                         .font(.system(size: 11).monospacedDigit())
                         .foregroundStyle(.white.opacity(0.6))
@@ -474,7 +474,7 @@ struct IslandView: View {
                 Button { open(item.id) } label: {
                     HStack(spacing: 10) {
                         if item.unread == true { UnreadDot(size: 6) }
-                        StatusGlyph(phase: item.phase, urgent: item.isUrgent(now: monitor.now), size: 15)
+                        StatusGlyph(phase: item.phase, urgent: monitor.isUrgent(item), size: 15)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(item.title).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
                             Text(item.detail?.isEmpty == false ? item.detail! : item.label)
@@ -483,9 +483,11 @@ struct IslandView: View {
                                 .lineLimit(1)
                         }
                         Spacer(minLength: 6)
-                        Text(Fmt.elapsed(item, now: monitor.now))
-                            .font(.system(size: 10.5).monospacedDigit())
-                            .foregroundStyle(item.isUrgent(now: monitor.now) ? Theme.urgent : .white.opacity(0.5))
+                        Ticking(monitor) { now in
+                            Text(Fmt.elapsed(item, now: now))
+                                .font(.system(size: 10.5).monospacedDigit())
+                                .foregroundStyle(monitor.isUrgent(item) ? Theme.urgent : .white.opacity(0.5))
+                        }
                     }
                     .padding(.horizontal, 16)
                     .frame(height: 44)

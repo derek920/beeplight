@@ -310,14 +310,19 @@ extension View {
     /// Card finish: fill, stroke, corner, optional glow and HUD brackets.
     func themedCard(accent: Color, emphasized: Bool = false, glowBoost: Bool = false) -> some View {
         let p = Theme.palette
+        // The card's shape casts the shadow, not the finished card: a shadow on the whole card is
+        // redrawn, blur and all, whenever any text in it changes (elapsed times do every second).
         return self
-            .background(RoundedRectangle(cornerRadius: p.corner, style: .continuous).fill(p.card))
+            .background(
+                RoundedRectangle(cornerRadius: p.corner, style: .continuous)
+                    .fill(p.card)
+                    .shadow(color: p.glow > 0 ? accent.opacity(glowBoost ? 0.55 : 0.28) : .black.opacity(0.07), radius: p.glow > 0 ? p.glow * (glowBoost ? 1.6 : 1) : 3, y: p.glow > 0 ? 0 : 1)
+            )
             .overlay(
                 RoundedRectangle(cornerRadius: p.corner, style: .continuous)
                     .strokeBorder(emphasized ? accent.opacity(0.75) : (p.glow > 0 ? accent.opacity(0.35) : p.cardStroke), lineWidth: emphasized ? 1.5 : 1)
             )
             .overlay { if p.brackets { CornerBrackets(color: accent.opacity(0.9)).padding(-1) } }
-            .shadow(color: p.glow > 0 ? accent.opacity(glowBoost ? 0.55 : 0.28) : .black.opacity(0.07), radius: p.glow > 0 ? p.glow * (glowBoost ? 1.6 : 1) : 3, y: p.glow > 0 ? 0 : 1)
     }
 
     /// A subtle glow for state-colored marks in glowing themes.

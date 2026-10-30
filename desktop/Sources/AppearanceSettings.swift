@@ -3,7 +3,7 @@ import SwiftUI
 /// Appearance: presets, then each option on its own, with a live preview of the result.
 struct AppearanceSettingsView: View {
     @ObservedObject var appearance = Appearance.shared
-    @ObservedObject var monitor = Monitor.shared
+    let monitor = Monitor.shared
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
@@ -182,7 +182,7 @@ private struct CharacterTile: View {
 
 /// Sample cards and the live menu bar badge in the current theme.
 private struct AppearancePreview: View {
-    @ObservedObject var monitor: Monitor
+    let monitor: Monitor
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {

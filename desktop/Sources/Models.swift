@@ -22,7 +22,7 @@ struct Meta: Decodable {
 
 // MARK: token usage & plan limits (src/limits.js, src/usage.js)
 
-struct UsageMeta: Decodable {
+struct UsageMeta: Decodable, Equatable {
     var ready: Bool?
     var limits: LimitsInfo?
     var windows: Windows?
@@ -33,7 +33,7 @@ struct UsageMeta: Decodable {
     var top: [TopSession]?
 }
 
-struct LimitsInfo: Decodable {
+struct LimitsInfo: Decodable, Equatable {
     var known: Bool?
     var at: Double?
     var status: String?
@@ -63,19 +63,19 @@ struct Projection: Decodable, Equatable {
     var beforeReset: Bool?
 }
 
-struct WindowRange: Decodable {
+struct WindowRange: Decodable, Equatable {
     var start: Double
     var end: Double
     var aligned: Bool?
 }
 
-struct Windows: Decodable {
+struct Windows: Decodable, Equatable {
     var fiveHour: WindowRange
     var sevenDay: WindowRange
 }
 
 /// This machine's usage within a window; cost is the API-equivalent USD used as a weight.
-struct UsageTotals: Decodable {
+struct UsageTotals: Decodable, Equatable {
     var tokens: Double
     var out: Double
     var cr: Double?
@@ -83,7 +83,7 @@ struct UsageTotals: Decodable {
     var requests: Int?
 }
 
-struct TopSession: Decodable, Identifiable {
+struct TopSession: Decodable, Identifiable, Equatable {
     var sid: String
     var title: String
     var project: String?
@@ -95,7 +95,7 @@ struct TopSession: Decodable, Identifiable {
     var id: String { sid }
 }
 
-struct SelfUsage: Decodable {
+struct SelfUsage: Decodable, Equatable {
     var calls: Int?
     var cost: Double?
 }
@@ -128,7 +128,7 @@ struct Today: Decodable, Equatable {
     var longestWaitMs: Double
 }
 
-struct SummarizerStats: Decodable {
+struct SummarizerStats: Decodable, Equatable {
     var queued: Int
     var inflight: Int
     var ok: Int

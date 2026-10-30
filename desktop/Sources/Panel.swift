@@ -4,7 +4,7 @@ import SwiftUI
 
 /// The window that drops down from the menu bar icon.
 struct PanelView: View {
-    @ObservedObject var monitor: Monitor
+    let monitor: Monitor
     @ObservedObject var appearance = Appearance.shared
     @Environment(\.openWindow) private var openWindow
 
@@ -52,14 +52,14 @@ struct PanelView: View {
 }
 
 private struct PanelHeader: View {
-    @ObservedObject var monitor: Monitor
+    let monitor: Monitor
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("Beeplight").font(.system(size: 14, weight: .bold))
                 Spacer()
-                LiveBadge(connected: monitor.connected, hz: monitor.meta?.hz)
+                LiveBadge(monitor: monitor)
             }
             HStack(spacing: 6) {
                 CountPill(value: monitor.waiting.count, label: String(localized: "Waiting"), color: monitor.anyUrgent ? Theme.urgent : Theme.waiting)
@@ -95,11 +95,13 @@ struct CountPill: View {
     }
 }
 
+/// Connection and tick rate: a leaf of its own, since the rate can change with any meta event.
 struct LiveBadge: View {
-    let connected: Bool
-    let hz: Double?
+    let monitor: Monitor
 
     var body: some View {
+        let connected = monitor.connected
+        let hz = monitor.hz
         HStack(spacing: 5) {
             Circle()
                 .fill(connected ? Theme.success : Theme.failed)
@@ -116,7 +118,7 @@ private struct PanelSection: View {
     let title: String
     let color: Color
     let items: [TaskItem]
-    @ObservedObject var monitor: Monitor
+    let monitor: Monitor
     var unread = 0
 
     var body: some View {
@@ -154,11 +156,11 @@ private struct PanelSection: View {
 
 private struct PanelRow: View {
     let item: TaskItem
-    @ObservedObject var monitor: Monitor
+    let monitor: Monitor
     @State private var hover = false
 
     var body: some View {
-        let urgent = item.isUrgent(now: monitor.now)
+        let urgent = monitor.isUrgent(item)
         HStack(alignment: .top, spacing: 10) {
             StatusGlyph(phase: item.phase, urgent: urgent, size: 18)
                 .padding(.top, 1)
@@ -167,15 +169,17 @@ private struct PanelRow: View {
                     if item.unread == true { UnreadDot(size: 7) }
                     Text(item.title).font(.system(size: 13, weight: item.unread == true ? .bold : .semibold)).lineLimit(1)
                     Spacer(minLength: 4)
-                    Text(Fmt.elapsed(item, now: monitor.now))
-                        .font(.system(size: 11).monospacedDigit())
-                        .foregroundStyle(urgent ? Theme.urgent : .secondary)
+                    Ticking(monitor) { now in
+                        Text(Fmt.elapsed(item, now: now))
+                            .font(.system(size: 11).monospacedDigit())
+                            .foregroundStyle(urgent ? Theme.urgent : .secondary)
+                    }
                 }
                 Text(subtitle)
                     .font(item.isToolDetail ? .system(size: 11, design: .monospaced) : .system(size: 11.5))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                StateStrip(history: item.history ?? [], now: monitor.now, height: 3)
+                Ticking(monitor) { now in StateStrip(history: item.history ?? [], now: now, height: 3) }
                     .padding(.top, 2)
             }
         }
@@ -238,14 +242,12 @@ struct EmptyState: View {
 }
 
 private struct PanelFooter: View {
-    @ObservedObject var monitor: Monitor
+    let monitor: Monitor
     let openBoard: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if let t = monitor.meta?.today {
-                TodayLine(today: t, compact: true)
-            }
+            PanelToday(monitor: monitor)
             HStack(spacing: 8) {
                 Button(action: openBoard) { Label("Open board", systemImage: "rectangle.split.3x1") }
                     .buttonStyle(.borderedProminent)
@@ -256,6 +258,15 @@ private struct PanelFooter: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
+    }
+}
+
+/// Today's totals change every second while Claude works, so only this view reads them.
+private struct PanelToday: View {
+    let monitor: Monitor
+
+    var body: some View {
+        if let t = monitor.today { TodayLine(today: t, compact: true) }
     }
 }
 
@@ -289,9 +300,12 @@ struct TodayLine: View {
     }
 }
 
+@MainActor
 struct SettingsMenu: View {
-    @ObservedObject var monitor: Monitor
-    @State private var loginItem = SMAppService.mainApp.status == .enabled
+    @Bindable var monitor: Monitor
+    // Read on appear: a @State initializer runs on every init of this view, and asking
+    // SMAppService each time the headers around it re-rendered showed up in profiles.
+    @State private var loginItem = false
 
     var body: some View {
         Menu {
@@ -317,6 +331,7 @@ struct SettingsMenu: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
+        .onAppear { loginItem = SMAppService.mainApp.status == .enabled }
     }
 
     private func openSettings(tab: String) {
