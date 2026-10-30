@@ -188,7 +188,7 @@ struct PhoneSettingsView: View {
     }
 }
 
-/// The Settings window: general, appearance and phone access.
+/// The Settings window: general, appearance, phone access, devices and the service's parameters.
 struct SettingsRoot: View {
     @AppStorage("settingsTab") private var tab = "appearance"
 
@@ -206,6 +206,9 @@ struct SettingsRoot: View {
             DevicesSettingsView()
                 .tabItem { Label("Devices", systemImage: "laptopcomputer.and.iphone") }
                 .tag("devices")
+            AdvancedSettingsView()
+                .tabItem { Label("Advanced", systemImage: "slider.horizontal.3") }
+                .tag("advanced")
         }
     }
 }

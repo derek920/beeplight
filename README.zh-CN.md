@@ -202,17 +202,37 @@ Beeplight 完全在本机运行，没有账号、遥测、统计或更新检查�
 
 ## 配置
 
+在 Mac 应用里，**设置 → 高级**列出了服务的全部运行参数，每项都有简短说明和默认值。大多数改动一秒内生效，端口要重启才生效。
+
+不用 app 时，把参数写进数据目录下的 `config.json`（`npm start` 时是 `./data`，app 是 `~/Library/Application Support/Beeplight`）。改了文件，几秒内就会自动生效。
+
+```json
+{
+  "collector.retainHours": 24,
+  "summarizer.model": "sonnet"
+}
+```
+
+`curl -s localhost:7333/api/config` 会列出每个参数的当前值、默认值和来源。全部参数及其取值范围见 [`src/config-schema.js`](src/config-schema.js)。
+
+环境变量优先于文件。变量名是 `BEEPLIGHT_` 加上键名的大写下划线形式，例如 `BEEPLIGHT_COLLECTOR_TICK_MS=500`。下面这些旧变量名仍然有效：
+
+| 环境变量 | 对应参数 | 默认 |
+|---|---|---|
+| `PORT` | `server.port` | `7333` |
+| `BEEPLIGHT_MODEL` | `summarizer.model` | `haiku` |
+| `BEEPLIGHT_RETAIN_HOURS` | `collector.retainHours` | `12` |
+| `BEEPLIGHT_LIMITS_PROBE_MINUTES` | `limits.probeMinutes`（`0` 关闭探测） | `10` |
+| `CLAUDE_BIN` | `claude.bin` | 从 `PATH` 查找 |
+| `BEEPLIGHT_DEVICE_NAME` | `relay.deviceName` | 电脑名称 |
+
+下面这几个只能通过环境变量设置：
+
 | 环境变量 | 默认 | 作用 |
 |---|---|---|
-| `PORT` | `7333` | 监听端口（只监听 127.0.0.1） |
-| `BEEPLIGHT_MODEL` | `haiku` | 总结用的模型 |
-| `BEEPLIGHT_RETAIN_HOURS` | `12` | 已结束任务在看板上保留多久 |
-| `BEEPLIGHT_LIMITS_PROBE_MINUTES` | `10` | 有活动时额度探测的间隔（分钟），`0` 关闭探测 |
-| `BEEPLIGHT_DATA_DIR` | `./data` | 总结缓存、轨迹和日志目录（app 用 `~/Library/Application Support/Beeplight`） |
-| `CLAUDE_BIN` | 从 `PATH` 查找 | `claude` 可执行文件路径 |
+| `BEEPLIGHT_DATA_DIR` | `./data` | 运行参数、总结缓存、轨迹和日志目录（app 用 `~/Library/Application Support/Beeplight`） |
 | `CLAUDE_CONFIG_DIR` | `~/.claude` | Claude Code 的配置目录 |
 | `BEEPLIGHT_LANG` | 系统语言 | 状态标签和任务标题的语言，`en` 或 `zh-Hans`（app 会设成自己的语言） |
-| `BEEPLIGHT_DEVICE_NAME` | 电脑名称 | 这台设备在其他设备上显示的名字 |
 
 ## 已知限制
 

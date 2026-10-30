@@ -1,11 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { config as defaultConfig } from './config.js';
 import { t } from './i18n.js';
 import { oneLine } from './util.js';
 
 // Transcripts can be >100MB; on first sight only the tail is needed for the current task.
-const INITIAL_TAIL_BYTES = 4 * 1024 * 1024;
-const MAX_READ_PER_POLL = 8 * 1024 * 1024;
+const MB = 1024 * 1024;
 const TIMELINE_MAX = 80;
 const RECENT_TOOLS_MAX = 20;
 const RECENT_PROMPTS_MAX = 4;
@@ -37,8 +37,9 @@ export function emptyAnalysis() {
 }
 
 export class Transcript {
-  constructor(file) {
+  constructor(file, config = defaultConfig) {
     this.file = file;
+    this.config = config;
     this.offset = 0;
     this.ino = null;
     this.remainder = Buffer.alloc(0);
@@ -65,14 +66,16 @@ export class Transcript {
     }
     if (this.ino === null) {
       this.ino = st.ino;
-      if (st.size > INITIAL_TAIL_BYTES) {
-        this.offset = st.size - INITIAL_TAIL_BYTES;
+      // Some transcripts pass 100 MB; the recent end is what matters.
+      const tail = Math.floor(this.config.get('transcript.initialTailMB') * MB);
+      if (st.size > tail) {
+        this.offset = st.size - tail;
         this.skipPartial = true;
       }
     }
     if (st.size <= this.offset) return false;
 
-    const len = Math.min(st.size - this.offset, MAX_READ_PER_POLL);
+    const len = Math.min(st.size - this.offset, Math.floor(this.config.get('transcript.maxReadMB') * MB));
     const buf = Buffer.allocUnsafe(len);
     const fd = fs.openSync(this.file, 'r');
     try {

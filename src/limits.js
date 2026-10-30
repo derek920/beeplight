@@ -1,4 +1,4 @@
-import { SUMMARY_MODEL } from './config.js';
+import { config as defaultConfig } from './config.js';
 import { oneLine } from './util.js';
 
 // The account's plan limits as the server reports them. Every `claude -p` stream-json call
@@ -11,16 +11,13 @@ const SAMPLE_KEEP_MS = 8 * 86400_000;
 const SAMPLE_MIN_GAP_MS = 60_000;
 const PROBE_TIMEOUT_MS = 45_000;
 
-const PROBE_MINUTES = Number(process.env.BEEPLIGHT_LIMITS_PROBE_MINUTES ?? 10);
-const ACTIVE_PROBE_MS = PROBE_MINUTES * 60_000;
-const IDLE_PROBE_MS = Math.max(ACTIVE_PROBE_MS, 60 * 60_000);
-
 function win(x) {
   return x && typeof x.utilization === 'number' ? { utilization: x.utilization, resetsAt: x.resetsAt * 1000, status: x.status ?? null } : null;
 }
 
 export class Limits {
-  constructor(store, runner) {
+  constructor(store, runner, config = defaultConfig) {
+    this.config = config;
     this.store = store;
     this.runner = runner;
     const saved = store.limits || {};
@@ -117,11 +114,12 @@ export class Limits {
   }
 
   due(now, recentlyActive) {
-    if (this.probing || PROBE_MINUTES <= 0 || now - this.lastProbeAt < 60_000) return false;
+    const active = this.config.get('limits.probeMinutes') * 60_000;
+    if (this.probing || active <= 0 || now - this.lastProbeAt < 60_000) return false;
     if (!this.latest) return true;
     const age = now - this.latest.at;
     const rolled = [this.latest.fiveHour, this.latest.sevenDay].some((w) => w && w.resetsAt <= now);
-    return rolled || age > (recentlyActive ? ACTIVE_PROBE_MS : IDLE_PROBE_MS);
+    return rolled || age > (recentlyActive ? active : Math.max(active, this.config.get('limits.idleProbeMinutes') * 60_000));
   }
 
   // One minimal request; the rate_limit_event it produces updates `latest` via the runner hook.
@@ -131,7 +129,7 @@ export class Limits {
     this.lastProbeAt = Date.now();
     this.version++;
     try {
-      await this.runner.run(['--model', SUMMARY_MODEL, '--system-prompt', 'Reply with the single word: ok'], 'ok', PROBE_TIMEOUT_MS);
+      await this.runner.run(['--model', this.config.get('summarizer.model'), '--system-prompt', 'Reply with the single word: ok'], 'ok', PROBE_TIMEOUT_MS);
       this.lastError = null;
     } catch (e) {
       this.lastError = oneLine(e.message, 160);

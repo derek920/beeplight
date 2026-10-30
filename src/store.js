@@ -1,4 +1,4 @@
-import { RETAIN_ENDED_MS, STORE_FILE } from './config.js';
+import { config as defaultConfig, STORE_FILE } from './config.js';
 import { readJson, writeJsonAtomic } from './util.js';
 
 const SUMMARY_TTL_MS = 7 * 24 * 3600_000;
@@ -6,8 +6,9 @@ const SUMMARY_TTL_MS = 7 * 24 * 3600_000;
 // data/state.json: LLM summaries (so restarts don't re-summarize), the last view of
 // sessions that ended, items the user dismissed, per-session state histories and today's totals.
 export class Store {
-  constructor(file = STORE_FILE) {
+  constructor(file = STORE_FILE, config = defaultConfig) {
     this.file = file;
+    this.config = config;
     const d = readJson(file) || {};
     this.summaries = d.summaries || {};
     this.ended = d.ended || {};
@@ -86,10 +87,11 @@ export class Store {
 
   prune() {
     const now = Date.now();
+    const retain = this.config.get('collector.retainHours') * 3600_000;
     for (const [sid, s] of Object.entries(this.summaries)) if (now - (s.at || 0) > SUMMARY_TTL_MS) delete this.summaries[sid];
-    for (const [sid, v] of Object.entries(this.ended)) if (now - (v.endedAt || 0) > RETAIN_ENDED_MS) delete this.ended[sid];
+    for (const [sid, v] of Object.entries(this.ended)) if (now - (v.endedAt || 0) > retain) delete this.ended[sid];
     for (const [sid, at] of Object.entries(this.dismissed)) if (now - at > SUMMARY_TTL_MS) delete this.dismissed[sid];
-    for (const [sid, u] of Object.entries(this.unread)) if (now - (u.at || 0) > RETAIN_ENDED_MS) delete this.unread[sid];
+    for (const [sid, u] of Object.entries(this.unread)) if (now - (u.at || 0) > retain) delete this.unread[sid];
     for (const [sid, h] of Object.entries(this.histories)) if (!h.length || now - h[h.length - 1].t > SUMMARY_TTL_MS) delete this.histories[sid];
   }
 

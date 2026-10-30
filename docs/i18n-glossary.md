@@ -57,3 +57,8 @@ number, e.g. "Running 2", "2 running", "Waiting: 3".
 | SDK 会话 | SDK sessions |
 | 退出 Beeplight | Quit Beeplight |
 | 连接中… / 已断开 | Connecting… / Disconnected |
+| 高级（设置页） | Advanced |
+| 运行参数 | Settings of the service (the Advanced page) |
+| 需重启 / 重启后生效 | Needs restart / Restart to apply |
+| 恢复默认 | Reset to default |
+| 自动（留空时的默认） | Automatic |

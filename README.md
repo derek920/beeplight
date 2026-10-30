@@ -222,19 +222,37 @@ Beeplight runs entirely on your Mac. It has no accounts, telemetry, analytics or
 
 ## Configuration
 
-Environment variables for the service:
+In the Mac app, **Settings → Advanced** lists every setting of the service with a short explanation and its default. Most changes apply within a second; the port needs a restart.
+
+Without the app, put settings in `config.json` in the data directory (`./data` with `npm start`, `~/Library/Application Support/Beeplight` for the app). Beeplight picks up edits to the file within a couple of seconds.
+
+```json
+{
+  "collector.retainHours": 24,
+  "summarizer.model": "sonnet"
+}
+```
+
+`curl -s localhost:7333/api/config` lists every setting with its current value, default and source. [`src/config-schema.js`](src/config-schema.js) has them all with their ranges.
+
+An environment variable overrides the file. Its name is `BEEPLIGHT_` plus the key in upper snake case, for example `BEEPLIGHT_COLLECTOR_TICK_MS=500`. These older names still work:
+
+| Variable | Setting | Default |
+|---|---|---|
+| `PORT` | `server.port` | `7333` |
+| `BEEPLIGHT_MODEL` | `summarizer.model` | `haiku` |
+| `BEEPLIGHT_RETAIN_HOURS` | `collector.retainHours` | `12` |
+| `BEEPLIGHT_LIMITS_PROBE_MINUTES` | `limits.probeMinutes` (`0` turns probes off) | `10` |
+| `CLAUDE_BIN` | `claude.bin` | found on `PATH` |
+| `BEEPLIGHT_DEVICE_NAME` | `relay.deviceName` | the Mac's name |
+
+These can only be set in the environment:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `PORT` | `7333` | Port to listen on (always `127.0.0.1`) |
-| `BEEPLIGHT_MODEL` | `haiku` | Model used for summaries |
-| `BEEPLIGHT_RETAIN_HOURS` | `12` | How long ended tasks stay on the board |
-| `BEEPLIGHT_LIMITS_PROBE_MINUTES` | `10` | Minutes between limit probes while you are active; `0` turns them off |
-| `BEEPLIGHT_DATA_DIR` | `./data` | Where summaries, history and logs are kept (the app uses `~/Library/Application Support/Beeplight`) |
-| `CLAUDE_BIN` | found on `PATH` | Path to the `claude` executable |
+| `BEEPLIGHT_DATA_DIR` | `./data` | Where settings, summaries, history and logs are kept (the app uses `~/Library/Application Support/Beeplight`) |
 | `CLAUDE_CONFIG_DIR` | `~/.claude` | Claude Code's config directory |
 | `BEEPLIGHT_LANG` | system language | `en` or `zh-Hans` for labels and task titles (the app sets it to its own language) |
-| `BEEPLIGHT_DEVICE_NAME` | the Mac's name | This device's name on your other devices |
 
 ## Known limitations
 

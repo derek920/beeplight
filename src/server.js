@@ -4,7 +4,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { ClaudeRunner } from './claude-cli.js';
 import { Collector } from './collector.js';
-import { CLAUDE_BIN, HOST, PORT, PUBLIC_DIR, TICK_MS } from './config.js';
+import { claudeBin, config, HOST, PORT, PUBLIC_DIR } from './config.js';
 import { focusTarget } from './focus.js';
 import { LANG, t } from './i18n.js';
 import { Lan } from './lan.js';
@@ -181,6 +181,16 @@ async function handler(req, res) {
     return;
   }
 
+  // Runtime parameters (src/config-schema.js). Local only: they change how this Mac runs.
+  if (url.pathname === '/api/config') {
+    if (!local) return json(res, 403, { error: t('This can only be changed on the Mac itself') });
+    if (req.method === 'GET') return json(res, 200, config.describe());
+    if (req.method !== 'POST') return json(res, 405, { error: 'method not allowed' });
+    if (req.headers['x-beeplight'] !== '1') return json(res, 403, { error: 'missing header' });
+    const { errors } = config.set((await readBody(req)).set);
+    return json(res, Object.keys(errors).length ? 400 : 200, { ...config.describe(), errors });
+  }
+
   // Syncing with your other devices through a relay. Local only: the info carries the join code,
   // which holds the group key.
   if (url.pathname === '/api/relay') {
@@ -261,7 +271,8 @@ const lan = new Lan({ store, handler });
 const server = http.createServer(handler);
 
 server.listen(PORT, HOST, () => {
-  console.log(`Beeplight running at http://localhost:${PORT} (checks every ${TICK_MS}ms, summarizer: ${CLAUDE_BIN})`);
+  console.log(`Beeplight running at http://localhost:${PORT} (checks every ${config.get('collector.tickMs')}ms, summarizer: ${claudeBin()}, config: ${config.file})`);
+  config.watch();
   collector.start();
   seen.start();
   lan.start();

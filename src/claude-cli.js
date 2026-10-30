@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
-import { CLAUDE_BIN, LLM_CWD } from './config.js';
+import { claudeBin, LLM_CWD } from './config.js';
 import { truncate } from './util.js';
 
 // Env that would make a child believe it runs inside the parent's Claude Code session
@@ -50,7 +50,7 @@ export class ClaudeRunner {
     for (const k of PARENT_SESSION_ENV) delete env[k];
 
     return new Promise((resolve, reject) => {
-      const child = spawn(CLAUDE_BIN, [...BASE_ARGS, ...args], { cwd: LLM_CWD, env, stdio: ['pipe', 'pipe', 'pipe'] });
+      const child = spawn(claudeBin(), [...BASE_ARGS, ...args], { cwd: LLM_CWD, env, stdio: ['pipe', 'pipe', 'pipe'] });
       this.children.add(child);
       if (child.pid) this.ownPids.add(child.pid);
       let buf = '';

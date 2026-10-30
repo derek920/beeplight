@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
-import { PROJECTS_DIR, PS_REFRESH_MS, RETAIN_ENDED_MS, TICK_MS } from './config.js';
+import { config as defaultConfig, PROJECTS_DIR } from './config.js';
 import { Jobs } from './jobs.js';
 import { detectHost, psSnapshot } from './proc.js';
 import { Registry } from './registry.js';
@@ -14,11 +14,6 @@ import { Transcript } from './transcript.js';
 import { FIVE_HOURS, SEVEN_DAYS } from './limits.js';
 import { cleanTitle, oneLine, pidAlive, projectSlug } from './util.js';
 
-// Let the first reply / tool calls of a new turn land before titling it.
-const RUN_SUMMARY_DELAY_MS = 4000;
-const END_SUMMARY_DELAY_MS = 1200;
-const MID_TURN_REFRESH_MS = 5 * 60_000;
-const USAGE_REFRESH_MS = 5000;
 // Per-session and account usage are recomputed at most this often (or when new data lands).
 const USAGE_CACHE_MS = 10_000;
 // Claude writes its last transcript lines right before exiting.
@@ -26,8 +21,9 @@ const ENDED_GRACE_MS = 5000;
 const TRANSCRIPT_PROBE_MS = 2000;
 
 export class Collector extends EventEmitter {
-  constructor({ store, summarizer, runner, usage, limits, relay }) {
+  constructor({ store, summarizer, runner, usage, limits, relay, config = defaultConfig }) {
     super();
+    this.config = config;
     this.store = store;
     this.summarizer = summarizer;
     this.runner = runner;
@@ -59,7 +55,7 @@ export class Collector extends EventEmitter {
   restoreEnded() {
     const now = Date.now();
     for (const [sid, v] of Object.entries(this.store.ended)) {
-      if (now - (v.endedAt || 0) > RETAIN_ENDED_MS || this.sessions.has(sid)) continue;
+      if (now - (v.endedAt || 0) > this.retainMs() || this.sessions.has(sid)) continue;
       const s = this.createSession(sid, {
         pid: v.pid,
         cwd: v.cwd,
@@ -72,20 +68,26 @@ export class Collector extends EventEmitter {
     }
   }
 
+  /** How long ended and quiet tasks stay (collector.retainHours). */
+  retainMs() {
+    return this.config.get('collector.retainHours') * 3600_000;
+  }
+
   start() {
     this.refreshPs().then(() => this.tick());
-    this.timer = setInterval(() => this.tick(), TICK_MS);
-    this.psTimer = setInterval(() => this.refreshPs(), PS_REFRESH_MS);
-    // Token indexing is async and chunked so the first big pass never stalls the 3 Hz tick.
+    // Each timer re-arms itself when its interval changes in the config.
+    this.timer = this.config.every('collector.tickMs', 1, () => this.tick());
+    this.psTimer = this.config.every('collector.psRefreshMs', 1, () => this.refreshPs());
+    // Token indexing is async and chunked so the first big pass never stalls the tick.
     const refreshUsage = () => this.usage.refresh().catch((e) => console.warn(`[usage] ${e.message}`));
     refreshUsage();
-    this.usageTimer = setInterval(refreshUsage, USAGE_REFRESH_MS);
+    this.usageTimer = this.config.every('usage.refreshSec', 1000, refreshUsage);
   }
 
   stop() {
-    clearInterval(this.timer);
-    clearInterval(this.psTimer);
-    clearInterval(this.usageTimer);
+    this.timer?.stop();
+    this.psTimer?.stop();
+    this.usageTimer?.stop();
   }
 
   async refreshPs() {
@@ -200,8 +202,8 @@ export class Collector extends EventEmitter {
     s.txProbes++;
     const file = findTranscript(s.sid, s.cwd);
     if (!file) return;
-    s.tx = new Transcript(file);
-    s.subs = new Subagents(path.join(path.dirname(file), s.sid, 'subagents'));
+    s.tx = new Transcript(file, this.config);
+    s.subs = new Subagents(path.join(path.dirname(file), s.sid, 'subagents'), this.config);
     s.subs.poll();
   }
 
@@ -211,7 +213,7 @@ export class Collector extends EventEmitter {
     const turnId = a.turn.key;
     const status = s.ended ? 'ended' : s.reg?.status;
     // Long-quiet conversations are off the board; don't spend calls on them.
-    if (status !== 'busy' && status !== 'waiting' && now - a.lastTs > RETAIN_ENDED_MS) return;
+    if (status !== 'busy' && status !== 'waiting' && now - a.lastTs > this.retainMs()) return;
     const sum = this.store.getSummary(s.sid);
     const request = (kind, key, delayMs) =>
       this.summarizer.request({ sid: s.sid, key, kind, turnId, delayMs, buildInput: () => this.summaryInput(s) });
@@ -219,18 +221,16 @@ export class Collector extends EventEmitter {
     // A failed summary is re-requested; Summarizer holds it back until its backoff passes.
     if (status === 'idle' || status === 'ended') {
       const verdict = matchingEndSummary(sum, a, !s.ended);
-      if (!verdict || verdict.error) request('end', endKey(a), END_SUMMARY_DELAY_MS);
+      if (!verdict || verdict.error) request('end', endKey(a), this.config.get('summarizer.endDelaySec') * 1000);
       return;
     }
-    // busy / waiting: keep the title on the current turn.
+    // busy / waiting: keep the title on the current turn. A new turn waits for its first reply
+    // and tool calls to land, so the title knows what it is about.
+    const refreshMs = this.config.get('summarizer.refreshMinutes') * 60_000;
     if (!sum || sum.turnId !== turnId || sum.error) {
-      request('run', `${turnId}@run`, RUN_SUMMARY_DELAY_MS);
-    } else if (
-      now - a.turn.startedAt > MID_TURN_REFRESH_MS &&
-      now - (sum.at || 0) > MID_TURN_REFRESH_MS &&
-      a.lastTs > (sum.at || 0)
-    ) {
-      request('run', `${turnId}@${Math.floor(now / MID_TURN_REFRESH_MS)}`, 0);
+      request('run', `${turnId}@run`, this.config.get('summarizer.newTurnDelaySec') * 1000);
+    } else if (now - a.turn.startedAt > refreshMs && now - (sum.at || 0) > refreshMs && a.lastTs > (sum.at || 0)) {
+      request('run', `${turnId}@${Math.floor(now / refreshMs)}`, 0);
     }
   }
 
@@ -358,8 +358,9 @@ export class Collector extends EventEmitter {
   publish(now) {
     const views = [];
     const seen = new Set();
+    const retain = this.retainMs();
     for (const s of this.sessions.values()) {
-      if (s.ended && now - s.endedAt > RETAIN_ENDED_MS) {
+      if (s.ended && now - s.endedAt > retain) {
         this.sessions.delete(s.sid);
         continue;
       }
@@ -378,7 +379,7 @@ export class Collector extends EventEmitter {
       seen.add(s.sid);
     }
     for (const job of this.jobs.values()) {
-      if (seen.has(job.sessionId) || now - job.updatedAt > RETAIN_ENDED_MS) continue;
+      if (seen.has(job.sessionId) || now - job.updatedAt > retain) continue;
       const v = this.jobView(job);
       v.history = [{ k: stateKey(v), t: v.since }];
       views.push(v);
@@ -395,7 +396,7 @@ export class Collector extends EventEmitter {
       // quiet for longer than the retention window (e.g. old chats the desktop app keeps
       // alive) is noise.
       const active = v.state === 'doing' || (v.state === 'waiting' && v.kind === 'prompt');
-      if (!active && now - (v.updatedAt || v.since || 0) > RETAIN_ENDED_MS) {
+      if (!active && now - (v.updatedAt || v.since || 0) > retain) {
         staleCount++;
         return false;
       }

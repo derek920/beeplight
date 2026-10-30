@@ -267,3 +267,15 @@
 "Can't reach the relay at %@" = "连不上中转服务 %@";
 "Connecting to %@…" = "正在连接 %@…";
 
+/* Advanced settings */
+"Advanced" = "高级";
+"Settings of the Beeplight service. Most changes apply within a second; the ones marked “Needs restart” apply after Beeplight restarts." = "Beeplight 服务的运行参数。大多数改动一秒内生效；标着「需重启」的，重启 Beeplight 后才生效。";
+"Needs restart" = "需重启";
+"Restart to apply" = "重启后生效";
+"Set by %@" = "由 %@ 设置";
+"Default: %@" = "默认：%@";
+"Reset to default" = "恢复默认";
+"Automatic" = "自动";
+"Show config file in Finder" = "在访达中显示配置文件";
+"Some entries in the config file were ignored:" = "配置文件里有几项被忽略了：";
+

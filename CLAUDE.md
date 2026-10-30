@@ -12,6 +12,7 @@ npm test                                    # node --test，测试在 test/
 node --test --test-name-pattern="verdict" test/status.test.js   # 跑单个测试
 curl -s localhost:7333/api/state | python3 -m json.tool         # 看当前快照 + tick 频率 + 总结器状态
 npm run service:status                      # LaunchAgent 模式（scripts/launchd.sh），日志在 data/server.log
+curl -s localhost:7333/api/config | python3 -m json.tool        # 全部运行参数：当前值、默认值、来源
 npm run app                                 # 构建 desktop/build/Beeplight.app（swiftc，只需 Command Line Tools）
 npm run app:dist                            # 通用版（Apple 芯片 + Intel），打包成 desktop/build/Beeplight-<version>.dmg 用来分享
 arch -x86_64 desktop/build/Beeplight.app/Contents/MacOS/Beeplight --snapshot /tmp/snap   # 在 Apple 芯片上用 Rosetta 验证 Intel 版
@@ -34,6 +35,16 @@ desktop/build/Beeplight.app/Contents/MacOS/Beeplight --snapshot /tmp/snap   # �
 - **`~/.claude/jobs/<short>/state.json`**（`src/jobs.js`）：`claude --bg` 后台会话，daemon 自己维护 `state = working|blocked|done|failed`。
 
 三态规则只在 `deriveStatus()` 一处定义，优先级：registry 的 waiting/busy → 不在线的后台 job 用 daemon 判定 → 硬失败信号（中途退出、API 错误、中断）→ 本轮结束时的 LLM 判定（`blocked` 映射成 Waiting，`working` 映射成 Doing）→ 还没判定时临时显示为成功，并带 `pending`。改规则时同步改 `test/status.test.js`。
+
+运行参数（`src/config-schema.js` 是参数表，`src/config.js` 的 `Config` 负责加载）：
+
+- 优先级：默认值 < 数据目录下的 `config.json` < 环境变量。环境变量名是 `BEEPLIGHT_<键名大写下划线>`，旧变量名作为 `aliases` 保留。单位写在键名里（`…Ms`、`…Sec`、`…Minutes`、`…Hours`、`…MB`）。
+- 模块在用到参数时才调用 `config.get(key)`，所以改动不用重启。带 `restart: true` 的参数（目前只有端口）只在启动时读一次。定时器用 `config.every(key, 倍数, fn)` 创建，间隔一改就自动重新计时。
+- 各个类通过构造参数接收 `config`，默认用全局单例。测试里传 `new Config({ file: null, env: {} })`，就不会读到本机的配置文件和环境变量。
+- `config.json` 每 2 秒检查一次修改时间，手改后自动重新加载。JSON 写坏时保留上一次的有效值。未知的键和非法值会忽略，但在文件里原样保留，并在设置页列出来。
+- `GET/POST /api/config` 只对本机开放；POST 是全有或全无，任何一项非法就整批不保存。Mac 的「高级」设置页（`AdvancedSettings.swift`）完全按接口返回的描述生成。
+- 新增参数：在 schema 里加一行，再到 `src/i18n.js` 补上标签和说明的中文译文。
+- 故意不放进来的：其他程序依赖的约定（meta 每秒推一次，是 Mac 端判断连接的心跳；同步相关的时间要在所有设备上一致），以及解析细节。
 
 LLM 总结（`src/summarizer.js`）：
 
@@ -58,7 +69,7 @@ Token 用量与额度：
 - `AppearanceConfig` 的解码在扩展里手写，缺少的字段用默认值。新增外观字段时要在这里补一行，否则旧版本存下的设置会整体解码失败，用户的外观被重置。
 - 菜单栏的 6 种样式在 `Glyphs.swift` 的 `MenuBarBadge` 里，用 `ImageRenderer` 渲染成位图。徽章视图显式接收 `Palette` 和 `ink` 参数，所以设置页能用别的主题渲染预览。
 - 灵动岛（`Island.swift`）是一块固定大小的透明 `NSPanel`，层级在 mainMenu 之上，透明区域的点击会穿透到下面。刘海尺寸取自 `NSScreen.auxiliaryTopLeftArea/RightArea`。岛体内不在 SwiftUI scene 里，打开看板窗口要通过 `WindowOpener`：由一直在渲染的 `MenuBarLabel` 在 onAppear 时注册 `openWindow`。
-- 截图：`--snapshot <dir> --preset <id> [--island-open] [--island-click]` 会渲染 board、panel、settings、general、island、phone 六张图。截图模式下 `Appearance.persist = false`，不会改写用户设置。加 `--island-click` 时会往灵动岛第一行发一次合成点击，服务端日志里出现 `[focus] … from island` 就说明点击生效。改灵动岛的手势或布局后，用它回归测试。
+- 截图：`--snapshot <dir> --preset <id> [--island-open] [--island-click]` 会把 board、panel、settings、general、devices、advanced、island、phone 各渲染成一张图。截图模式下 `Appearance.persist = false`，不会改写用户设置。加 `--island-click` 时会往灵动岛第一行发一次合成点击，服务端日志里出现 `[focus] … from island` 就说明点击生效。改灵动岛的手势或布局后，用它回归测试。
 - 灵动岛有两个点击相关的坑。一是 `.gesture(_, including: .none)` 会禁用整个子视图树的手势，按钮也会全部失效，只想关掉自己的手势时要用 `.subviews`。二是面板永远不是激活窗口，所以要用 `FirstMouseHostingView` 接受首次点击。悬停在这两种情况下都照常工作，所以看起来像「能展示但点不了」。
 - 灵动岛「收不回去」：SwiftUI 的 `onHover` 偶尔收不到移出事件（从岛上点一行跳走之后出现过），`hovering` 就一直为真。现在有三道保险：从岛上跳转或打开看板后 `collapse()`；全局鼠标监听，点岛以外任何地方都收起（包括固定状态）；悬停展开期间 `watchHover()` 每 0.25 秒核对一次鼠标是否还在岛的范围内（`model.frame` 由 GeometryReader 记下），连续两次不在就收起，并递增 `hoverEpoch` 重建视图，清掉 SwiftUI 残留的悬停状态。
 

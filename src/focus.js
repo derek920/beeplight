@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
-import { CLAUDE_BIN } from './config.js';
+import { claudeBin } from './config.js';
 // `tr`, not `t`: this file names its focus targets `t`.
 import { t as tr } from './i18n.js';
 import { appleScriptString, HOST_SESSION_RE, JOB_SHORT_RE, SESSION_ID_RE, shellQuote } from './util.js';
@@ -101,7 +101,10 @@ end if`);
   return r.ok ? r.out : '';
 }
 
-const claudeCmd = () => (CLAUDE_BIN.includes('/') ? shellQuote(CLAUDE_BIN) : 'claude');
+const claudeCmd = () => {
+  const bin = claudeBin();
+  return bin.includes('/') ? shellQuote(bin) : 'claude';
+};
 
 /**
  * Brings the place where a session runs to the front, or reopens it when it has ended.

@@ -38,9 +38,13 @@ export function readJson(file) {
 }
 
 export function writeJsonAtomic(file, data) {
+  writeFileAtomic(file, JSON.stringify(data));
+}
+
+export function writeFileAtomic(file, text) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(data));
+  fs.writeFileSync(tmp, text);
   fs.renameSync(tmp, file);
 }
 

@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { SUMMARY_CONCURRENCY, SUMMARY_HOURLY_CAP, SUMMARY_MODEL, SUMMARY_TIMEOUT_MS } from './config.js';
+import { config as defaultConfig } from './config.js';
 import { LANG } from './i18n.js';
 import { oneLine, truncate } from './util.js';
 
@@ -59,8 +59,9 @@ const SCHEMA = JSON.stringify({
 });
 
 export class Summarizer extends EventEmitter {
-  constructor(store, runner) {
+  constructor(store, runner, config = defaultConfig) {
     super();
+    this.config = config;
     this.store = store;
     this.runner = runner;
     this.queue = new Map(); // sid -> job (latest request wins)
@@ -95,7 +96,7 @@ export class Summarizer extends EventEmitter {
     if (now < this.cooldownUntil) return;
     this.calls = this.calls.filter((t) => now - t < 3600_000);
     // While failing, send a single probe at a time.
-    const limit = this.failStreak ? 1 : SUMMARY_CONCURRENCY;
+    const limit = this.failStreak ? 1 : this.config.get('summarizer.concurrency');
     while (this.inflight.size < limit) {
       let next = null;
       for (const j of this.queue.values()) {
@@ -104,7 +105,7 @@ export class Summarizer extends EventEmitter {
       }
       if (!next) return;
       this.queue.delete(next.sid);
-      if (next.kind !== 'end' && this.calls.length >= SUMMARY_HOURLY_CAP) continue;
+      if (next.kind !== 'end' && this.calls.length >= this.config.get('summarizer.hourlyCap')) continue;
       this.run(next);
     }
   }
@@ -159,9 +160,9 @@ export class Summarizer extends EventEmitter {
 
   async callClaude(input) {
     const res = await this.runner.run(
-      ['--model', SUMMARY_MODEL, '--system-prompt', systemPrompt(), '--json-schema', SCHEMA],
+      ['--model', this.config.get('summarizer.model'), '--system-prompt', systemPrompt(), '--json-schema', SCHEMA],
       input,
-      SUMMARY_TIMEOUT_MS,
+      this.config.get('summarizer.timeoutSec') * 1000,
     );
     if (!res.structured_output) throw new Error('no structured output');
     return res.structured_output;

@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import os from 'node:os';
+import { config as defaultConfig } from './config.js';
 import { oneLine } from './util.js';
 
 // Sync with the Beeplight on your other devices through a self-hosted relay (relay/server.js).
@@ -65,8 +66,7 @@ function normalizeConfig({ url, token, key }) {
   return { url: u.origin + u.pathname.replace(/\/+$/, ''), token: String(token), key };
 }
 
-function deviceName() {
-  if (process.env.BEEPLIGHT_DEVICE_NAME) return process.env.BEEPLIGHT_DEVICE_NAME;
+function computerName() {
   if (process.platform === 'darwin') {
     try {
       return execFileSync('scutil', ['--get', 'ComputerName'], { encoding: 'utf8', timeout: 2000 }).trim() || os.hostname();
@@ -103,10 +103,11 @@ export function shareView(v) {
 }
 
 export class Relay extends EventEmitter {
-  constructor(store) {
+  constructor(store, config = defaultConfig) {
     super();
+    this.config = config;
     this.store = store;
-    this.name = deviceName();
+    this.computerName = computerName();
     this.remote = new Map(); // device id → { name, at, sessions }
     this.clockOffset = 0; // relay time − local time
     this.status = 'off';
@@ -116,10 +117,15 @@ export class Relay extends EventEmitter {
     this.abort = null;
     this.heartbeat = setInterval(() => this.flush(true), HEARTBEAT_MS);
     this.heartbeat.unref();
-    if (this.config) this.connect();
+    if (this.group) this.connect();
   }
 
-  get config() {
+  /** This device's name on the others: relay.deviceName, else the computer's name. */
+  get name() {
+    return this.config.get('relay.deviceName') || this.computerName;
+  }
+
+  get group() {
     return this.store.flags.relay || null;
   }
 
@@ -152,7 +158,7 @@ export class Relay extends EventEmitter {
   }
 
   async leave() {
-    const cfg = this.config;
+    const cfg = this.group;
     this.disconnect();
     this.store.setFlag('relay', null);
     this.remote.clear();
@@ -162,7 +168,7 @@ export class Relay extends EventEmitter {
   }
 
   info() {
-    const cfg = this.config;
+    const cfg = this.group;
     const now = this.relayNow();
     return {
       configured: !!cfg,
@@ -200,7 +206,7 @@ export class Relay extends EventEmitter {
   }
 
   flush(heartbeat) {
-    const cfg = this.config;
+    const cfg = this.group;
     if (!cfg || !this.board) return;
     const sessions = this.board.filter((v) => !v.sdk && !v.remote).map(shareView);
     const body = JSON.stringify(sessions);
@@ -254,12 +260,12 @@ export class Relay extends EventEmitter {
 
   // Streams the other devices' summaries; reconnects with backoff while the config stays.
   async connect() {
-    const cfg = this.config;
+    const cfg = this.group;
     if (!cfg) return;
     const ctl = new AbortController();
     this.abort = ctl;
     let backoff = 1000;
-    while (!ctl.signal.aborted && this.config === cfg) {
+    while (!ctl.signal.aborted && this.group === cfg) {
       this.status = 'connecting';
       try {
         const res = await fetch(`${cfg.url}/v1/spaces/${spaceOf(cfg.key)}/stream`, {

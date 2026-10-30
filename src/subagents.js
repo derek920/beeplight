@@ -1,16 +1,17 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { config as defaultConfig } from './config.js';
 import { readJson } from './util.js';
 import { displayToolName, toolBrief, toolLine } from './transcript.js';
 
 const TAIL_BYTES = 64 * 1024;
 const STALE_MS = 15 * 60_000;
-const SHOW_FINISHED_MS = 10 * 60_000;
 
 // Subagents of a session live in <project>/<sessionId>/subagents/agent-<id>.jsonl (+ .meta.json).
 export class Subagents {
-  constructor(dir) {
+  constructor(dir, config = defaultConfig) {
     this.dir = dir;
+    this.config = config;
     this.items = new Map();
   }
 
@@ -49,9 +50,10 @@ export class Subagents {
 
   list(now, parentAlive) {
     const out = [];
+    const showFinished = this.config.get('subagents.showFinishedMinutes') * 60_000;
     for (const it of this.items.values()) {
       const running = parentAlive && !it.finished && now - it.mtime < STALE_MS;
-      if (!running && now - it.mtime > SHOW_FINISHED_MS) continue;
+      if (!running && now - it.mtime > showFinished) continue;
       out.push({
         id: it.id,
         type: it.type,

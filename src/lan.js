@@ -2,14 +2,13 @@ import { execFile } from 'node:child_process';
 import crypto from 'node:crypto';
 import http from 'node:http';
 import os from 'node:os';
-import { PORT } from './config.js';
+import { config as defaultConfig, PORT } from './config.js';
 
 // Optional LAN access for phones. Off by default. When on, extra listeners are bound to each
 // local network address (Wi-Fi, Ethernet, phone tethering; never VPN tunnels); the loopback
 // server is untouched.
 // Every LAN API call must carry the pairing token, which the Mac shows as a QR code.
 
-const SYNC_MS = 10_000;
 // Everything except VPN tunnels (a phone cannot reach those), loopback and Apple-internal links.
 // Phone tethering (iPhone USB, Bluetooth PAN) shows up here too, which is the way in when the
 // office Wi-Fi isolates clients.
@@ -18,7 +17,8 @@ const NOT_LAN = /^(lo|utun|ipsec|ppp|gif|stf|awdl|llw|anpi|ap)\d*$/;
 const TETHER = /iPhone|iPad|Bluetooth|Android|RNDIS/i;
 
 export class Lan {
-  constructor({ store, handler }) {
+  constructor({ store, handler, config = defaultConfig }) {
+    this.config = config;
     this.store = store;
     this.handler = handler;
     this.servers = new Map(); // address -> http.Server
@@ -45,7 +45,7 @@ export class Lan {
     });
     this.loadPorts();
     this.sync();
-    setInterval(() => this.sync(), SYNC_MS).unref();
+    this.config.every('lan.syncSec', 1000, () => this.sync(), { unref: true });
   }
 
   setEnabled(on) {
