@@ -61,8 +61,11 @@ enum WindowOpener {
 final class IslandController {
     static let shared = IslandController()
     let model = IslandModel()
-    /// The panel is a fixed transparent canvas; only the drawn island takes clicks.
-    static let canvas = NSSize(width: 520, height: 440)
+    /// The panel is a fixed transparent canvas; only the drawn island takes clicks. Its width
+    /// leaves room right of center for half the notch, the widest counts wing (144 pt) and the
+    /// glow: notches are about 140–250 pt depending on the Mac and its display scaling, and
+    /// 760 fits up to about 400 pt.
+    static let canvas = NSSize(width: 760, height: 440)
     private var panel: IslandPanel?
     private var flashTask: Task<Void, Never>?
     private var watchdog: Timer?
@@ -262,6 +265,19 @@ struct IslandView: View {
     private var rows: [TaskItem] { Array((monitor.waiting + monitor.doing + monitor.unreadDone).prefix(6)) }
     private var topInset: CGFloat { g.notch ? g.notchHeight : 0 }
     private let wing: CGFloat = 62
+    /// The right wing grows to fit every count: with waiting, running and done all showing
+    /// (or more digits) they overflow `wing` and get clipped. Each count is at most a 14 pt
+    /// symbol plus 8 pt per digit, 7 pt apart; 8 pt of margin keeps them off the rounded
+    /// corner. 999 of each needs 144 pt. The left wing only holds one glyph and stays `wing`,
+    /// so it covers no more of the app menus than before.
+    private var countsWing: CGFloat {
+        let ns = [monitor.waiting.count, monitor.doing.count, monitor.unreadDone.count].filter { $0 > 0 }
+        let content = ns.reduce(0) { $0 + 14 + 8 * CGFloat(String($1).count) } + 7 * CGFloat(max(0, ns.count - 1))
+        return max(wing, content + 16)
+    }
+    /// With wings of different widths the island is pushed right by half the difference, so
+    /// the gap between them still sits exactly under the notch.
+    private var notchShift: CGFloat { g.notch && active && !model.open && !peek ? (countsWing - wing) / 2 : 0 }
     /// Narrower wings for the idle eyes, which stay out all the time.
     private let idleWing: CGFloat = 46
     private var faceOn: Bool { appearance.config.character != Characters.classic }
@@ -273,8 +289,9 @@ struct IslandView: View {
             return CGSize(width: 440, height: topInset + 44 + CGFloat(list) * 44 + 40)
         }
         if peek { return CGSize(width: max(g.notchWidth + 2 * wing, 380), height: topInset + (g.notch ? 44 : 50)) }
-        if g.notch { return CGSize(width: g.notchWidth + (active ? 2 * wing : faceOn ? 2 * idleWing : 0), height: g.notchHeight) }
-        return CGSize(width: 236, height: 32)
+        if g.notch { return CGSize(width: g.notchWidth + (active ? wing + countsWing : faceOn ? 2 * idleWing : 0), height: g.notchHeight) }
+        // Screens without a notch: the pill grows by as much as the counts outgrow `wing`.
+        return CGSize(width: 236 + countsWing - wing, height: 32)
     }
 
     private var shape: some Shape {
@@ -355,6 +372,8 @@ struct IslandView: View {
             // `.none` would disable every gesture below too, buttons included; `.subviews`
             // turns off only the drag (notch mode) and keeps the rows clickable.
             .gesture(dragGesture, including: g.floating ? .all : .subviews)
+            // Padding, not offset, so the hover watchdog's frame moves with it.
+            .padding(.leading, 2 * notchShift)
             .animation(Theme.animated ? .spring(response: 0.4, dampingFraction: 0.8) : nil, value: size)
     }
 
@@ -403,7 +422,7 @@ struct IslandView: View {
                 if active {
                     leadGlyph.frame(width: wing, alignment: .center)
                     Spacer(minLength: g.notchWidth)
-                    counts.frame(width: wing, alignment: .center)
+                    counts.fixedSize().frame(width: countsWing, alignment: .center)
                 } else if faceOn {
                     LiveCharacter(character: appearance.config.character, height: 20).frame(width: idleWing, alignment: .center)
                     Spacer(minLength: g.notchWidth)
@@ -419,7 +438,7 @@ struct IslandView: View {
                     .foregroundStyle(.white.opacity(0.92))
                     .lineLimit(1)
                 Spacer(minLength: 4)
-                counts
+                counts.fixedSize()
                 if !active && faceOn { remaining }
             }
             .padding(.horizontal, 12)
