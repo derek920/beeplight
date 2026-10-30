@@ -7,8 +7,19 @@ struct BoardView: View {
     @ObservedObject var appearance = Appearance.shared
     @Namespace private var ns
     @State private var doneFilter = "all"
+    @State private var shown = true
 
+    /// A closed window stays alive, and its view tree kept re-rendering for every animation in
+    /// the app; build the content only while the window is on screen.
     var body: some View {
+        Group {
+            if shown { content } else { Color.clear }
+        }
+        .onAppear { shown = true }
+        .onDisappear { shown = false }
+    }
+
+    private var content: some View {
         VStack(spacing: 0) {
             BoardHeader(monitor: monitor)
             QuotaRow(monitor: monitor)

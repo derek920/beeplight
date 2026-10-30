@@ -439,11 +439,11 @@ struct MenuBarBadge: View {
 }
 
 struct MenuBarLabel: View {
-    @ObservedObject var monitor: Monitor
+    @ObservedObject var menuBar: MenuBarImage
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        Image(nsImage: monitor.menuBarImage)
+        Image(nsImage: menuBar.image)
             // Always rendered, so it is where views outside a scene (the island) get openWindow from.
             .onAppear { WindowOpener.board = { openWindow(id: "board") } }
     }

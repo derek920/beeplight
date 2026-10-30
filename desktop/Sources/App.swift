@@ -27,7 +27,7 @@ struct BeeplightApp: App {
         MenuBarExtra {
             PanelView(monitor: monitor)
         } label: {
-            MenuBarLabel(monitor: monitor)
+            MenuBarLabel(menuBar: monitor.menuBar)
         }
         .menuBarExtraStyle(.window)
 

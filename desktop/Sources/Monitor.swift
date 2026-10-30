@@ -1,6 +1,13 @@
 import AppKit
 import SwiftUI
 
+/// The menu bar bitmap, redrawn at 12fps while a task runs. Kept out of `Monitor` so that only the
+/// menu bar label re-renders on every frame, not every view that observes `Monitor`.
+@MainActor
+final class MenuBarImage: ObservableObject {
+    @Published var image = MenuBarRenderer.idle(hasTasks: false)
+}
+
 /// Live state from the Node service (SSE on /api/stream) plus the actions the UI can take.
 @MainActor
 final class Monitor: ObservableObject {
@@ -12,7 +19,8 @@ final class Monitor: ObservableObject {
     @Published private(set) var meta: Meta?
     @Published private(set) var connected = false
     @Published private(set) var now = Date()
-    @Published private(set) var menuBarImage = MenuBarRenderer.idle(hasTasks: false)
+    let menuBar = MenuBarImage()
+    var menuBarImage: NSImage { menuBar.image }
     @Published var toast: String?
 
     @Published var showSDK = UserDefaults.standard.bool(forKey: "showSDK") {
@@ -245,7 +253,7 @@ final class Monitor: ObservableObject {
         face.setVisible(faceShown)
         if faceShown, wasIdle == false { face.celebrate() }
         wasIdle = idle
-        menuBarImage = !c.isQuiet ? MenuBarRenderer.render(c, style: Appearance.shared.config.menuBar, spin: spinPhase)
+        menuBar.image = !c.isQuiet ? MenuBarRenderer.render(c, style: Appearance.shared.config.menuBar, spin: spinPhase)
             : faceShown ? faceImage(character, face)
             : MenuBarRenderer.idle(hasTasks: !visible.isEmpty)
         // Same predicate as the lists: things that need the user (waiting + unread finishes).
