@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { JOBS_DIR } from './config.js';
-import { readJson } from './util.js';
+import { JOBS_DIR } from '../../config/index.js';
+import { readJson } from '../../lib/util.js';
 
 // Background sessions (`claude --bg`) keep a daemon-maintained state.json with
 // state = working | blocked | done | failed plus a one-line detail.

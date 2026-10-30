@@ -2,8 +2,8 @@ import { execFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import os from 'node:os';
-import { config as defaultConfig } from './config.js';
-import { oneLine } from './util.js';
+import { config as defaultConfig } from '../config/index.js';
+import { oneLine } from '../lib/util.js';
 
 // Sync with the Beeplight on your other devices through a self-hosted relay (relay/server.js).
 // Every device uploads a sealed summary of its board and streams the others'. The group key never

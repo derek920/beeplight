@@ -25,39 +25,54 @@ desktop/build/Beeplight.app/Contents/MacOS/Beeplight --snapshot /tmp/snap   # �
 
 ## 架构
 
-数据流：`Collector.tick()`（`src/collector.js`）每 tick 读取下面的数据源 → `deriveStatus()`（`src/status.js`）判定状态 → 必要时让 `Summarizer` 排队调 LLM → 拼出视图，签名有变化才 `emit('update')` → `src/server.js` 用 SSE 推送。
+目录分层（`src/`）：每层只能 import 自己这一层和下表右栏列出的层，`test/architecture.test.js` 会检查。
+
+| 目录 | 内容 | 可以 import |
+|---|---|---|
+| `lib/` | `util.js`、`i18n.js` | 无 |
+| `config/` | 运行参数（`index.js`、`schema.js`）和路径 | lib |
+| `sources/claude-code/` | Claude Code 写的文件：registry、transcript、subagents、jobs、usage。全是逆向得来的格式，Claude Code 升级后先查这里 | lib、config |
+| `sources/system/` | 进程表（`proc.js`） | lib、config |
+| `services/` | `claude -p` 调用（`claude-cli.js`）、总结、额度 | lib、config |
+| `core/` | collector、status、timeline、store | lib、config、sources、services |
+| `actions/` | 在 Mac 上动手：跳转窗口（`focus.js`）、检测看过的标签页（`seen.js`） | lib、config |
+| `transports/` | 对外：`http.js`（统一的请求检查）、`api.js`（全部接口）、`web.js`（页面外壳）、`stream.js`（SSE）、`lan.js`、`relay.js` | lib、config |
+
+`src/server.js` 是入口，也是唯一知道所有模块的地方：它创建各个模块，把 actions、transports 要用的 core 对象作为参数传进去，它们不直接 import core。新加目录要同时加进测试里的 `ALLOWED` 和 `server.js` 顶部的说明。
+
+数据流：`Collector.tick()`（`src/core/collector.js`）每 tick 读取下面的数据源 → `deriveStatus()`（`src/core/status.js`）判定状态 → 必要时让 `Summarizer` 排队调 LLM → 拼出视图，签名有变化才 `emit('update')` → `EventStream`（`src/transports/stream.js`）用 SSE 推送，每个事件只序列化一次。
 
 数据源都是 Claude Code 的内部文件（基于 2.1.312 逆向观察，升级后最先坏的就是这里）：
 
-- **`~/.claude/sessions/<pid>.json`**（`src/registry.js`）：每个运行中的 Claude 进程都会写。`status` 为 `busy | idle | waiting`，`waitingFor` 为 `permission prompt | input needed | dialog open | goal proposal | sandbox request | worker request`。这是 Doing/Waiting 的主信号，所以不需要往用户的 settings.json 装 hook。进程正常退出时文件会被删；崩溃时会残留，所以 `isGenuine()` 用 `ps` 的启动时间和 `startedAt` 比对，排除 PID 复用。
-- **`~/.claude/projects/<slug>/<sessionId>.jsonl`**（`src/transcript.js`）：增量 tail 读取。首次只读最后 4MB（有的文件超过 100MB），按字节切行，避免截断多字节字符。只有 `origin.kind === 'human'`（或没有 origin 的老格式）的 user 消息算一轮新请求；task-notification、isMeta、peer 消息都不算。`system/turn_duration` 标记一轮结束，`isApiErrorMessage` 是 API 失败，`[Request interrupted by user` 是中断。**transcript 有 3～4 秒写入缓冲**，正在执行的 tool_use 要过几秒才出现。
-- **`<project>/<sessionId>/subagents/agent-*.jsonl` + `.meta.json`**（`src/subagents.js`）：子 agent。
-- **`~/.claude/jobs/<short>/state.json`**（`src/jobs.js`）：`claude --bg` 后台会话，daemon 自己维护 `state = working|blocked|done|failed`。
+- **`~/.claude/sessions/<pid>.json`**（`src/sources/claude-code/registry.js`）：每个运行中的 Claude 进程都会写。`status` 为 `busy | idle | waiting`，`waitingFor` 为 `permission prompt | input needed | dialog open | goal proposal | sandbox request | worker request`。这是 Doing/Waiting 的主信号，所以不需要往用户的 settings.json 装 hook。进程正常退出时文件会被删；崩溃时会残留，所以 `isGenuine()` 用 `ps` 的启动时间和 `startedAt` 比对，排除 PID 复用。
+- **`~/.claude/projects/<slug>/<sessionId>.jsonl`**（`src/sources/claude-code/transcript.js`）：增量 tail 读取。首次只读最后 4MB（有的文件超过 100MB），按字节切行，避免截断多字节字符。只有 `origin.kind === 'human'`（或没有 origin 的老格式）的 user 消息算一轮新请求；task-notification、isMeta、peer 消息都不算。`system/turn_duration` 标记一轮结束，`isApiErrorMessage` 是 API 失败，`[Request interrupted by user` 是中断。**transcript 有 3～4 秒写入缓冲**，正在执行的 tool_use 要过几秒才出现。
+- **`<project>/<sessionId>/subagents/agent-*.jsonl` + `.meta.json`**（`src/sources/claude-code/subagents.js`）：子 agent。
+- **`~/.claude/jobs/<short>/state.json`**（`src/sources/claude-code/jobs.js`）：`claude --bg` 后台会话，daemon 自己维护 `state = working|blocked|done|failed`。
 
 三态规则只在 `deriveStatus()` 一处定义，优先级：registry 的 waiting/busy → 不在线的后台 job 用 daemon 判定 → 硬失败信号（中途退出、API 错误、中断）→ 本轮结束时的 LLM 判定（`blocked` 映射成 Waiting，`working` 映射成 Doing）→ 还没判定时临时显示为成功，并带 `pending`。改规则时同步改 `test/status.test.js`。
 
-运行参数（`src/config-schema.js` 是参数表，`src/config.js` 的 `Config` 负责加载）：
+运行参数（`src/config/schema.js` 是参数表，`src/config/index.js` 的 `Config` 负责加载）：
 
 - 优先级：默认值 < 数据目录下的 `config.json` < 环境变量。环境变量名是 `BEEPLIGHT_<键名大写下划线>`，旧变量名作为 `aliases` 保留。单位写在键名里（`…Ms`、`…Sec`、`…Minutes`、`…Hours`、`…MB`）。
 - 模块在用到参数时才调用 `config.get(key)`，所以改动不用重启。带 `restart: true` 的参数（目前只有端口）只在启动时读一次。定时器用 `config.every(key, 倍数, fn)` 创建，间隔一改就自动重新计时。
 - 各个类通过构造参数接收 `config`，默认用全局单例。测试里传 `new Config({ file: null, env: {} })`，就不会读到本机的配置文件和环境变量。
 - `config.json` 每 2 秒检查一次修改时间，手改后自动重新加载。JSON 写坏时保留上一次的有效值。未知的键和非法值会忽略，但在文件里原样保留，并在设置页列出来。
 - `GET/POST /api/config` 只对本机开放；POST 是全有或全无，任何一项非法就整批不保存。Mac 的「高级」设置页（`AdvancedSettings.swift`）完全按接口返回的描述生成。
-- 新增参数：在 schema 里加一行，再到 `src/i18n.js` 补上标签和说明的中文译文。
+- 新增参数：在 schema 里加一行，再到 `src/lib/i18n.js` 补上标签和说明的中文译文。
 - 故意不放进来的：其他程序依赖的约定（meta 每秒推一次，是 Mac 端判断连接的心跳；同步相关的时间要在所有设备上一致），以及解析细节。
 
-LLM 总结（`src/summarizer.js`）：
+LLM 总结（`src/services/summarizer.js`）：
 
 - 为什么需要：transcript 里的 `ai-title` 只在会话开头生成一次。用户要的是「当前核心任务」的标题，以及成功/失败的判定。
 - 调用方式：`claude -p --model haiku --tools "" --setting-sources "" --no-session-persistence --json-schema …`，cwd 是空目录 `data/llm-cwd`。不能用 `--bare`，因为它不读 OAuth。子进程也会在 registry 里注册（`entrypoint: sdk-cli`），靠 `ownPids` 过滤掉。
 - 去重键：`endKey(a) = <本轮首条 prompt uuid>@<最新时间线时间戳>`。Claude 在同一轮里恢复工作后（例如收到后台任务通知）键会变，旧判定随之失效；会话关闭后则沿用这一轮最后一次判定。
 - 失败处理：连续失败全局指数退避（30 秒到 10 分钟），失败记录带 `retryAfter`，到点由 Collector 重新请求。
-- 持久化：结果存在 `data/state.json`（`src/store.js`），同时保存已结束会话的视图。重启后 `restoreEnded()` 会把这些会话重新挂上 transcript，而不是展示冻结的快照。
+- 持久化：结果存在 `data/state.json`（`src/core/store.js`），同时保存已结束会话的视图。重启后 `restoreEnded()` 会把这些会话重新挂上 transcript，而不是展示冻结的快照。
 
 Token 用量与额度：
 
-- `src/usage.js` `UsageIndex`：每 5 秒增量扫描所有 transcript，包括 `<session>/subagents/*.jsonl`，子 agent 的用量算到父会话。首次只读最近 8 天改动过的文件，约 600MB，按块读取，中间让出事件循环。同一个 API 响应会按内容块写成多行，每行都带同一份 usage，所以要按 `message.id + requestId` 去重，取各字段最大值。`costOf()` 用 API 价格给 token 加权，只用来估算各会话的额度占比；新模型上线时记得更新 `PRICES`。
-- `src/limits.js` `Limits`：`claude -p --output-format stream-json --verbose` 每次调用都会输出 `rate_limit_event`，里面的 `unifiedWindows.five_hour / seven_day` 带 `utilization` 和 `resetsAt`。`src/claude-cli.js` 是总结器和额度探测共用的运行器，它会把这个事件交给 `Limits.ingest()`。窗口边界用 `resetsAt - 5h/7d`，已过重置时间的读数视为失效。`project()` 用同一窗口内的历史样本估算增长速度。
+- `src/sources/claude-code/usage.js` `UsageIndex`：每 5 秒增量扫描所有 transcript，包括 `<session>/subagents/*.jsonl`，子 agent 的用量算到父会话。首次只读最近 8 天改动过的文件，约 600MB，按块读取，中间让出事件循环。同一个 API 响应会按内容块写成多行，每行都带同一份 usage，所以要按 `message.id + requestId` 去重，取各字段最大值。`costOf()` 用 API 价格给 token 加权，只用来估算各会话的额度占比；新模型上线时记得更新 `PRICES`。
+- `src/services/limits.js` `Limits`：`claude -p --output-format stream-json --verbose` 每次调用都会输出 `rate_limit_event`，里面的 `unifiedWindows.five_hour / seven_day` 带 `utilization` 和 `resetsAt`。`src/services/claude-cli.js` 是总结器和额度探测共用的运行器，它会把这个事件交给 `Limits.ingest()`。窗口边界用 `resetsAt - 5h/7d`，已过重置时间的读数视为失效。`project()` 用同一窗口内的历史样本估算增长速度。
 - 汇总：`Collector.refreshUsageCache()` 算出各会话的窗口用量和账号视图，只在 usage 或 limits 的 version 变化时、或每 10 秒重算一次。账号视图放在 meta 事件里下发，不进 state 签名。
 
 外观（`desktop/Sources/Appearance.swift`）：`AppearanceConfig` 包含主题、菜单栏样式、灵动岛、动效四项，存在 UserDefaults 的 `appearance` 键里；`Preset.all` 是五个预设。`Theme` 的颜色全部从 `Theme.palette` 计算，动效从 `Theme.motion` 读取，`Appearance` 改动时会更新这两个全局值。根视图（Board、Panel、Island、设置窗口）用 `.id(appearance.revision)` 强制整棵树重建，并用 `.themedRoot()` 应用配色方案、字体设计、文字色和扫描线。卡片统一用 `.themedCard()`。新增界面时不要写死系统颜色，一律用 `Theme.*`，否则换了主题会露馅。
@@ -73,17 +88,17 @@ Token 用量与额度：
 - 灵动岛有两个点击相关的坑。一是 `.gesture(_, including: .none)` 会禁用整个子视图树的手势，按钮也会全部失效，只想关掉自己的手势时要用 `.subviews`。二是面板永远不是激活窗口，所以要用 `FirstMouseHostingView` 接受首次点击。悬停在这两种情况下都照常工作，所以看起来像「能展示但点不了」。
 - 灵动岛「收不回去」：SwiftUI 的 `onHover` 偶尔收不到移出事件（从岛上点一行跳走之后出现过），`hovering` 就一直为真。现在有三道保险：从岛上跳转或打开看板后 `collapse()`；全局鼠标监听，点岛以外任何地方都收起（包括固定状态）；悬停展开期间 `watchHover()` 每 0.25 秒核对一次鼠标是否还在岛的范围内（`model.frame` 由 GeometryReader 记下），连续两次不在就收起，并递增 `hoverEpoch` 重建视图，清掉 SwiftUI 残留的悬停状态。
 
-新完成（未读）：`Collector.trackState()` 发现某个会话的轨迹从非 done 变成 `done:*`，并且判定已经出来（不是 `p: true`）时，写入 `store.unread[sid]`。下面几种情况会清除：会话回到 doing/waiting（发了新消息，或者 Claude 自己继续干活）；调用 focus 或 read 接口；`POST /api/read-all`；dismiss；`src/seen.js` 检测到这个会话的终端标签页连续两次是前台。`seen.js` 只有在 `store.flags.appleEventsOk` 为真时才轮询，这个标志在第一次通过 AppleScript 跳转成功时写入，所以轮询永远不会成为触发系统授权弹窗的原因。每次标记和清除都会打 `[unread]` / `[focus]` 日志，带上原因和来源（`via=panel|board|notification|web`）。查「徽章为什么没了 / 为什么清不掉」时先看这里。客户端的未读计数都从可见列表里算，菜单栏、面板、看板、Dock 用的是同一个判定。
+新完成（未读）：`Collector.trackState()` 发现某个会话的轨迹从非 done 变成 `done:*`，并且判定已经出来（不是 `p: true`）时，写入 `store.unread[sid]`。下面几种情况会清除：会话回到 doing/waiting（发了新消息，或者 Claude 自己继续干活）；调用 focus 或 read 接口；`POST /api/read-all`；dismiss；`src/actions/seen.js` 检测到这个会话的终端标签页连续两次是前台。`seen.js` 只有在 `store.flags.appleEventsOk` 为真时才轮询，这个标志在第一次通过 AppleScript 跳转成功时写入，所以轮询永远不会成为触发系统授权弹窗的原因。每次标记和清除都会打 `[unread]` / `[focus]` 日志，带上原因和来源（`via=panel|board|notification|web`）。查「徽章为什么没了 / 为什么清不掉」时先看这里。客户端的未读计数都从可见列表里算，菜单栏、面板、看板、Dock 用的是同一个判定。
 
 桌面端的收尾卡片：Claude 桌面端结束一轮时会调用 `mcp__ccd_turn__wrap_up`，参数是 `recap / ask / actions`。向用户的提问只出现在这里，回复正文里看不到，所以 `transcript.js` 把它记到 `turn.wrapUp`。在 `deriveStatus()` 里，有 `ask` 就直接判 Waiting，不交给 LLM。
 
-点击跳转（`src/focus.js`）：`detectHost()`（`src/proc.js`）沿父进程链找最外层的 `.app`。iTerm2/Terminal 用 AppleScript 按 TTY 选中标签页；桌面端用 `claude://code/continue?session=<hostSessionId>`（从 Claude.app 的 URL handler 逆向得到）；后台 job 用 `claude attach`；已关闭的会话用 `claude --resume`。外部命令一律走 `execFile`，拼进 AppleScript 的字符串用 `appleScriptString()` 转义，ID 先过 `util.js` 里的正则校验。
+点击跳转（`src/actions/focus.js`）：`detectHost()`（`src/sources/system/proc.js`）沿父进程链找最外层的 `.app`。iTerm2/Terminal 用 AppleScript 按 TTY 选中标签页；桌面端用 `claude://code/continue?session=<hostSessionId>`（从 Claude.app 的 URL handler 逆向得到）；后台 job 用 `claude attach`；已关闭的会话用 `claude --resume`。外部命令一律走 `execFile`，拼进 AppleScript 的字符串用 `appleScriptString()` 转义，ID 先过 `util.js` 里的正则校验。
 
-状态轨迹（`src/timeline.js`）：`Collector.publish()` 每次构建视图后调用 `Timeline.track()`。只在状态键变化时追加 `{k, t}`，状态键为 `doing | waiting | waiting:q | done:success | done:failed`。判定未出时的临时 Done（`p: true`）会被判定结果原地改写，不新增一段。同时累计今日统计：`waiting:q` 表示一轮以提问结尾，不计入等待时长。轨迹持久化在 `store.histories`；今日统计通过 meta 事件下发，没放进 state 签名，所以不会每个 tick 都触发推送。
+状态轨迹（`src/core/timeline.js`）：`Collector.publish()` 每次构建视图后调用 `Timeline.track()`。只在状态键变化时追加 `{k, t}`，状态键为 `doing | waiting | waiting:q | done:success | done:failed`。判定未出时的临时 Done（`p: true`）会被判定结果原地改写，不新增一段。同时累计今日统计：`waiting:q` 表示一轮以提问结尾，不计入等待时长。轨迹持久化在 `store.histories`；今日统计通过 meta 事件下发，没放进 state 签名，所以不会每个 tick 都触发推送。
 
 Mac 应用（`desktop/`）：
 
-- `Server.swift`：健康检查，端口上没有服务时用内置代码拉起 Node。`build.sh` 打包的是官方 Node.js（版本固定在 `NODE_DIST`），第一次构建时从 nodejs.org 下载、按 SHASUMS256.txt 校验，缓存在 `desktop/build/node`；`--dist` 用 `lipo` 把 arm64 和 x64 合成通用版，平时只打本机架构（`NODE=` 可以换成指定的 node，`--dist` 不用它）。它放在 `Contents/MacOS/node`，许可证放在 `Resources/node-LICENSE`，所以用户不用装 Node；`findNode()` 优先用它。因为 app 跑的不再是 nvm 的 node，`config.js` 的 `resolveClaudeBin()` 会自己去 `~/.nvm/versions/node/*/bin` 找 claude。
+- `Server.swift`：健康检查，端口上没有服务时用内置代码拉起 Node。`build.sh` 打包的是官方 Node.js（版本固定在 `NODE_DIST`），第一次构建时从 nodejs.org 下载、按 SHASUMS256.txt 校验，缓存在 `desktop/build/node`；`--dist` 用 `lipo` 把 arm64 和 x64 合成通用版，平时只打本机架构（`NODE=` 可以换成指定的 node，`--dist` 不用它）。它放在 `Contents/MacOS/node`，许可证放在 `Resources/node-LICENSE`，所以用户不用装 Node；`findNode()` 优先用它。因为 app 跑的不再是 nvm 的 node，`src/config/index.js` 的 `findClaudeBin()` 会自己去 `~/.nvm/versions/node/*/bin` 找 claude。
 - `Monitor.swift`：SSE 客户端（`URLSession.bytes.lines` 会丢掉空行，所以收到 `data:` 行就立刻处理）、通知触发、菜单栏徽章。
   - `Monitor` 是 `@Observable`：视图只在自己读过的属性变化时重算。所以属性一律变了才赋值（`assign`）；meta 拆成 `hz`、`today`、`summarizer`、`usage`、`limits` 分开存。
   - 每秒变一次的 `now` 只在 `Ticking(monitor) { now in … }` 这类叶子视图里读，不要在列表或窗口的 body 里读，否则整个窗口每秒重算。按分钟显示的倒计时读 `minute`；任务是否紧急读 `isUrgent(_:)`，它不依赖时钟。
@@ -102,7 +117,7 @@ Mac 应用（`desktop/`）：
 
 看板过滤（`Collector.publish()`）：从没收到过请求的会话（`state: idle`）不显示；超过 `RETAIN_ENDED_MS` 没有动静、且不是执行中或真实授权等待的也不显示，例如桌面端在启动时重新拉起的老对话。
 
-手机访问（`src/lan.js`）：默认关闭。打开后，为每个 Wi-Fi / 有线网卡地址（`en*`、`bridge*`，不含 VPN 的 `utun*`）各起一个额外的 http.Server，和本机服务共用同一个 `handler`。
+手机访问（`src/transports/lan.js`）：默认关闭。打开后，为每个 Wi-Fi / 有线网卡地址（`en*`、`bridge*`，不含 VPN 的 `utun*`）各起一个额外的 http.Server，和本机服务共用同一个 `handler`。
 - 本机请求的判定：来源是 loopback，并且 Host 是 localhost / 127.0.0.1。除此之外都按局域网请求处理：Host 必须是网卡地址或 `<LocalHostName>.local`，`/api/*` 必须带配对码（`x-beeplight-token` 头或 `?t=`）。
 - 页面外壳、图标和 manifest 不需要配对码就能访问；`/api/lan*` 只允许本机调用。
 - 配对码故意保留在 URL 里：iOS 主屏幕 web app 有独立的存储，只认它被添加时的 URL；manifest 的 `start_url` 也会带上配对码。
@@ -130,7 +145,7 @@ Mac 应用（`desktop/`）：
 ## 跨设备同步
 
 - 中转服务 `relay/server.js`（零依赖，不打进 app）：按「组」存每台设备最新的一份密文，用 SSE 推给同组设备；每 20 秒发一次带服务端时间的 `tick`，设备据此判断在线，不依赖各自的时钟。全部在内存里，所有请求都要 `BEEPLIGHT_RELAY_TOKEN`。
-- 设备端 `src/relay.js`：组密钥（32 字节）用 HKDF 派生出组 id（中转服务上的空间名）和 AES-256-GCM 密钥；AAD 是「组 id:设备 id」，一台设备的密文不能冒充另一台。加入码 `beeplight-relay:1:<base64url(JSON{u,t,k})>` 带中转地址、令牌和密钥，所以 `/api/relay` 只对本机开放。配置存在 `store.flags.relay`，设备 id 在 `store.flags.relayDevice`。
+- 设备端 `src/transports/relay.js`：组密钥（32 字节）用 HKDF 派生出组 id（中转服务上的空间名）和 AES-256-GCM 密钥；AAD 是「组 id:设备 id」，一台设备的密文不能冒充另一台。加入码 `beeplight-relay:1:<base64url(JSON{u,t,k})>` 带中转地址、令牌和密钥，所以 `/api/relay` 只对本机开放。配置存在 `store.flags.relay`，设备 id 在 `store.flags.relayDevice`。
 - 同步内容由 `shareView()` 白名单决定：新增的视图字段默认不会同步出去，要同步就加到这里（路径、提问、对话、用量故意不在里面）。SDK 会话不同步。
 - 合并在 `Collector.publish()`：本机看板变了才 `relay.share()`（另有 30 秒心跳），快照里再拼上 `relay.remoteViews()`。远程任务的 id 是 `<设备 id>~<会话 id>`，带 `remote: {id, name, online}`。远程任务只读：服务端的 focus/read/dismiss/resummarize 直接返回「这个任务在某某设备上」，Mac 端 `Monitor.perform` 也会拦下，界面上不显示操作按钮。
 - 本机测试：中转服务跑在 127.0.0.1:7350，第二个实例用 `PORT=7444 BEEPLIGHT_DATA_DIR=… CLAUDE_CONFIG_DIR=<假的 ~/.claude> BEEPLIGHT_DEVICE_NAME=…`；`test/relay.test.js` 会起一个真的中转服务，验证加密、令牌和双向同步。
@@ -141,10 +156,18 @@ Mac 应用（`desktop/`）：
 
 - Mac 应用：译文在 `desktop/Resources/zh-Hans.lproj/Localizable.strings`（`en.lproj` 故意留空），`build.sh` 把两个 `.lproj` 复制进 app 包。SwiftUI 接收字面量的 API（`Text("…")`、`Button("…")` 等）会自动翻译；凡是 `String` 值（计算出来的文案、枚举名、通知、toast）要用 `String(localized:)`，因为 `Text(字符串变量)` 不会翻译。插值在 key 里写成格式符：Int → `%lld`，Double → `%lf`，String → `%@`，写错了就静默显示英文。验证中文界面：`--snapshot <dir> -AppleLanguages '(zh-Hans)'`。
 - 网页：`public/i18n.js` 的 `t('English', { 参数 })` 和 `ZH` 字典；`index.html` 里的静态文字用 `data-i18n` 标注，启动时 `applyI18n()` 翻译一次。网页用服务端的语言（服务端返回首页时写进 `<html lang>`），这样页面文字和服务端发来的标签、标题是同一种语言；`?lang=en` / `?lang=zh` 可以强制指定。
-- 服务端：`src/i18n.js` 的 `t()`。语言取 `BEEPLIGHT_LANG`（app 会传入自己的 `Bundle.main.preferredLocalizations.first`），没有就读 macOS 的 `AppleLanguages`。服务端生成的状态标签、detail、时间线备注、错误信息和 LLM 标题都已经是目标语言，客户端不要再翻译这些字段。总结器的系统提示词是英文，只按语言切换输出语言和长度要求（`summarizer.js` 的 `STYLE`）。测试用 `setLang()` 固定语言，不受本机语言影响。
+- 服务端：`src/lib/i18n.js` 的 `t()`。语言取 `BEEPLIGHT_LANG`（app 会传入自己的 `Bundle.main.preferredLocalizations.first`），没有就读 macOS 的 `AppleLanguages`。服务端生成的状态标签、detail、时间线备注、错误信息和 LLM 标题都已经是目标语言，客户端不要再翻译这些字段。总结器的系统提示词是英文，只按语言切换输出语言和长度要求（`summarizer.js` 的 `STYLE`）。测试用 `setLang()` 固定语言，不受本机语言影响。
 - 语言设置在设置窗口的「通用」页（`GeneralSettings.swift`）：写 app 自己域里的 `AppleLanguages`，和系统设置里按应用设的语言是同一个键。本地化在启动时就定了，所以要重启 app，「立即重启」按钮会等当前进程退出后再 `open` 一个新的，新进程用新语言拉起 Node。服务端的页面版本号包含语言，开着的网页和手机状态屏会自动刷新。如果 7333 上跑的是开发时的 `npm start`，app 会复用它，服务端的语言不会跟着变。
 - 切换语言后，已有的标题不会立刻重新总结：进行中的会话在下一次总结时换成新语言，已结束的会话保留原来的语言，直到过期。
 
 ## 安全约束
 
-服务只监听 127.0.0.1；所有请求都校验 `Host` 头（防 DNS rebinding）；POST 必须带 `x-beeplight: 1`，这会触发 CORS 预检，其他网页无法跨站触发跳转。新增接口时保持这两条。
+服务只监听 127.0.0.1（打开手机访问后才在局域网地址上额外监听）。所有检查都在 `src/transports/http.js` 里统一做，路由本身不做检查：
+
+- `Host` 必须是本机的回环名称，或者已开启手机访问时的局域网地址（防 DNS rebinding）。
+- `/api/` 下的路径都要配对，路径不存在也先返回 401，不暴露有哪些接口。
+- 每条路由声明 `access`：`public`（页面外壳）、`pairing`（只有 `POST /api/pair`）、`paired`（本机或带配对码的手机）、`local`（只限本机：设置，以及会暴露密钥的接口）。
+- 所有 POST 必须带 `x-beeplight: 1`。自定义头会触发 CORS 预检，其他网页无法跨站调用。
+- 路由抛出的异常会变成 500，不会让进程退出。
+
+新增接口：在 `src/transports/api.js` 里加一条路由，选好 `access`，在 `test/http.test.js` 里补测试。

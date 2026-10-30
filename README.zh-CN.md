@@ -213,7 +213,7 @@ Beeplight 完全在本机运行，没有账号、遥测、统计或更新检查�
 }
 ```
 
-`curl -s localhost:7333/api/config` 会列出每个参数的当前值、默认值和来源。全部参数及其取值范围见 [`src/config-schema.js`](src/config-schema.js)。
+`curl -s localhost:7333/api/config` 会列出每个参数的当前值、默认值和来源。全部参数及其取值范围见 [`src/config/schema.js`](src/config/schema.js)。
 
 环境变量优先于文件。变量名是 `BEEPLIGHT_` 加上键名的大写下划线形式，例如 `BEEPLIGHT_COLLECTOR_TICK_MS=500`。下面这些旧变量名仍然有效：
 

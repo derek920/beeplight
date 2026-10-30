@@ -3,9 +3,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test, { mock } from 'node:test';
-import { Config } from '../src/config.js';
-import { envName } from '../src/config-schema.js';
-import { setLang } from '../src/i18n.js';
+import { Config } from '../src/config/index.js';
+import { envName } from '../src/config/schema.js';
+import { setLang } from '../src/lib/i18n.js';
 
 setLang('en');
 

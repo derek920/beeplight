@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events';
-import { config as defaultConfig } from './config.js';
-import { LANG } from './i18n.js';
-import { oneLine, truncate } from './util.js';
+import { config as defaultConfig } from '../config/index.js';
+import { LANG } from '../lib/i18n.js';
+import { oneLine, truncate } from '../lib/util.js';
 
 // Instructions are in English for every language; only the output language and the length
 // rules change. The Chinese rules were tuned first: titles name the goal, not the current step.

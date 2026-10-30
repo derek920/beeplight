@@ -233,7 +233,7 @@ Without the app, put settings in `config.json` in the data directory (`./data` w
 }
 ```
 
-`curl -s localhost:7333/api/config` lists every setting with its current value, default and source. [`src/config-schema.js`](src/config-schema.js) has them all with their ranges.
+`curl -s localhost:7333/api/config` lists every setting with its current value, default and source. [`src/config/schema.js`](src/config/schema.js) has them all with their ranges.
 
 An environment variable overrides the file. Its name is `BEEPLIGHT_` plus the key in upper snake case, for example `BEEPLIGHT_COLLECTOR_TICK_MS=500`. These older names still work:
 

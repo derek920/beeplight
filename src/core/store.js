@@ -1,5 +1,5 @@
-import { config as defaultConfig, STORE_FILE } from './config.js';
-import { readJson, writeJsonAtomic } from './util.js';
+import { config as defaultConfig, STORE_FILE } from '../config/index.js';
+import { readJson, writeJsonAtomic } from '../lib/util.js';
 
 const SUMMARY_TTL_MS = 7 * 24 * 3600_000;
 

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { Collector } from '../src/collector.js';
-import { emptyDay, Timeline } from '../src/timeline.js';
+import { Collector } from '../src/core/collector.js';
+import { emptyDay, Timeline } from '../src/core/timeline.js';
 
 const T0 = new Date(2026, 9, 28, 10, 0, 0).getTime();
 const min = (n) => T0 + n * 60_000;

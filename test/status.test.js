@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { setLang } from '../src/i18n.js';
-import { deriveStatus, endKey } from '../src/status.js';
-import { emptyAnalysis } from '../src/transcript.js';
+import { setLang } from '../src/lib/i18n.js';
+import { deriveStatus, endKey } from '../src/core/status.js';
+import { emptyAnalysis } from '../src/sources/claude-code/transcript.js';
 
 // The assertions below use the Chinese labels; the English ones are checked at the end.
 setLang('zh-Hans');

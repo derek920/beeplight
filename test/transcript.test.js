@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { setLang } from '../src/i18n.js';
-import { emptyAnalysis, ingestLine, lastPendingTool, Transcript } from '../src/transcript.js';
+import { setLang } from '../src/lib/i18n.js';
+import { emptyAnalysis, ingestLine, lastPendingTool, Transcript } from '../src/sources/claude-code/transcript.js';
 
 // Timeline notes are asserted in Chinese.
 setLang('zh-Hans');

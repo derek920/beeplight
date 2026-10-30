@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { SESSIONS_DIR } from './config.js';
-import { readJson } from './util.js';
+import { SESSIONS_DIR } from '../../config/index.js';
+import { readJson } from '../../lib/util.js';
 
 // ~/.claude/sessions/<pid>.json is written by every running Claude Code process.
 // Its `status` (busy | idle | waiting) and `waitingFor` are the primary live signal.

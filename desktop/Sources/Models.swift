@@ -1,6 +1,6 @@
 import Foundation
 
-// Mirrors the JSON the Node service pushes over /api/stream (see src/collector.js buildView).
+// Mirrors the JSON the Node service pushes over /api/stream (see src/core/collector.js buildView).
 // Shared with the iPhone app (a separate, closed-source project that compiles this file).
 
 struct Snapshot: Decodable {
@@ -20,7 +20,7 @@ struct Meta: Decodable {
     var character: String?
 }
 
-// MARK: token usage & plan limits (src/limits.js, src/usage.js)
+// MARK: token usage & plan limits (src/services/limits.js, src/sources/claude-code/usage.js)
 
 struct UsageMeta: Decodable, Equatable {
     var ready: Bool?

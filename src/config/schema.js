@@ -1,7 +1,7 @@
-// Every runtime parameter, one row each. src/config.js loads them (default < <data dir>/config.json
+// Every runtime parameter, one row each. src/config/index.js loads them (default < <data dir>/config.json
 // < environment), /api/config reads and edits them, and the Mac app's Advanced settings page is
 // built from this table, so a new parameter needs only a row here (plus its Chinese label and help
-// in src/i18n.js).
+// in src/lib/i18n.js).
 //
 // - The unit is part of the key (`…Ms`, `…Sec`, `…Minutes`, `…Hours`, `…MB`).
 // - Each parameter can be set from the environment as BEEPLIGHT_<KEY IN UPPER SNAKE CASE>, e.g.

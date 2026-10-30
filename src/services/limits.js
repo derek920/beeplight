@@ -1,5 +1,5 @@
-import { config as defaultConfig } from './config.js';
-import { oneLine } from './util.js';
+import { config as defaultConfig } from '../config/index.js';
+import { oneLine } from '../lib/util.js';
 
 // The account's plan limits as the server reports them. Every `claude -p` stream-json call
 // emits a rate_limit_event carrying the utilization of the 5-hour and weekly windows; the

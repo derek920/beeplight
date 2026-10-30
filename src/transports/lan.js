@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process';
 import crypto from 'node:crypto';
 import http from 'node:http';
 import os from 'node:os';
-import { config as defaultConfig, PORT } from './config.js';
+import { config as defaultConfig, PORT } from '../config/index.js';
 
 // Optional LAN access for phones. Off by default. When on, extra listeners are bound to each
 // local network address (Wi-Fi, Ethernet, phone tethering; never VPN tunnels); the loopback

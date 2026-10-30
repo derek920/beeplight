@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { config as defaultConfig } from './config.js';
-import { readJson } from './util.js';
+import { config as defaultConfig } from '../../config/index.js';
+import { readJson } from '../../lib/util.js';
 import { displayToolName, toolBrief, toolLine } from './transcript.js';
 
 const TAIL_BYTES = 64 * 1024;

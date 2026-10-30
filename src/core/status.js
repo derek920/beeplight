@@ -1,6 +1,6 @@
-import { t } from './i18n.js';
-import { lastPendingTool, toolLine } from './transcript.js';
-import { oneLine, plainText } from './util.js';
+import { t } from '../lib/i18n.js';
+import { lastPendingTool, toolLine } from '../sources/claude-code/transcript.js';
+import { oneLine, plainText } from '../lib/util.js';
 
 // Board states: doing | waiting | done (outcome success | failed). `idle` = a session
 // that never received a prompt; it is not a task and stays off the board.

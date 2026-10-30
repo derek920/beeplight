@@ -2,9 +2,9 @@ import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { envName, GROUPS, PARAMS } from './config-schema.js';
-import { t } from './i18n.js';
-import { writeFileAtomic } from './util.js';
+import { envName, GROUPS, PARAMS } from './schema.js';
+import { t } from '../lib/i18n.js';
+import { writeFileAtomic } from '../lib/util.js';
 
 // Where things are. These come from the environment only: the parameter file itself lives in DATA_DIR.
 export const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
@@ -12,7 +12,7 @@ export const SESSIONS_DIR = path.join(CLAUDE_DIR, 'sessions');
 export const PROJECTS_DIR = path.join(CLAUDE_DIR, 'projects');
 export const JOBS_DIR = path.join(CLAUDE_DIR, 'jobs');
 
-export const ROOT_DIR = path.resolve(import.meta.dirname, '..');
+export const ROOT_DIR = path.resolve(import.meta.dirname, '..', '..');
 export const PUBLIC_DIR = path.join(ROOT_DIR, 'public');
 export const DATA_DIR = process.env.BEEPLIGHT_DATA_DIR || path.join(ROOT_DIR, 'data');
 export const STORE_FILE = path.join(DATA_DIR, 'state.json');
@@ -23,7 +23,7 @@ export const LLM_CWD = path.join(DATA_DIR, 'llm-cwd');
 export const HOST = '127.0.0.1';
 
 /**
- * Runtime parameters (src/config-schema.js): the default, overridden by the config file,
+ * Runtime parameters (src/config/schema.js): the default, overridden by the config file,
  * overridden by the environment. Modules call `get()` when they use a value (a map lookup, cheap
  * enough for every tick), so changes apply without a restart, except for `restart` parameters,
  * which keep their startup value. Emits 'change' with the keys whose value changed.

@@ -20,7 +20,7 @@ enum ConfigValue: Decodable, Equatable {
     }
 }
 
-/// One runtime parameter as `GET /api/config` describes it (src/config-schema.js). Labels, help and
+/// One runtime parameter as `GET /api/config` describes it (src/config/schema.js). Labels, help and
 /// errors come in the service's language, which is the app's.
 struct ConfigParam: Decodable, Identifiable, Equatable {
     var key: String
@@ -105,7 +105,7 @@ final class ConfigController: ObservableObject {
 }
 
 /// Advanced: the service's runtime parameters. Laid out from what the service describes, so a new
-/// parameter in src/config-schema.js shows up here without a change to the app.
+/// parameter in src/config/schema.js shows up here without a change to the app.
 struct AdvancedSettingsView: View {
     @ObservedObject var config = ConfigController.shared
     /// Text being edited, by parameter key; sent on Return or when the field loses focus.

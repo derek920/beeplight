@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { PROJECTS_DIR } from './config.js';
+import { PROJECTS_DIR } from '../../config/index.js';
 
 // Token usage of every transcript on this machine (main sessions + subagents), queryable by
 // time window so it can be lined up with the account's 5-hour and weekly limits.

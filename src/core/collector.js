@@ -2,17 +2,17 @@ import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
-import { config as defaultConfig, PROJECTS_DIR } from './config.js';
-import { Jobs } from './jobs.js';
-import { detectHost, psSnapshot } from './proc.js';
-import { Registry } from './registry.js';
+import { config as defaultConfig, PROJECTS_DIR } from '../config/index.js';
+import { Jobs } from '../sources/claude-code/jobs.js';
+import { detectHost, psSnapshot } from '../sources/system/proc.js';
+import { Registry } from '../sources/claude-code/registry.js';
 import { deriveStatus, endKey, matchingEndSummary } from './status.js';
-import { Subagents } from './subagents.js';
-import { buildSummaryInput } from './summarizer.js';
+import { Subagents } from '../sources/claude-code/subagents.js';
+import { buildSummaryInput } from '../services/summarizer.js';
 import { stateKey, Timeline } from './timeline.js';
-import { Transcript } from './transcript.js';
-import { FIVE_HOURS, SEVEN_DAYS } from './limits.js';
-import { cleanTitle, oneLine, pidAlive, projectSlug } from './util.js';
+import { Transcript } from '../sources/claude-code/transcript.js';
+import { FIVE_HOURS, SEVEN_DAYS } from '../services/limits.js';
+import { cleanTitle, oneLine, pidAlive, projectSlug } from '../lib/util.js';
 
 // Per-session and account usage are recomputed at most this often (or when new data lands).
 const USAGE_CACHE_MS = 10_000;
@@ -29,7 +29,7 @@ export class Collector extends EventEmitter {
     this.runner = runner;
     this.usage = usage;
     this.limits = limits;
-    // Tasks from your other devices (src/relay.js), shown read-only next to this Mac's.
+    // Tasks from your other devices (src/transports/relay.js), shown read-only next to this Mac's.
     this.relay = relay;
     this.remoteVersion = 0;
     relay?.on('change', () => this.remoteVersion++);
@@ -456,6 +456,12 @@ export class Collector extends EventEmitter {
 
   markAllRead() {
     for (const sid of Object.keys(this.store.unread)) this.markRead(sid, 'read all');
+  }
+
+  /** Takes a task off the board until it shows new activity. */
+  dismiss(sid) {
+    this.store.dismiss(sid);
+    this.sig = '';
   }
 
   recentlyActive(now) {

@@ -1,9 +1,9 @@
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
-import { claudeBin } from './config.js';
+import { claudeBin } from '../config/index.js';
 // `tr`, not `t`: this file names its focus targets `t`.
-import { t as tr } from './i18n.js';
-import { appleScriptString, HOST_SESSION_RE, JOB_SHORT_RE, SESSION_ID_RE, shellQuote } from './util.js';
+import { t as tr } from '../lib/i18n.js';
+import { appleScriptString, HOST_SESSION_RE, JOB_SHORT_RE, SESSION_ID_RE, shellQuote } from '../lib/util.js';
 
 const HAS_ITERM = fs.existsSync('/Applications/iTerm.app');
 

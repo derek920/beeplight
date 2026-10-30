@@ -1,4 +1,4 @@
-import { config as defaultConfig } from './config.js';
+import { config as defaultConfig } from '../config/index.js';
 import { frontTerminalTty } from './focus.js';
 
 // Clears a task's unread mark when the user looks at its terminal tab themselves: the tab must

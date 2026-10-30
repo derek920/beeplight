@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { config as defaultConfig } from './config.js';
-import { t } from './i18n.js';
-import { oneLine } from './util.js';
+import { config as defaultConfig } from '../../config/index.js';
+import { t } from '../../lib/i18n.js';
+import { oneLine } from '../../lib/util.js';
 
 // Transcripts can be >100MB; on first sight only the tail is needed for the current task.
 const MB = 1024 * 1024;

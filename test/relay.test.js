@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import test from 'node:test';
-import { makeJoinCode, open, parseJoinCode, Relay, seal, spaceOf } from '../src/relay.js';
+import { makeJoinCode, open, parseJoinCode, Relay, seal, spaceOf } from '../src/transports/relay.js';
 
 const fakeStore = () => ({
   flags: {},
