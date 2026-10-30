@@ -94,7 +94,7 @@ Mac 应用：
 
 - 列表按任务 id 原地更新（`patchList()`），不整体重建。
 - 常驻动画只改 CSS 的 `transform` 和 `opacity`，它们由合成器处理，不触发布局和重绘；`box-shadow`、`background-position` 这类属性每帧都要重绘。要让发光循环变亮变暗，就把阴影画在伪元素上、固定不变，只循环它的 `opacity`（关键帧 `glow-pulse`、`glow-dim`）。元素带 `overflow: hidden` 时，伪元素向外的阴影会被裁掉，只能画在边缘内侧。
-- 待改：状态屏标题的文字流光 `amb-shine` 循环改 `background-position`，每帧重绘这一行字。渐变裁剪在文字形状上（`background-clip: text`），换不成 `transform`。
+- 例外：状态屏标题的文字流光 `amb-shine` 循环改 `background-position`，每帧重绘这一行字。渐变裁剪在文字形状上（`background-clip: text`），换不成 `transform`；它只有一行字，开销小，2026-10-30 决定保留，不要改掉。新加的常驻动画仍然按上一条执行。
 
 验证：
 
