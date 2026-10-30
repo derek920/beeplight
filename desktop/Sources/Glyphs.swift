@@ -13,11 +13,17 @@ struct StatusGlyph: View {
             case .doing:
                 Spinner(color: Theme.doing, size: size)
             case .waiting:
-                Image(systemName: urgent ? "exclamationmark.triangle.fill" : "hand.raised.fill")
-                    .font(.system(size: size * 0.78, weight: .semibold))
-                    .foregroundStyle(Theme.color(.waiting, urgent: urgent))
-                    .symbolEffect(.pulse, isActive: Theme.breathing)
-                    .shadow(color: Theme.color(.waiting, urgent: urgent).opacity(0.5), radius: urgent ? 5 : max(2, Theme.palette.glow * 0.5))
+                let symbol = urgent ? "exclamationmark.triangle.fill" : "hand.raised.fill"
+                let color = Theme.color(.waiting, urgent: urgent)
+                let glow = urgent ? 5 : max(2, Theme.palette.glow * 0.5)
+                if Theme.breathing {
+                    PulsingSymbol(name: symbol, pointSize: size * 0.78, color: NSColor(color), glow: glow)
+                } else {
+                    Image(systemName: symbol)
+                        .font(.system(size: size * 0.78, weight: .semibold))
+                        .foregroundStyle(color)
+                        .shadow(color: color.opacity(0.5), radius: glow)
+                }
             case .success:
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: size * 0.86, weight: .semibold))
@@ -41,9 +47,9 @@ struct Spinner: View {
     var body: some View {
         let line = max(1.6, size / 7.5)
         if Theme.animated {
-            let period = Theme.motion == .soft ? 2.2 : 1.1
-            TimelineView(.animation(minimumInterval: 1.0 / 30)) { ctx in
-                ring(line, angle: ctx.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: period) / period * 360)
+            ZStack {
+                Circle().stroke(color.opacity(0.18), lineWidth: line).padding(line / 2).stateGlow(color)
+                SpinningArc(color: NSColor(color), line: line, period: Theme.motion == .soft ? 2.2 : 1.1, glow: Theme.palette.glow)
             }
             .frame(width: size, height: size)
         } else {
@@ -64,6 +70,142 @@ struct Spinner: View {
         }
         .padding(line / 2)
         .stateGlow(color)
+    }
+}
+
+// Endless animations run in Core Animation, not SwiftUI. A SwiftUI animation (TimelineView,
+// symbolEffect) lays out and redraws its whole window on every frame: with a few tasks running
+// the board did that ~100 times a second, about a quarter of a CPU core, even when covered.
+
+/// The moving arc of `Spinner`, turned by the render server.
+private struct SpinningArc: NSViewRepresentable {
+    let color: NSColor
+    let line: CGFloat
+    let period: Double
+    let glow: CGFloat
+
+    func makeNSView(context: Context) -> ArcView { ArcView() }
+    func updateNSView(_ view: ArcView, context: Context) { view.update(color: color, line: line, period: period, glow: glow) }
+
+    final class ArcView: NSView {
+        private let mirror = CALayer()
+        private let gradient = CAGradientLayer()
+        private let arc = CAShapeLayer()
+        private var color = NSColor.clear, line: CGFloat = 2, period = 1.1, glow: CGFloat = 0
+
+        override init(frame: NSRect) {
+            super.init(frame: frame)
+            wantsLayer = true
+            // A conic gradient sweeps counterclockwise here; mirrored, the arc runs and turns clockwise.
+            mirror.sublayerTransform = CATransform3DMakeScale(1, -1, 1)
+            mirror.shadowOffset = .zero
+            gradient.type = .conic
+            gradient.startPoint = CGPoint(x: 0.5, y: 0.5)
+            gradient.endPoint = CGPoint(x: 1, y: 0.5)
+            // Faint tail, solid head; past the head it fades back so the tail's round cap stays faint.
+            gradient.locations = [0, 0.68, 0.74, 0.96]
+            arc.fillColor = nil
+            arc.strokeColor = NSColor.black.cgColor
+            arc.lineCap = .round
+            gradient.mask = arc
+            mirror.addSublayer(gradient)
+            layer?.addSublayer(mirror)
+        }
+
+        required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+        func update(color: NSColor, line: CGFloat, period: Double, glow: CGFloat) {
+            if period != self.period { gradient.removeAnimation(forKey: "spin") }
+            (self.color, self.line, self.period, self.glow) = (color, line, period, glow)
+            needsLayout = true
+            spin()
+        }
+
+        override func layout() {
+            super.layout()
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            for l in [mirror, gradient, arc] { l.frame = bounds }
+            let path = CGMutablePath()
+            path.addArc(center: CGPoint(x: bounds.midX, y: bounds.midY), radius: (min(bounds.width, bounds.height) - line) / 2,
+                        startAngle: 0, endAngle: 0.68 * 2 * .pi, clockwise: false)
+            arc.path = path
+            arc.lineWidth = line
+            effectiveAppearance.performAsCurrentDrawingAppearance {
+                let faint = color.withAlphaComponent(color.alphaComponent * 0.05).cgColor
+                gradient.colors = [faint, color.cgColor, color.cgColor, faint]
+                mirror.shadowColor = color.withAlphaComponent(color.alphaComponent * 0.75).cgColor
+            }
+            mirror.shadowOpacity = glow > 0 ? 1 : 0
+            mirror.shadowRadius = glow * 0.5
+            CATransaction.commit()
+        }
+
+        override func viewDidChangeBackingProperties() {
+            super.viewDidChangeBackingProperties()
+            let scale = window?.backingScaleFactor ?? 2
+            for l in [mirror, gradient, arc] { l.contentsScale = scale }
+        }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            spin()
+        }
+
+        private func spin() {
+            guard window != nil, gradient.animation(forKey: "spin") == nil else { return }
+            let a = CABasicAnimation(keyPath: "transform.rotation.z")
+            a.fromValue = 0
+            a.toValue = 2 * Double.pi
+            a.duration = period
+            a.repeatCount = .infinity
+            a.isRemovedOnCompletion = false
+            gradient.add(a, forKey: "spin")
+        }
+    }
+}
+
+/// The waiting hand, pulsed by AppKit's symbol effect instead of SwiftUI's.
+private struct PulsingSymbol: NSViewRepresentable {
+    let name: String
+    let pointSize: CGFloat
+    let color: NSColor
+    let glow: CGFloat
+
+    func makeNSView(context: Context) -> SymbolView { SymbolView() }
+
+    func updateNSView(_ view: SymbolView, context: Context) {
+        if view.name != name || view.pointSize != pointSize {
+            (view.name, view.pointSize) = (name, pointSize)
+            view.image = NSImage(systemSymbolName: name, accessibilityDescription: nil)?
+                .withSymbolConfiguration(.init(pointSize: pointSize, weight: .semibold))
+            view.removeAllSymbolEffects()
+            view.addSymbolEffect(.pulse, options: .repeating)
+        }
+        view.contentTintColor = color
+        view.layer?.shadowOffset = .zero
+        view.layer?.shadowRadius = glow
+        view.layer?.shadowOpacity = 1
+        view.effectiveAppearance.performAsCurrentDrawingAppearance {
+            view.layer?.shadowColor = color.withAlphaComponent(color.alphaComponent * 0.5).cgColor
+        }
+    }
+
+    final class SymbolView: NSImageView {
+        var name = "", pointSize: CGFloat = 0
+
+        override init(frame: NSRect) {
+            super.init(frame: frame)
+            wantsLayer = true
+            imageScaling = .scaleNone
+            imageAlignment = .alignCenter
+        }
+
+        required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
     }
 }
 

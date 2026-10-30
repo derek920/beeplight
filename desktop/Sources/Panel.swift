@@ -291,7 +291,9 @@ struct TodayLine: View {
 
 struct SettingsMenu: View {
     @ObservedObject var monitor: Monitor
-    @State private var loginItem = SMAppService.mainApp.status == .enabled
+    // Read on appear, not as the initial value: that expression runs on every init (each parent
+    // redraw), and `status` is a synchronous XPC round trip that blocks the main thread.
+    @State private var loginItem = false
 
     var body: some View {
         Menu {
@@ -317,6 +319,7 @@ struct SettingsMenu: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
+        .onAppear { loginItem = SMAppService.mainApp.status == .enabled }
     }
 
     private func openSettings(tab: String) {

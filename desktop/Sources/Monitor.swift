@@ -48,6 +48,7 @@ final class Monitor: ObservableObject {
     private var toastTask: Task<Void, Never>?
     private var wasIdle: Bool?
     private var faceCache: (key: String, image: NSImage)?
+    private var badgeCache: (key: String, frames: [Int: NSImage]) = ("", [:])
 
     // MARK: derived lists
 
@@ -253,7 +254,7 @@ final class Monitor: ObservableObject {
         face.setVisible(faceShown)
         if faceShown, wasIdle == false { face.celebrate() }
         wasIdle = idle
-        menuBar.image = !c.isQuiet ? MenuBarRenderer.render(c, style: Appearance.shared.config.menuBar, spin: spinPhase)
+        menuBar.image = !c.isQuiet ? badgeImage(c)
             : faceShown ? faceImage(character, face)
             : MenuBarRenderer.idle(hasTasks: !visible.isEmpty)
         // Same predicate as the lists: things that need the user (waiting + unread finishes).
@@ -268,6 +269,18 @@ final class Monitor: ObservableObject {
         if let c = faceCache, c.key == key { return c.image }
         let image = MenuBarRenderer.face(character, face.pose, energy: face.energy)
         faceCache = (key, image)
+        return image
+    }
+
+    /// The badge animates through 12 frames a second; render each frame once per look and counts.
+    private func badgeImage(_ c: MenuBarCounts) -> NSImage {
+        let style = Appearance.shared.config.menuBar
+        let key = "\(c) \(style) \(Appearance.shared.revision) \(MenuBarLook.isDark)"
+        if badgeCache.key != key { badgeCache = (key, [:]) }
+        let frame = Int((spinPhase * 12).rounded()) % 12
+        if let image = badgeCache.frames[frame] { return image }
+        let image = MenuBarRenderer.render(c, style: style, spin: Double(frame) / 12)
+        badgeCache.frames[frame] = image
         return image
     }
 
