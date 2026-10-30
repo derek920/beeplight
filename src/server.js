@@ -210,6 +210,16 @@ async function handler(req, res) {
     return json(res, 200, { ok: true });
   }
 
+  // Task titles: 'ai' (summarized by the LLM) or 'raw' (as Claude Code has them, no LLM calls).
+  if (req.method === 'POST' && url.pathname === '/api/title-mode') {
+    if (!local) return json(res, 403, { error: t('This can only be changed on the Mac itself') });
+    if (req.headers['x-beeplight'] !== '1') return json(res, 403, { error: 'missing header' });
+    const mode = String((await readBody(req)).mode || '');
+    if (mode !== 'ai' && mode !== 'raw') return json(res, 400, { error: 'bad title mode' });
+    collector.setTitleMode(mode);
+    return json(res, 200, { ok: true });
+  }
+
   if (req.method === 'POST' && url.pathname === '/api/read-all') {
     if (req.headers['x-beeplight'] !== '1') return json(res, 403, { error: 'missing header' });
     collector.markAllRead();

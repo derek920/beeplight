@@ -18,6 +18,8 @@ struct Meta: Decodable {
     var usage: UsageMeta?
     /// The character picked in the Mac app, for the phone's status screen.
     var character: String?
+    /// "ai" or "raw": where task titles come from (General settings).
+    var titleMode: String?
 }
 
 // MARK: token usage & plan limits (src/limits.js, src/usage.js)

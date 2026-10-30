@@ -39,6 +39,13 @@ test('idle without a verdict is a provisional success', () => {
   assert.deepEqual([s.state, s.outcome, s.pending], ['done', 'success', true]);
 });
 
+test('with raw titles no verdict is coming, so the success is final', () => {
+  const a = analysis();
+  a.lastReply = { text: 'All **tests** pass', ts: 90 };
+  const s = deriveStatus({ live: true, reg: reg('idle'), a, verdicts: false });
+  assert.deepEqual([s.state, s.outcome, s.pending, s.detail], ['done', 'success', false, 'All tests pass']);
+});
+
 test('LLM verdicts map onto the board states', () => {
   const a = analysis();
   const cases = { blocked: ['waiting', null], working: ['doing', null], failed: ['done', 'failed'], done: ['done', 'success'] };

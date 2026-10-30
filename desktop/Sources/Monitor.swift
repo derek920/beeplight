@@ -137,6 +137,7 @@ final class Monitor: ObservableObject {
             if !connected {
                 connected = true
                 syncCharacter()
+                syncTitleMode()
             }
             checkLimitThresholds(m.usage?.limits)
             let energy = Energy(m.usage?.limits)
@@ -206,6 +207,18 @@ final class Monitor: ObservableObject {
             req.setValue("1", forHTTPHeaderField: "x-beeplight")
             req.setValue("application/json", forHTTPHeaderField: "content-type")
             req.httpBody = try? JSONEncoder().encode(["id": Appearance.shared.config.character])
+            _ = try? await session.data(for: req)
+        }
+    }
+
+    /// Tells the service where titles come from; with "raw" it stops calling the summarizer.
+    func syncTitleMode() {
+        Task {
+            var req = URLRequest(url: base.appending(path: "api/title-mode"))
+            req.httpMethod = "POST"
+            req.setValue("1", forHTTPHeaderField: "x-beeplight")
+            req.setValue("application/json", forHTTPHeaderField: "content-type")
+            req.httpBody = try? JSONEncoder().encode(["mode": TitleMode.saved.rawValue])
             _ = try? await session.data(for: req)
         }
     }

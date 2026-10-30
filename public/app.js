@@ -211,7 +211,7 @@ function cardHTML(v) {
   const [label, hint] = primaryAction(v);
   // Another device's task: read-only here.
   const actions = v.remote ? '' : [
-    `<button class="btn ghost" data-act="resummarize" title="${esc(t('Summarize title and result again'))}">↻</button>`,
+    meta?.titleMode === 'raw' ? '' : `<button class="btn ghost" data-act="resummarize" title="${esc(t('Summarize title and result again'))}">↻</button>`,
     v.state === 'done'
       ? `<button class="btn ghost" data-act="dismiss" title="${esc(t('Remove from board (it comes back when there is new activity)'))}">✕</button>`
       : '',
@@ -360,7 +360,7 @@ function renderFoot() {
   if (n2) parts.push(n2 === 1 ? t('1 session inactive for 12+ hours not shown') : t('{n} sessions inactive for 12+ hours not shown', { n: n2 }));
   const sdkHidden = !prefs.sdk && snapshot.sessions.filter((v) => v.sdk).length;
   if (sdkHidden) parts.push(sdkHidden === 1 ? t('1 SDK session hidden') : t('{n} SDK sessions hidden', { n: sdkHidden }));
-  if (meta?.summarizer) {
+  if (meta?.summarizer && meta.titleMode !== 'raw') {
     const s = meta.summarizer;
     let line = t('Titles and results by Haiku: {ok} done', { ok: s.ok });
     if (s.inflight || s.queued) line += t(', {inflight} in progress, {queued} queued', { inflight: s.inflight, queued: s.queued });

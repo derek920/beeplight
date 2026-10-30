@@ -207,6 +207,10 @@
 "Language" = "语言";
 "For the app, the web board, the phone page and task titles written from now on. “Follow system” uses the Mac's language." = "Mac 应用、网页看板、手机页面和之后生成的任务标题都用这个语言。「跟随系统」使用 Mac 的语言。";
 "Takes effect after Beeplight restarts" = "重启 Beeplight 后生效";
+"Titles" = "标题";
+"Original" = "原文";
+"AI summary" = "AI 总结";
+"“Original” shows the session's name as Claude Code has it, or your latest message, and makes no LLM calls: a finished turn then counts as done, without checking whether it worked or ends with a question. “AI summary” names each task's goal with Claude Haiku, using your Claude login." = "「原文」显示 Claude Code 里这个会话的名字，没有名字时用你最近一条消息，不调用模型：一轮结束就算完成，不再判断是否成功、是不是在等你回答。「AI 总结」用 Claude Haiku 概括每个任务的目标，用的是你登录的 Claude 账号。";
 "Restart now" = "立即重启";
 
 /* Quota.swift */

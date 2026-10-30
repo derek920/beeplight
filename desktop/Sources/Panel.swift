@@ -202,7 +202,9 @@ struct ItemMenu: View {
 
     var body: some View {
         Button("\(item.primaryAction)") { monitor.focus(item.id) }
-        Button("Summarize title and result again") { monitor.resummarize(item.id) }
+        if monitor.meta?.titleMode != "raw" {
+            Button("Summarize title and result again") { monitor.resummarize(item.id) }
+        }
         if item.phase == .success || item.phase == .failed {
             Button("Remove from board") { monitor.dismiss(item.id) }
         }

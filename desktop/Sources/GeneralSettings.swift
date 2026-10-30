@@ -50,6 +50,32 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     static let running = Bundle.main.preferredLocalizations.first ?? "en"
 }
 
+/// Where task titles come from. The service does the summarizing, so the choice is sent to it
+/// (`Monitor.syncTitleMode`); with `.raw` it makes no LLM calls for titles or results.
+enum TitleMode: String, CaseIterable, Identifiable {
+    case raw
+    case ai
+
+    var id: String { rawValue }
+
+    var name: String {
+        switch self {
+        case .raw: return String(localized: "Original")
+        case .ai: return String(localized: "AI summary")
+        }
+    }
+
+    private static let key = "titleMode"
+
+    static var saved: TitleMode {
+        UserDefaults.standard.string(forKey: key).flatMap(TitleMode.init) ?? .ai
+    }
+
+    func save() {
+        UserDefaults.standard.set(rawValue, forKey: Self.key)
+    }
+}
+
 /// Quits, then opens the app again once this process is gone, so the two never run at once and the
 /// new one starts its own service.
 @MainActor
@@ -62,9 +88,10 @@ func relaunchApp() {
     NSApp.terminate(nil)
 }
 
-/// General settings: the app's language.
+/// General settings: the app's language and where task titles come from.
 struct GeneralSettingsView: View {
     @State private var language = AppLanguage.saved
+    @State private var titleMode = TitleMode.saved
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -87,6 +114,20 @@ struct GeneralSettingsView: View {
                 }
                 .padding(.top, 4)
             }
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Titles").font(.system(size: 14, weight: .bold))
+                Text("“Original” shows the session's name as Claude Code has it, or your latest message, and makes no LLM calls: a finished turn then counts as done, without checking whether it worked or ends with a question. “AI summary” names each task's goal with Claude Haiku, using your Claude login.")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.top, 18)
+            Picker("", selection: Binding(get: { titleMode }, set: { titleMode = $0; $0.save(); Monitor.shared.syncTitleMode() })) {
+                ForEach(TitleMode.allCases) { Text($0.name).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
         }
         .padding(22)
         .frame(width: 890, height: 640, alignment: .topLeading)

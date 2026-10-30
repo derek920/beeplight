@@ -42,6 +42,7 @@ LLM 总结（`src/summarizer.js`）：
 - 去重键：`endKey(a) = <本轮首条 prompt uuid>@<最新时间线时间戳>`。Claude 在同一轮里恢复工作后（例如收到后台任务通知）键会变，旧判定随之失效；会话关闭后则沿用这一轮最后一次判定。
 - 失败处理：连续失败全局指数退避（30 秒到 10 分钟），失败记录带 `retryAfter`，到点由 Collector 重新请求。
 - 持久化：结果存在 `data/state.json`（`src/store.js`），同时保存已结束会话的视图。重启后 `restoreEnded()` 会把这些会话重新挂上 transcript，而不是展示冻结的快照。
+- 标题模式：Mac 设置「通用」页的「标题：原文 / AI 总结」（`GeneralSettings.swift` 的 `TitleMode`，UserDefaults 键 `titleMode`），连上服务时和切换时 `POST /api/title-mode`，服务端记在 `store.flags.titleMode`。为 `raw` 时 `Collector` 不排队也不 pump 总结器，`summaryOf()` 忽略已存的总结，标题走 `buildView()` 里的原有回退链（自定义名 → 后台任务名 → Claude Code 的 ai-title → registry 名 → 最近一条消息）；`deriveStatus({ verdicts: false })` 让一轮结束直接算成功，不带 `pending`。额度探测（`limits.probe()`）不受影响。
 
 Token 用量与额度：
 
