@@ -1,0 +1,596 @@
+import { EventEmitter } from 'node:events';
+import fs from 'node:fs';
+import path from 'node:path';
+import { performance } from 'node:perf_hooks';
+import { PROJECTS_DIR, PS_REFRESH_MS, RETAIN_ENDED_MS, TICK_MS } from './config.js';
+import { Jobs } from './jobs.js';
+import { detectHost, psSnapshot } from './proc.js';
+import { Registry } from './registry.js';
+import { deriveStatus, endKey, matchingEndSummary } from './status.js';
+import { Subagents } from './subagents.js';
+import { buildSummaryInput } from './summarizer.js';
+import { stateKey, Timeline } from './timeline.js';
+import { Transcript } from './transcript.js';
+import { FIVE_HOURS, SEVEN_DAYS } from './limits.js';
+import { cleanTitle, oneLine, pidAlive, projectSlug } from './util.js';
+
+// Let the first reply / tool calls of a new turn land before titling it.
+const RUN_SUMMARY_DELAY_MS = 4000;
+const END_SUMMARY_DELAY_MS = 1200;
+const MID_TURN_REFRESH_MS = 5 * 60_000;
+const USAGE_REFRESH_MS = 5000;
+// Per-session and account usage are recomputed at most this often (or when new data lands).
+const USAGE_CACHE_MS = 10_000;
+// Claude writes its last transcript lines right before exiting.
+const ENDED_GRACE_MS = 5000;
+const TRANSCRIPT_PROBE_MS = 2000;
+
+export class Collector extends EventEmitter {
+  constructor({ store, summarizer, runner, usage, limits, relay }) {
+    super();
+    this.store = store;
+    this.summarizer = summarizer;
+    this.runner = runner;
+    this.usage = usage;
+    this.limits = limits;
+    // Tasks from your other devices (src/relay.js), shown read-only next to this Mac's.
+    this.relay = relay;
+    this.remoteVersion = 0;
+    relay?.on('change', () => this.remoteVersion++);
+    this.localSig = '';
+    this.usageCache = { key: '', at: 0, bySid: new Map(), account: null };
+    this.registry = new Registry();
+    this.jobsReader = new Jobs();
+    this.sessions = new Map(); // sid -> session state (live, or ended while we watched)
+    this.jobs = new Map();
+    this.ps = new Map();
+    this.tickCount = 0;
+    this.tickTimes = [];
+    this.lastTickMs = 0;
+    this.sig = '';
+    this.timeline = new Timeline(store.daily);
+    this.boardIds = new Set();
+    this.snapshot = { sessions: [], idleCount: 0, staleCount: 0, generatedAt: Date.now() };
+    this.restoreEnded();
+  }
+
+  // Sessions that ended before a restart come back as ended sessions whose transcript is
+  // re-read, so they keep being judged and summarized like any other.
+  restoreEnded() {
+    const now = Date.now();
+    for (const [sid, v] of Object.entries(this.store.ended)) {
+      if (now - (v.endedAt || 0) > RETAIN_ENDED_MS || this.sessions.has(sid)) continue;
+      const s = this.createSession(sid, {
+        pid: v.pid,
+        cwd: v.cwd,
+        status: v.lastRegStatus,
+        entrypoint: v.entrypoint,
+        hostSessionId: v.hostSessionId,
+      });
+      Object.assign(s, { host: v.host, ended: true, endedAt: v.endedAt, endReason: v.endReason });
+      this.sessions.set(sid, s);
+    }
+  }
+
+  start() {
+    this.refreshPs().then(() => this.tick());
+    this.timer = setInterval(() => this.tick(), TICK_MS);
+    this.psTimer = setInterval(() => this.refreshPs(), PS_REFRESH_MS);
+    // Token indexing is async and chunked so the first big pass never stalls the 3 Hz tick.
+    const refreshUsage = () => this.usage.refresh().catch((e) => console.warn(`[usage] ${e.message}`));
+    refreshUsage();
+    this.usageTimer = setInterval(refreshUsage, USAGE_REFRESH_MS);
+  }
+
+  stop() {
+    clearInterval(this.timer);
+    clearInterval(this.psTimer);
+    clearInterval(this.usageTimer);
+  }
+
+  async refreshPs() {
+    if (this.psBusy) return;
+    this.psBusy = true;
+    try {
+      const ps = await psSnapshot();
+      if (ps.size) this.ps = ps;
+      for (const s of this.sessions.values()) {
+        if (s.ended) continue;
+        s.host = detectHost(s.pid, this.ps) ?? s.host;
+        s.stopped = this.ps.get(s.pid)?.stat?.startsWith('T') ?? false;
+      }
+    } finally {
+      this.psBusy = false;
+    }
+  }
+
+  // Alive, and not a recycled pid left behind in a stale registry file.
+  isGenuine(reg) {
+    if (!pidAlive(reg.pid)) return false;
+    const p = this.ps.get(reg.pid);
+    return !(p && reg.startedAt && p.start > reg.startedAt + 5000);
+  }
+
+  tick() {
+    const t0 = performance.now();
+    const now = Date.now();
+    this.tickCount++;
+    this.tickTimes.push(now);
+    while (now - this.tickTimes[0] > 3000) this.tickTimes.shift();
+    try {
+      const regs = this.registry.poll();
+      if (this.tickCount % 6 === 1) this.jobs = this.jobsReader.poll();
+
+      const live = new Set();
+      const livePids = new Set();
+      for (const [sid, reg] of regs) {
+        if (this.runner.isOwnPid(reg.pid) || !this.isGenuine(reg)) continue;
+        let s = this.sessions.get(sid);
+        if (!s) {
+          s = this.createSession(sid, reg);
+          this.sessions.set(sid, s);
+        } else if (s.ended) {
+          s.ended = false;
+          s.endedAt = null;
+          s.endReason = null;
+        }
+        if (s.pid !== reg.pid) s.host = detectHost(reg.pid, this.ps);
+        s.reg = reg;
+        s.pid = reg.pid;
+        s.cwd = reg.cwd || s.cwd;
+        s.lastRegStatus = reg.status;
+        live.add(sid);
+        livePids.add(reg.pid);
+      }
+      for (const s of this.sessions.values()) {
+        if (s.ended || live.has(s.sid)) continue;
+        s.ended = true;
+        s.endedAt = now;
+        // Same process, new session id: /clear or /resume inside one terminal.
+        s.endReason = livePids.has(s.pid) ? 'switched' : 'closed';
+      }
+
+      for (const s of this.sessions.values()) {
+        // An ended session is read until its final lines are in (or once, after a restart).
+        const settled = s.ended && now - s.endedAt > ENDED_GRACE_MS && (s.tx?.ino != null || s.txProbes >= 3);
+        if (!settled) {
+          if (!s.tx) this.attachTranscript(s, now);
+          s.tx?.poll();
+          if (s.subs && this.tickCount % 3 === 0) s.subs.poll();
+        }
+        this.maybeSummarize(s, now);
+      }
+      this.summarizer.pump();
+      if (this.tickCount % 6 === 0 && this.limits.due(now, this.recentlyActive(now))) this.limits.probe();
+      this.publish(now);
+    } catch (e) {
+      // Same failure on every tick would print 3 lines a second; log it once a minute.
+      const msg = String(e?.stack || e);
+      if (msg !== this.lastError || now - this.lastErrorAt > 60_000) console.error('[collector] tick failed:', msg);
+      this.lastError = msg;
+      this.lastErrorAt = now;
+    }
+    this.lastTickMs = performance.now() - t0;
+  }
+
+  createSession(sid, reg) {
+    return {
+      sid,
+      reg,
+      pid: reg.pid,
+      cwd: reg.cwd,
+      host: detectHost(reg.pid, this.ps),
+      stopped: this.ps.get(reg.pid)?.stat?.startsWith('T') ?? false,
+      tx: null,
+      subs: null,
+      txProbeAt: 0,
+      txProbes: 0,
+      ended: false,
+      endedAt: null,
+      endReason: null,
+      lastRegStatus: reg.status,
+      endedSig: null,
+      history: this.store.getHistory(sid),
+    };
+  }
+
+  attachTranscript(s, now) {
+    if (now - s.txProbeAt < TRANSCRIPT_PROBE_MS) return;
+    s.txProbeAt = now;
+    s.txProbes++;
+    const file = findTranscript(s.sid, s.cwd);
+    if (!file) return;
+    s.tx = new Transcript(file);
+    s.subs = new Subagents(path.join(path.dirname(file), s.sid, 'subagents'));
+    s.subs.poll();
+  }
+
+  maybeSummarize(s, now) {
+    const a = s.tx?.a;
+    if (!a?.turn) return;
+    const turnId = a.turn.key;
+    const status = s.ended ? 'ended' : s.reg?.status;
+    // Long-quiet conversations are off the board; don't spend calls on them.
+    if (status !== 'busy' && status !== 'waiting' && now - a.lastTs > RETAIN_ENDED_MS) return;
+    const sum = this.store.getSummary(s.sid);
+    const request = (kind, key, delayMs) =>
+      this.summarizer.request({ sid: s.sid, key, kind, turnId, delayMs, buildInput: () => this.summaryInput(s) });
+
+    // A failed summary is re-requested; Summarizer holds it back until its backoff passes.
+    if (status === 'idle' || status === 'ended') {
+      const verdict = matchingEndSummary(sum, a, !s.ended);
+      if (!verdict || verdict.error) request('end', endKey(a), END_SUMMARY_DELAY_MS);
+      return;
+    }
+    // busy / waiting: keep the title on the current turn.
+    if (!sum || sum.turnId !== turnId || sum.error) {
+      request('run', `${turnId}@run`, RUN_SUMMARY_DELAY_MS);
+    } else if (
+      now - a.turn.startedAt > MID_TURN_REFRESH_MS &&
+      now - (sum.at || 0) > MID_TURN_REFRESH_MS &&
+      a.lastTs > (sum.at || 0)
+    ) {
+      request('run', `${turnId}@${Math.floor(now / MID_TURN_REFRESH_MS)}`, 0);
+    }
+  }
+
+  summaryInput(s) {
+    const a = s.tx?.a;
+    if (!a) return '';
+    return buildSummaryInput({
+      cwd: s.cwd,
+      a,
+      names: [cleanTitle(a.customTitle), this.jobs.get(s.sid)?.name, a.aiTitle, registryName(s.reg)],
+      state: s.ended ? 'ended' : s.reg?.status,
+      waitingFor: s.reg?.waitingFor,
+    });
+  }
+
+  resummarize(sid) {
+    const s = this.sessions.get(sid);
+    const a = s?.tx?.a;
+    if (!a?.turn) return false;
+    const idle = s.ended || s.reg?.status === 'idle';
+    this.summarizer.force(sid, {
+      sid,
+      kind: idle ? 'end' : 'run',
+      key: idle ? endKey(a) : `${a.turn.key}@manual-${Date.now()}`,
+      turnId: a.turn.key,
+      buildInput: () => this.summaryInput(s),
+    });
+    return true;
+  }
+
+  buildView(s, now) {
+    const a = s.tx?.a;
+    const job = this.jobs.get(s.sid);
+    const summary = this.store.getSummary(s.sid);
+    const subagents = s.subs ? s.subs.list(now, !s.ended) : [];
+    const st = deriveStatus({
+      live: !s.ended,
+      reg: s.reg,
+      lastRegStatus: s.lastRegStatus,
+      job: s.ended ? job : null,
+      a,
+      summary,
+      runningAgents: subagents.filter((x) => x.running).length,
+    });
+    const reg = s.reg || {};
+    return {
+      id: s.sid,
+      title:
+        summary?.title ||
+        cleanTitle(a?.customTitle) ||
+        job?.name ||
+        a?.aiTitle ||
+        registryName(reg) ||
+        oneLine(a?.lastPrompt?.text, 30) ||
+        path.basename(s.cwd || '') ||
+        s.sid.slice(0, 8),
+      titleFromAi: !!summary?.title,
+      goal: summary?.goal || '',
+      state: st.state,
+      outcome: st.outcome || null,
+      kind: st.kind || null,
+      label: st.label,
+      detail: st.detail || '',
+      pending: !!st.pending,
+      since: st.since || null,
+      cwd: s.cwd,
+      project: path.basename(s.cwd || ''),
+      entrypoint: reg.entrypoint || null,
+      hostSessionId: reg.hostSessionId || null,
+      sdk: reg.entrypoint === 'sdk-cli',
+      host: s.host ? { kind: s.host.kind, app: s.host.app, tty: s.host.tty } : null,
+      pid: s.pid,
+      lastRegStatus: s.lastRegStatus,
+      live: !s.ended,
+      ended: s.ended,
+      endedAt: s.endedAt,
+      endReason: s.endReason,
+      stopped: !s.ended && s.stopped,
+      lastPrompt: oneLine(a?.lastPrompt?.text, 200),
+      turnStartedAt: a?.turn?.startedAt || null,
+      updatedAt: Math.max(a?.lastTs || 0, reg.statusUpdatedAt || 0) || null,
+      subagents,
+      jobShort: job?.short || null,
+      summarizing: this.summarizer.inflight.has(s.sid),
+      usage: this.sessionUsage(s.sid, now),
+    };
+  }
+
+  jobView(job) {
+    const st = deriveStatus({ live: false, job });
+    return {
+      id: job.sessionId,
+      title: job.name || path.basename(job.cwd || '') || job.short,
+      titleFromAi: false,
+      goal: '',
+      state: st.state,
+      outcome: st.outcome || null,
+      kind: st.kind || null,
+      label: st.label,
+      detail: st.detail || '',
+      pending: false,
+      since: st.since,
+      cwd: job.cwd,
+      project: path.basename(job.cwd || ''),
+      entrypoint: 'background',
+      hostSessionId: null,
+      sdk: false,
+      host: null,
+      pid: null,
+      live: false,
+      ended: true,
+      endedAt: job.updatedAt,
+      endReason: 'background',
+      stopped: false,
+      lastPrompt: '',
+      turnStartedAt: null,
+      updatedAt: job.updatedAt,
+      subagents: [],
+      jobShort: job.short,
+      summarizing: false,
+      unread: false,
+    };
+  }
+
+  publish(now) {
+    const views = [];
+    const seen = new Set();
+    for (const s of this.sessions.values()) {
+      if (s.ended && now - s.endedAt > RETAIN_ENDED_MS) {
+        this.sessions.delete(s.sid);
+        continue;
+      }
+      const v = this.buildView(s, now);
+      this.trackState(s, v, now);
+      v.history = s.history.slice();
+      v.unread = !!this.store.unread[s.sid];
+      if (s.ended) {
+        const sig = JSON.stringify(v);
+        if (sig !== s.endedSig) {
+          s.endedSig = sig;
+          this.store.setEnded(s.sid, v);
+        }
+      }
+      views.push(v);
+      seen.add(s.sid);
+    }
+    for (const job of this.jobs.values()) {
+      if (seen.has(job.sessionId) || now - job.updatedAt > RETAIN_ENDED_MS) continue;
+      const v = this.jobView(job);
+      v.history = [{ k: stateKey(v), t: v.since }];
+      views.push(v);
+      seen.add(job.sessionId);
+    }
+    let idleCount = 0;
+    let staleCount = 0;
+    const board = views.filter((v) => {
+      if (v.state === 'idle') {
+        idleCount++;
+        return false;
+      }
+      // Running work and real permission prompts always show; anything else that has been
+      // quiet for longer than the retention window (e.g. old chats the desktop app keeps
+      // alive) is noise.
+      const active = v.state === 'doing' || (v.state === 'waiting' && v.kind === 'prompt');
+      if (!active && now - (v.updatedAt || v.since || 0) > RETAIN_ENDED_MS) {
+        staleCount++;
+        return false;
+      }
+      return !this.store.isDismissed(v.id, v.updatedAt);
+    });
+    this.boardIds = new Set(board.map((v) => v.id));
+    const localSig = JSON.stringify(board) + idleCount + staleCount;
+    if (localSig !== this.localSig) {
+      this.localSig = localSig;
+      this.relay?.share(board);
+    }
+    const sig = `${localSig}#${this.remoteVersion}`;
+    if (sig === this.sig) return;
+    this.sig = sig;
+    const shown = this.relay ? board.concat(this.relay.remoteViews()) : board;
+    this.snapshot = { sessions: shown, idleCount, staleCount, generatedAt: now };
+    this.emit('update', this.snapshot);
+  }
+
+  // Records the state trajectory, and marks a turn that just finished as unread. Like an unread
+  // message it stays until the user opens the task, sends it a new prompt, or looks at its tab.
+  trackState(s, v, now) {
+    const prev = s.history[s.history.length - 1];
+    const prevKey = prev?.k;
+    const prevPending = !!prev?.p;
+    if (this.timeline.track(s.history, v, now)) {
+      this.store.setHistory(s.sid, s.history, this.timeline.daily);
+      const last = s.history[s.history.length - 1];
+      // Only finishes we saw happen: a session first seen already done is old news.
+      if (prevKey && last.k.startsWith('done:') && !last.p && (prevKey !== last.k || prevPending)) {
+        this.store.markUnread(s.sid, last.t, last.k.slice(5));
+        console.log(`[unread] ${s.sid.slice(0, 8)} ${last.k} → unread`);
+      }
+    }
+    // Back to work (new prompt, or Claude resumed): the old result is no longer the news.
+    if (v.state !== 'done' && v.state !== 'idle' && this.store.markRead(s.sid)) {
+      console.log(`[unread] ${s.sid.slice(0, 8)} read (back to ${v.state})`);
+    }
+  }
+
+  // Live unread sessions sitting in a terminal tab, for "looked at it there" detection.
+  unreadTerminalTargets() {
+    const out = [];
+    for (const sid of Object.keys(this.store.unread)) {
+      const s = this.sessions.get(sid);
+      const h = s?.host;
+      if (s && !s.ended && h?.tty && (h.kind === 'iterm' || h.kind === 'terminal')) out.push({ sid, tty: h.tty });
+    }
+    return out;
+  }
+
+  markRead(sid, reason) {
+    if (!this.store.markRead(sid)) return;
+    console.log(`[unread] ${sid.slice(0, 8)} read (${reason})`);
+    this.sig = '';
+  }
+
+  markAllRead() {
+    for (const sid of Object.keys(this.store.unread)) this.markRead(sid, 'read all');
+  }
+
+  recentlyActive(now) {
+    for (const s of this.sessions.values()) {
+      if (!s.ended && (s.reg?.status === 'busy' || s.reg?.status === 'waiting')) return true;
+      if (s.tx && now - s.tx.a.lastTs < 30 * 60_000) return true;
+    }
+    return false;
+  }
+
+  // Recomputes per-session window totals and the account view when new usage data or a new
+  // limits reading arrived, or every USAGE_CACHE_MS (window starts move with the clock).
+  refreshUsageCache(now) {
+    const c = this.usageCache;
+    const key = `${this.usage.version}:${this.limits.version}`;
+    if (key === c.key && now - c.at < USAGE_CACHE_MS) return c;
+    const w = this.limits.windows(now);
+    const lim = this.limits.snapshot(now);
+    const acct5 = this.usage.window(w.fiveHour.start);
+    const acct7 = this.usage.window(w.sevenDay.start);
+    // A session's share of a limit, assuming this machine's Claude Code is all of the usage.
+    const share = (cost, acct, lw) => (lw && acct.cost > 0 ? (cost / acct.cost) * lw.utilization : null);
+    c.bySid = new Map();
+    for (const [sid, u] of this.usage.sessions) {
+      if (!u.total.requests) continue;
+      const f = this.usage.window(w.fiveHour.start, sid);
+      const s7 = this.usage.window(w.sevenDay.start, sid);
+      c.bySid.set(sid, {
+        total: { tokens: u.total.tokens, out: u.total.out, cost: Math.round(u.total.cost * 1e4) / 1e4, requests: u.total.requests },
+        fiveHour: { tokens: f.tokens, cost: f.cost, share: share(f.cost, acct5, lim.fiveHour) },
+        sevenDay: { tokens: s7.tokens, cost: s7.cost, share: share(s7.cost, acct7, lim.sevenDay) },
+      });
+    }
+    const titleOf = (row) =>
+      this.store.getSummary(row.sid)?.title || cleanTitle(row.title) || path.basename(row.cwd || '') || row.sid.slice(0, 8);
+    c.account = {
+      ready: this.usage.ready,
+      index: this.usage.stats,
+      limits: lim,
+      windows: w,
+      fiveHour: acct5,
+      sevenDay: acct7,
+      buckets5h: this.usage.buckets(w.fiveHour.start, w.fiveHour.start + FIVE_HOURS, 20),
+      buckets7d: this.usage.buckets(w.sevenDay.start, w.sevenDay.start + SEVEN_DAYS, 28),
+      top: this.usage.top(w.sevenDay.start, 15).map((row) => {
+        const s = this.sessions.get(row.sid);
+        return {
+          sid: row.sid,
+          title: titleOf(row),
+          project: path.basename(row.cwd || ''),
+          live: !!s && !s.ended,
+          lastAt: row.lastAt,
+          tokens: row.tokens,
+          out: row.out,
+          cost: row.cost,
+          requests: row.requests,
+          share: share(row.cost, acct7, lim.sevenDay),
+          fiveHourTokens: c.bySid.get(row.sid)?.fiveHour.tokens ?? 0,
+        };
+      }),
+    };
+    c.key = key;
+    c.at = now;
+    return c;
+  }
+
+  sessionUsage(sid, now) {
+    return this.refreshUsageCache(now).bySid.get(sid) || null;
+  }
+
+  meta() {
+    const t = this.tickTimes;
+    const hz = t.length > 1 ? ((t.length - 1) * 1000) / (t[t.length - 1] - t[0]) : 0;
+    const now = Date.now();
+    const histories = [...this.sessions.values()].filter((s) => this.boardIds.has(s.sid)).map((s) => s.history);
+    return {
+      now,
+      usage: this.refreshUsageCache(now).account,
+      today: this.timeline.today(histories, now),
+      hz: Math.round(hz * 10) / 10,
+      tickMs: Math.round(this.lastTickMs * 10) / 10,
+      character: this.store.flags.character || 'eyes',
+      summarizer: {
+        queued: this.summarizer.queue.size,
+        inflight: this.summarizer.inflight.size,
+        ...this.summarizer.stats,
+      },
+    };
+  }
+
+  // Everything focus.js needs to bring a session's window to the front.
+  focusTarget(sid) {
+    const s = this.sessions.get(sid);
+    if (s) {
+      const switched = s.ended && s.endReason === 'switched' && pidAlive(s.pid);
+      return {
+        id: sid,
+        live: !s.ended || switched,
+        entrypoint: s.reg?.entrypoint,
+        hostSessionId: s.reg?.hostSessionId,
+        host: s.host,
+        cwd: s.cwd,
+        jobShort: this.jobs.get(sid)?.short,
+      };
+    }
+    const v = this.snapshot.sessions.find((x) => x.id === sid) || this.store.ended[sid];
+    if (!v) {
+      // Sessions known only from their token usage (e.g. the weekly ranking) can be resumed.
+      const u = this.usage.sessions.get(sid);
+      return u?.cwd ? { id: sid, live: false, cwd: u.cwd } : null;
+    }
+    return { id: sid, live: false, entrypoint: v.entrypoint, hostSessionId: v.hostSessionId, host: null, cwd: v.cwd, jobShort: v.jobShort };
+  }
+}
+
+function findTranscript(sid, cwd) {
+  const name = `${sid}.jsonl`;
+  if (cwd) {
+    const direct = path.join(PROJECTS_DIR, projectSlug(cwd), name);
+    if (fs.existsSync(direct)) return direct;
+  }
+  let dirs;
+  try {
+    dirs = fs.readdirSync(PROJECTS_DIR);
+  } catch {
+    return null;
+  }
+  for (const d of dirs) {
+    const f = path.join(PROJECTS_DIR, d, name);
+    if (fs.existsSync(f)) return f;
+  }
+  return null;
+}
+
+// The registry name is auto-derived (e.g. "monitor-8f") unless the user or the desktop app set it.
+function registryName(reg) {
+  if (!reg?.name || reg.nameSource === 'derived') return null;
+  return cleanTitle(reg.name);
+}

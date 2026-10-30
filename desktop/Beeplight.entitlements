@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Used with the hardened runtime (release builds, see build.sh). The service's osascript switches
+     iTerm2 / Terminal tabs; without this, macOS refuses those Apple events without asking. -->
+<plist version="1.0">
+<dict>
+	<key>com.apple.security.automation.apple-events</key>
+	<true/>
+</dict>
+</plist>

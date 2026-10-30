@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Beeplight</title>
+    <link rel="icon" id="favicon" href="data:," />
+    <!-- Add to Home Screen: full-screen web app on iOS and Android. -->
+    <meta name="theme-color" content="#0b0f17" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Beeplight" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="manifest" id="manifest" href="/manifest.webmanifest" />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="brand">
+        <span class="mark" aria-hidden="true"></span>
+        <div>
+          <h1>Beeplight</h1>
+          <p class="sub" data-i18n>All Claude Code sessions and agents on this Mac · Click a card to jump to its window</p>
+        </div>
+      </div>
+      <div class="stats" id="stats"></div>
+      <div class="today" id="today"></div>
+      <div class="controls">
+        <span class="live" id="live"><i></i><span data-i18n>Connecting…</span></span>
+        <button class="fs-btn" id="amb-on" title="Status screen" data-i18n-title data-i18n hidden>◱ Simple</button>
+        <button class="fs-btn" id="fs-btn" title="Full screen" data-i18n-title hidden>⛶</button>
+        <select id="opt-skin" class="skin" aria-label="Theme" data-i18n-aria-label>
+          <option value="native" data-i18n>Native macOS</option>
+          <option value="neon" data-i18n>Neon</option>
+          <option value="terminal" data-i18n>Terminal</option>
+          <option value="hologram" data-i18n>Hologram</option>
+          <option value="minimal" data-i18n>Minimal</option>
+        </select>
+        <label class="switch"><input type="checkbox" id="opt-notify" /><span data-i18n>Notifications</span></label>
+        <label class="switch"><input type="checkbox" id="opt-sdk" /><span data-i18n>SDK sessions</span></label>
+      </div>
+    </header>
+
+    <section class="quota" id="quota" aria-label="Limits and usage" data-i18n-aria-label></section>
+
+    <div class="pairing" id="pairing" hidden>
+      <div class="pairing-card">
+        <span class="mark" aria-hidden="true"></span>
+        <h2 data-i18n>Not paired yet</h2>
+        <p data-i18n>On your Mac, open Beeplight → ⚙ → Phone Access and enter the 6-digit pairing code shown there:</p>
+        <form class="pair-form" id="pair-form">
+          <input id="pair-pin" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" placeholder="000000" aria-label="6-digit pairing code" data-i18n-aria-label />
+          <button type="submit" data-i18n>Pair</button>
+        </form>
+        <p class="pair-msg" id="pair-msg"></p>
+        <p class="muted" data-i18n>Or scan the QR code on that page with your camera. The code is valid for 5 minutes and works only once.</p>
+      </div>
+    </div>
+
+    <!-- Status screen: a phone propped up next to the Mac, readable at a glance. -->
+    <section class="ambient" id="ambient" hidden>
+      <div class="amb-sky" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="amb-stars" aria-hidden="true"></div>
+      <div class="amb-hero">
+        <div class="amb-core" aria-hidden="true">
+          <div class="core-sweep"></div>
+          <svg class="core-svg" viewBox="0 0 200 200">
+            <!-- An SVG filter, not CSS drop-shadow: Safari ignores CSS filters on SVG children. -->
+            <defs>
+              <filter id="core-glow" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur stdDeviation="3.2" result="b" />
+                <feMerge><feMergeNode in="b" /><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+              </filter>
+            </defs>
+            <circle class="core-orbit" cx="100" cy="100" r="97" />
+            <circle class="core-track" cx="100" cy="100" r="78" />
+            <g class="core-ticks" id="core-ticks"></g>
+            <g class="core-arcs" id="core-arcs" filter="url(#core-glow)"></g>
+          </svg>
+          <div class="core-orb"></div>
+          <div class="core-center"><div class="amb-eyes" aria-hidden="true"><i></i><i></i></div><div class="amb-figure" id="amb-figure" aria-hidden="true"></div><b id="amb-big">0</b><span id="amb-big-label" data-i18n>idle</span></div>
+        </div>
+        <div class="amb-meta">
+          <div class="amb-clock" id="amb-clock"></div>
+          <div class="amb-state" id="amb-state"></div>
+          <div class="amb-sub" id="amb-sub"></div>
+          <div class="amb-counts" id="amb-counts"></div>
+          <div class="amb-quota" id="amb-quota"></div>
+        </div>
+      </div>
+      <ol class="amb-list" id="amb-list"></ol>
+      <button class="amb-switch" id="amb-switch" data-i18n>Details</button>
+    </section>
+
+    <nav class="mtabs" id="mtabs" aria-label="Lists" data-i18n-aria-label>
+      <button data-tab="waiting"><span data-i18n>Needs you</span> <b></b></button>
+      <button data-tab="doing"><span data-i18n>Running</span> <b></b></button>
+      <button data-tab="done"><span data-i18n>Done</span> <b></b></button>
+    </nav>
+
+    <main class="board">
+      <section class="col" data-col="waiting">
+        <header class="col-head">
+          <span class="dot"></span>
+          <h2>Waiting</h2>
+          <span class="hint" data-i18n>Needs your attention</span>
+          <span class="count"></span>
+        </header>
+        <div class="cards"></div>
+        <p class="empty" data-i18n>Nothing is waiting for you</p>
+      </section>
+      <section class="col" data-col="doing">
+        <header class="col-head">
+          <span class="dot"></span>
+          <h2>Doing</h2>
+          <span class="hint" data-i18n>Claude is working</span>
+          <span class="count"></span>
+        </header>
+        <div class="cards"></div>
+        <p class="empty" data-i18n>Nothing is running</p>
+      </section>
+      <section class="col" data-col="done">
+        <header class="col-head">
+          <span class="dot"></span>
+          <h2>Done</h2>
+          <span class="hint" data-i18n>Turn ended</span>
+          <span class="count"></span>
+          <span class="new-badge" id="new-badge" hidden></span>
+          <button class="linkish read-all" id="read-all" data-i18n hidden>✓ Mark all read</button>
+          <div class="seg" id="done-filter" role="group" aria-label="Filter by result" data-i18n-aria-label>
+            <button data-f="all" class="on" data-i18n>All</button>
+            <button data-f="success" data-i18n>Succeeded</button>
+            <button data-f="failed" data-i18n>Failed</button>
+          </div>
+        </header>
+        <div class="cards"></div>
+        <p class="empty" data-i18n>Nothing has finished yet</p>
+      </section>
+    </main>
+
+    <footer class="foot" id="foot"></footer>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

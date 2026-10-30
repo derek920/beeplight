@@ -1,0 +1,209 @@
+{
+  "_about": "Line-drawn characters for the Mac app and the phone status screen, drawn in thin strokes in the color of the current state. Coordinates are in a box of [width, height]. \"paths\" are SVG path strings (M L H V C Q Z, absolute or relative; no arcs) always drawn; \"rest\" are drawn normally and \"alt\" instead during the character's own move (ear flop, ear twitch, antenna spark). The eyes are drawn by the app at \"eyes\" (centers) with height \"eye\", so they can blink, look around, squint happily and droop as the limit runs out. \"spin\" (optional) holds parts drawn upright at rest that whirl around \"base\" like a spring antenna during the character's spin. A terminal-style character has \"text\" instead: \"face\" is one line for the menu bar and the island, \"rest\" and \"alt\" the full text art (lines of equal width), \"*\" marks its eyes, drawn \"eye\" when open and as ~ _ - ^ when tired, nearly shut, blinking or happy. Its \"walk\" frames let the phone's status screen show it walking back and forth on a ground line in place of the ring, a frame every \"step\" character widths at \"speed\" widths a second; \"facing\" is the way it walks as written (the tail trails), -1 left or 1 right. Add a character by adding an entry; its id is what the app stores.",
+  "characters": [
+    {
+      "id": "robot",
+      "name": {
+        "en": "Robot",
+        "zh-Hans": "数字机器人"
+      },
+      "box": [
+        48,
+        40
+      ],
+      "paths": [
+        "M 13 14 H 35 Q 39 14 39 18 V 31 Q 39 35 35 35 H 13 Q 9 35 9 31 V 18 Q 9 14 13 14 Z",
+        "M 9 21.5 H 6 V 27 H 9 M 39 21.5 H 42 V 27 H 39"
+      ],
+      "rest": [
+        "M 18.5 29.5 H 29.5"
+      ],
+      "alt": [
+        "M 18.5 29.5 H 21 M 23 29.5 H 25 M 27 29.5 H 29.5",
+        "M 20.5 4.5 L 19 3 M 27.5 4.5 L 29 3 M 24 2.8 V 1"
+      ],
+      "spin": {
+        "base": [
+          24,
+          14
+        ],
+        "paths": [
+          "M 24 14 V 8.5",
+          "M 22 6.5 C 22 5.4 22.9 4.5 24 4.5 C 25.1 4.5 26 5.4 26 6.5 C 26 7.6 25.1 8.5 24 8.5 C 22.9 8.5 22 7.6 22 6.5 Z"
+        ]
+      },
+      "eyes": [
+        [
+          18.5,
+          22.5
+        ],
+        [
+          29.5,
+          22.5
+        ]
+      ],
+      "eye": 5
+    },
+    {
+      "id": "dog",
+      "name": {
+        "en": "Dog",
+        "zh-Hans": "数字狗"
+      },
+      "box": [
+        48,
+        40
+      ],
+      "paths": [
+        "M 13 21 C 13 13.5 18 9 24 9 C 30 9 35 13.5 35 21 C 35 29 30 34 24 34 C 18 34 13 29 13 21 Z",
+        "M 22.6 25.4 L 25.4 25.4 L 24 27.2 Z",
+        "M 24 27.2 L 24 28.6 M 21.2 29.4 Q 24 31.6 24 28.6 Q 24 31.6 26.8 29.4"
+      ],
+      "rest": [
+        "M 15.5 12.5 C 10 9.5 5 14 6.5 22 C 7.2 25.5 10.5 26 12.4 22.5",
+        "M 32.5 12.5 C 38 9.5 43 14 41.5 22 C 40.8 25.5 37.5 26 35.6 22.5"
+      ],
+      "alt": [
+        "M 15.5 12.5 C 12 7 7 6 6.5 11 C 6.2 14.5 9 16.5 13.2 16",
+        "M 32.5 12.5 C 38 9.5 43 14 41.5 22 C 40.8 25.5 37.5 26 35.6 22.5",
+        "M 22.8 30.2 Q 24 34.6 25.2 30.2"
+      ],
+      "eyes": [
+        [
+          19.5,
+          20.5
+        ],
+        [
+          28.5,
+          20.5
+        ]
+      ],
+      "eye": 4
+    },
+    {
+      "id": "cat",
+      "name": {
+        "en": "Cat",
+        "zh-Hans": "数字猫"
+      },
+      "box": [
+        48,
+        40
+      ],
+      "paths": [
+        "M 23 26.6 L 25 26.6 L 24 27.9 Z",
+        "M 24 27.9 Q 22.6 29.8 21 28.8 M 24 27.9 Q 25.4 29.8 27 28.8",
+        "M 5.5 24.5 L 15 26 M 5.5 29 L 15 28.4 M 42.5 24.5 L 33 26 M 42.5 29 L 33 28.4"
+      ],
+      "rest": [
+        "M 12.5 18.5 L 13.5 6.5 L 20.5 12 Q 24 11 27.5 12 L 34.5 6.5 L 35.5 18.5 C 38.5 23.5 37.5 31 32 34.2 C 27 37 21 37 16 34.2 C 10.5 31 9.5 23.5 12.5 18.5 Z"
+      ],
+      "alt": [
+        "M 12.5 18.5 L 13.5 6.5 L 20.5 12 Q 24 11 27.5 12 L 38.5 9 L 35.5 18.5 C 38.5 23.5 37.5 31 32 34.2 C 27 37 21 37 16 34.2 C 10.5 31 9.5 23.5 12.5 18.5 Z"
+      ],
+      "eyes": [
+        [
+          19,
+          22
+        ],
+        [
+          29,
+          22
+        ]
+      ],
+      "eye": 4
+    },
+    {
+      "id": "term-cat",
+      "name": {
+        "en": "Terminal cat",
+        "zh-Hans": "终端猫"
+      },
+      "text": {
+        "face": "=*.*=",
+        "eye": "o",
+        "rest": [
+          "  /\\_/\\  ",
+          " ( *.* ) ",
+          "  > ^ <  ",
+          " (__|__)~"
+        ],
+        "alt": [
+          "  /\\_/\\  ",
+          " ( *.* ) ",
+          "  > ^ < )",
+          " (__|__)/"
+        ],
+        "walk": {
+          "facing": -1,
+          "speed": 4.5,
+          "step": 0.6,
+          "frames": [
+            [
+              "  /\\_/\\  ",
+              " ( *.* ) ",
+              "  > ^ <  ",
+              "  /   \\~ ",
+              " (_) (_) "
+            ],
+            [
+              "  /\\_/\\  ",
+              " ( *.* ) ",
+              "  > ^ <  ",
+              "  (   )~ ",
+              "   U U   "
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": "term-dog",
+      "name": {
+        "en": "Terminal dog",
+        "zh-Hans": "终端狗"
+      },
+      "text": {
+        "face": "U*ᴥ*U",
+        "eye": "•",
+        "rest": [
+          "  _.---._  ",
+          " / *   * \\ ",
+          "(\\   v   /)",
+          " \\\\ \\_/ // ",
+          "  (__|__)~ "
+        ],
+        "alt": [
+          "  _.---._  ",
+          " / *   * \\ ",
+          "(\\   v   /)",
+          " \\\\ \\U/ // ",
+          "  (__|__)/ "
+        ],
+        "walk": {
+          "facing": -1,
+          "speed": 5,
+          "step": 0.7,
+          "frames": [
+            [
+              "  _.---._  ",
+              " / *   * \\ ",
+              "(\\   v   /)",
+              " \\\\ \\_/ // ",
+              "  /     \\~ ",
+              " (_)   (_) "
+            ],
+            [
+              "  _.---._  ",
+              " / *   * \\ ",
+              "(\\   v   /)",
+              " \\\\ \\_/ // ",
+              "   (   )~  ",
+              "    U U    "
+            ]
+          ]
+        }
+      }
+    }
+  ]
+}

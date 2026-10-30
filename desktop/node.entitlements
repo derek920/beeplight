@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- The bundled node under the hardened runtime (release builds, see build.sh). V8 compiles
+     JavaScript at run time, so node crashes on launch without allow-jit (Apple silicon) and
+     allow-unsigned-executable-memory (Intel). Unlike the official binary's entitlements, no
+     get-task-allow: notarization rejects it. -->
+<plist version="1.0">
+<dict>
+	<key>com.apple.security.cs.allow-jit</key>
+	<true/>
+	<key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+	<true/>
+	<key>com.apple.security.automation.apple-events</key>
+	<true/>
+</dict>
+</plist>

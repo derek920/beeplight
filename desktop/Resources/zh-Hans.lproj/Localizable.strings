@@ -1,0 +1,269 @@
+/* Simplified Chinese. Keys are the English text used in the Swift code, including SwiftUI
+   interpolation specifiers: Int → %lld, Double → %lf, String → %@. */
+
+/* Models.swift */
+"Background session" = "后台会话";
+"Claude Desktop" = "Claude 桌面端";
+"CLI" = "终端";
+"Jump to task" = "跳转"; /* also Notifier.swift */
+"Open" = "打开";
+"Attach" = "接入";
+"Resume" = "恢复";
+
+/* Theme.swift */
+"%lld sec" = "%lld 秒";
+"%lld min" = "%lld 分";
+"%lld hr %lld min" = "%lld 时 %lld 分";
+"%lld hr" = "%lld 小时";
+"%lld d %lld hr" = "%lld 天 %lld 时";
+"%lld d" = "%lld 天";
+"Waiting %@" = "已等 %@";
+"Running %@" = "已运行 %@";
+"Just now" = "刚刚";
+"%@ ago" = "%@前";
+
+/* Appearance.swift */
+"Native" = "原生";
+"Neon" = "赛博霓虹";
+"Terminal" = "黑客终端";
+"Hologram" = "全息 HUD";
+"Minimal" = "极简";
+"Capsules" = "胶囊计数";
+"Traffic light" = "红绿灯";
+"Radar" = "雷达环";
+"Energy bar" = "能量条";
+"Terminal text" = "终端文字";
+"Dot" = "单点";
+"Off" = "关闭";
+"Notch" = "刘海";
+"Floating" = "悬浮";
+"Full" = "完整";
+"Gentle" = "柔和";
+"Native macOS" = "原生 macOS";
+"System colors, quiet and solid" = "系统材质与配色，安静可靠";
+"Dark neon glow, radar menu bar" = "暗色底、霓虹描边与发光，雷达环菜单栏";
+"Green mono text, scanlines" = "荧光绿等宽字、扫描线，终端文字菜单栏";
+"Blue grid, HUD corners" = "深蓝网格、角标框、能量条菜单栏";
+"Muted and still, one dot" = "低饱和、无动效，只用单点提示";
+
+/* AppearanceSettings.swift */
+"Presets" = "一键预设";
+"Sets theme, menu bar style, island and motion at once; each can still be changed on its own afterwards" = "同时设置主题、菜单栏样式、灵动岛和动效，之后每一项还能单独调整";
+"Theme" = "主题";
+"Colors, fonts and finish of the board, the menu bar panel and the island" = "看板、菜单栏面板和灵动岛的配色、字体与质感";
+"Menu bar style" = "菜单栏样式";
+"Sample: 1 waiting for you, 2 running, 1 new" = "示例：1 个等你处理、2 个进行中、1 个新完成";
+"Island" = "灵动岛";
+"Notch mode shows a pill at the top center on screens without a notch; floating mode can be dragged anywhere" = "刘海模式在没有刘海的屏幕上显示为顶部居中的胶囊；悬浮模式可以拖到任意位置";
+"Expand on hover" = "鼠标悬停时展开";
+"Pop up when a task finishes or needs you" = "任务完成或需要你时弹出提示";
+"Motion" = "动效";
+"Spinners, pulses, breathing glow and island animations; “Gentle” keeps only a slow spinner" = "转圈、脉冲、呼吸光晕和灵动岛动画；“柔和”只保留慢速转圈";
+"Restore defaults" = "恢复默认";
+"Preview" = "预览";
+"Move the orders table to new partitions" = "迁移订单表到新分区";
+"The migration script is ready and needs your OK before it runs" = "迁移脚本已写好，执行前需要你确认";
+"Needs permission" = "等待授权";
+"Refactor the login form validation" = "重构登录页的表单校验";
+"3 components done, running unit tests" = "已改完 3 个组件，正在跑单元测试";
+"Running" = "进行中"; /* also Board.swift, Panel.swift */
+
+/* Board.swift */
+"Needs your attention" = "需要你处理";
+"Nothing is waiting for you" = "没有在等你的任务";
+"Claude is working" = "Claude 正在执行";
+"Nothing is running" = "当前没有在跑的任务";
+"Turn ended" = "本轮已结束";
+"Nothing finished yet" = "还没有完成的任务";
+"Mark all read" = "全部已读"; /* also Island.swift, Panel.swift */
+"Mark every new finish as read" = "把所有新完成的任务标为已读";
+"All" = "全部";
+"Succeeded" = "成功";
+"Failed" = "失败"; /* also Panel.swift */
+"Every Claude Code session and agent on this Mac · Click a card to jump to its window" = "本机所有 Claude Code 会话与 agent · 点击卡片跳到对应窗口";
+"Waiting" = "需要你"; /* also Panel.swift */
+"Done" = "完成"; /* also Panel.swift */
+"%lld new" = "%lld 新"; /* also Panel.swift */
+"%lld finished, not viewed yet" = "%lld 个任务完成了还没查看";
+"Summarizing" = "总结中";
+"… and %lld more" = "… 还有 %lld 个子 agent";
+"Requests: %lld, output tokens: %@, about %@ at API prices. The share of a limit is estimated from API-equivalent cost as a part of this Mac's usage; other devices aren't counted." = "累计 %lld 次请求，输出 %@ tokens，按 API 价约 %@。额度占比按 API 等价成本在本机用量中的比例估算，未计其他设备。";
+"Last 30 min" = "最近 30 分钟";
+"This turn: ran %@ · waited %@" = "本轮 运行 %@ · 等你 %@";
+"This turn: ran %@" = "本轮 运行 %@";
+"Suspended" = "已挂起";
+"The process is suspended (Ctrl+Z); type fg in its terminal to resume" = "进程被挂起（Ctrl+Z），在终端里输入 fg 恢复";
+"Switched to a new session" = "已切换到新会话";
+"Closed" = "已关闭";
+"Summarize title and result again" = "重新总结标题和结果"; /* also Panel.swift */
+"Remove from board (it comes back on new activity)" = "从看板移除（有新进展时会重新出现）";
+"Last request: %@" = "最近一次请求：%@";
+"Session: %@ tokens" = "本会话 %@ tokens";
+"5h ≈%@" = "占 5 小时额度 ≈%@";
+"wk ≈%@" = "本周 ≈%@";
+"Empty sessions hidden: %lld" = "另有 %lld 个还没开始的空会话未显示";
+"Sessions quiet for 12+ hr hidden: %lld" = "%lld 个超过 12 小时没有动静的会话未显示";
+"Haiku summaries: %lld done" = "标题与结果由 Haiku 总结：已完成 %lld 次";
+", %lld running, %lld queued" = "，进行中 %lld，排队 %lld";
+", %lld failed" = "，失败 %lld";
+"Beeplight's Haiku calls today: %lld ≈%@" = "监控自身今天调用 Haiku %lld 次 ≈%@";
+
+/* Glyphs.swift */
+"New, not viewed yet. It counts as read once you open the task, stay on its terminal tab for a moment, or send it a new message" = "新完成，还没查看。点开这个任务、在它的终端标签页停留一下，或给它发新消息，就算已读";
+
+/* Island.swift */
+"Awaiting your reply" = "等你回复";
+"Waiting for you" = "需要你处理"; /* also Panel.swift */
+"Task failed" = "任务失败";
+"Task done" = "任务完成";
+"Claude is idle" = "Claude 空闲中";
+"View" = "查看";
+"5h %@ · wk %@" = "5h %@ · 周 %@";
+"Nothing running or waiting for you" = "现在没有在跑或等你的任务";
+"Open board" = "打开看板"; /* also Panel.swift */
+
+/* Monitor.swift */
+"Couldn't get limits: %@" = "额度获取失败：%@";
+"Refreshing limits…" = "正在刷新额度…";
+"Limits updated %@" = "额度更新于 %@";
+"wk" = "周";
+"Waiting for you · %@" = "需要你处理 · %@";
+"Task failed · %@" = "任务失败 · %@";
+"Task done · %@" = "任务完成 · %@";
+"5-hour limit" = "5 小时额度"; /* also Quota.swift */
+"Weekly limit" = "本周额度"; /* also Quota.swift */
+"%@ at %@" = "%@已用 %@";
+"Resets %@" = "%@ 重置"; /* also Quota.swift */
+"Resets %@; %@" = "%@ 重置；%@";
+"Limits refreshed" = "额度已刷新";
+"Refresh failed" = "刷新失败";
+"Marked all read" = "已全部标为已读";
+"Couldn't jump to task: %@" = "跳转失败：%@";
+"Unknown error" = "未知错误";
+"Queued to summarize again" = "已重新排队总结";
+"This session has nothing to summarize" = "这个会话没有可总结的内容";
+"Removed from board" = "已从看板移除";
+"Request failed: %@" = "请求失败：%@";
+
+/* Notifier.swift: "Jump to task" is listed under Models.swift. */
+
+/* Panel.swift */
+"Recently done" = "最近完成";
+"New" = "新完成";
+"Live · %@/s" = "实时 · %@ 次/秒";
+"Connecting…" = "连接中…";
+"Remove from board" = "从看板移除";
+"Copy session ID" = "复制会话 ID";
+"Show project in Finder" = "在 Finder 中显示项目";
+"No Claude tasks right now" = "现在没有 Claude 任务";
+"Connecting to the local Beeplight service…" = "正在连接本地监控服务…";
+"Today" = "今天";
+"%lld done" = "完成 %lld 轮";
+"%lld failed" = "失败 %lld 轮";
+"Claude worked %@" = "Claude 工作 %@";
+"Worked %@" = "Claude 工作 %@";
+"Waited for you %@" = "等你 %@";
+"Waited %@" = "等你 %@";
+"Waited for you %@ (longest %@)" = "等你 %@（最长 %@）";
+"Appearance…" = "外观设置…";
+"Phone Access…" = "手机访问…";
+"Notify when a task needs you" = "有任务等我处理时通知";
+"Notify when a task finishes or fails" = "任务完成或失败时通知";
+"Notify at 80% / 95% of a limit" = "额度用到 80% / 95% 时通知";
+"Show SDK sessions" = "显示 SDK 会话";
+"Launch at login" = "登录时启动";
+"Open board in browser" = "在浏览器中打开看板";
+"Open data and logs folder" = "打开数据与日志目录";
+"Quit Beeplight" = "退出 Beeplight";
+"Couldn't change the setting: %@" = "设置失败：%@";
+
+/* PhoneSettings.swift */
+"Couldn't load: %@" = "读取失败：%@";
+"Couldn't apply the change. Is the Beeplight service running?" = "设置失败，监控服务是否在运行？";
+"View on your phone" = "在手机上查看";
+"Put your phone on the same Wi-Fi as this Mac and scan the code. Then in Safari tap “Share → Add to Home Screen” (Android Chrome: menu → Add to Home screen) to use it full screen, like an app." = "手机和这台 Mac 连同一个 Wi-Fi，扫码打开后，在 Safari 里点「分享 → 添加到主屏幕」（安卓 Chrome：菜单 → 添加到主屏幕），就能像 app 一样全屏使用。";
+"Allow phones on the local network" = "允许手机通过局域网访问";
+"No Wi-Fi or wired network address found. VPN addresses aren't used, since phones can't reach them." = "没找到 Wi-Fi 或有线网络地址。VPN 地址手机连不到，不会使用。";
+"Address" = "地址";
+"Copy link" = "复制链接";
+"Reset pairing code" = "重置配对码";
+"The old QR code and paired phones stop working and need to scan again" = "旧二维码和已配对的手机都会失效，需要重新扫码";
+"Turn on network access to show the QR code" = "打开局域网访问后显示二维码";
+"Enter this pairing code in the home screen app" = "主屏幕 app 里输入配对码";
+"New code in %lld:%@ · single use" = "%lld:%@ 后更换 · 只能用一次";
+"Changing code…" = "正在更换…";
+"Good to know" = "需要知道的";
+"A phone can only read data with the pairing code from the QR code, and resetting it locks phones out at once. The switch and the pairing code can only be changed on this Mac." = "手机必须带着二维码里的配对码才能读数据；重置后立刻失效。开关和配对码只能在这台 Mac 上改。";
+"The connection is plain HTTP, not encrypted. Only turn this on in trusted networks such as at home or on a phone hotspot; on office or public Wi-Fi, others on the network can see the traffic." = "连接是 HTTP，没有加密。只在家里、手机热点这类可信网络里打开；公司或公共 Wi-Fi 上，同网段的人能看到传输内容。";
+"Office Wi-Fi usually keeps devices from reaching each other. Then turn on Personal Hotspot on the phone and connect it to the Mac with a USB cable (or join the iPhone's network from the Mac's Bluetooth menu); an “iPhone USB” or Bluetooth address shows up here, so scan its QR code. The Mac stays on the office Wi-Fi for the internet." = "公司 Wi-Fi 一般禁止设备互访。这时在手机上打开「个人热点」，用 USB 线连到 Mac（或在 Mac 的蓝牙菜单里连接 iPhone 的网络），这里会出现「iPhone USB」或蓝牙地址，扫它的二维码即可。Mac 上网仍走公司 Wi-Fi。";
+"The first time, the macOS firewall asks whether node may accept incoming connections; click “Allow”." = "第一次打开时 macOS 防火墙会问是否允许 node 接收传入连接，需要点「允许」。";
+"HTTP pages can't send push notifications: while the page is open it vibrates and shows a banner, but nothing arrives once the phone is locked." = "HTTP 页面不能发系统推送：打开着页面时会震动并弹出横幅，锁屏后收不到。";
+"General" = "通用";
+"Appearance" = "外观";
+"Phone" = "手机";
+
+/* GeneralSettings.swift */
+"Follow system" = "跟随系统";
+"Language" = "语言";
+"For the app, the web board, the phone page and task titles written from now on. “Follow system” uses the Mac's language." = "Mac 应用、网页看板、手机页面和之后生成的任务标题都用这个语言。「跟随系统」使用 Mac 的语言。";
+"Takes effect after Beeplight restarts" = "重启 Beeplight 后生效";
+"Restart now" = "立即重启";
+
+/* Quota.swift */
+"Sampling; burn rate coming soon" = "采样中，稍后给出消耗速度";
+"No new usage lately" = "最近没有新增消耗";
+"+%@ per hour" = "每小时 +%@";
+"%@, runs out in about %@ (before reset)" = "%@，约 %@后用完（重置前）";
+"%@, lasts until reset" = "%@，重置前用不完";
+"Resets %@ · %@ left" = "%@ 重置 · 还剩 %@";
+"No limit data yet" = "还没拿到额度数据";
+"This Mac: %@ tokens · %@ output · ≈%@" = "本机 %@ tokens · 输出 %@ · ≈%@";
+"Usage in this window from this Mac's transcripts (subagents included), not counting claude.ai on the web or other devices. Amounts are API-equivalent prices used only as weights, not a bill." = "本机 transcript 在这个窗口内的用量（含子 agent），不含 claude.ai 网页和其他设备。金额是 API 等价价格，只用来加权，不是账单。";
+"Top sessions this week" = "本周用量最多的会话";
+"Share of weekly limit (est.)" = "占周额度（估算）";
+"No usage this week yet" = "本周还没有用量";
+"Refresh limits" = "刷新额度";
+"Live" = "在线";
+"%@ · requests: %lld · about %@ at API prices" = "%@ · %lld 次请求 · 按 API 价约 %@";
+"5h" = "5 小时";
+"Week" = "本周";
+
+/* Server.swift */
+"The app bundle is missing the Beeplight service; rebuild the app" = "应用包里缺少监控服务，请重新构建";
+"Can't find node; install Node.js ≥ 20.11 first" = "找不到 node，请先安装 Node.js ≥ 20.11";
+"Couldn't start the Beeplight service: %@" = "启动监控服务失败：%@";
+
+/* Face.swift, Appearance.swift, Island.swift: idle face */
+"Robot eyes" = "机器人眼睛";
+"Classic" = "经典";
+"Character" = "形象";
+"Shown in the menu bar and the island when nothing is running, waiting or new, with color and energy that follow how much usage limit is left. The phone's status screen shows it too; the drawn characters there act out every state" = "没有任务在跑、等你或新完成时显示在菜单栏和灵动岛，颜色和精神跟着剩余额度变。手机状态屏也会显示；简笔形象在手机上会演出每种状态";
+"Usage limit left" = "剩余额度";
+
+/* DevicesSettings.swift, Models.swift, Monitor.swift, Board.swift: syncing with other devices */
+"Devices" = "设备";
+"%@ · offline" = "%@ · 离线";
+"This task runs on %@" = "这个任务在「%@」上运行";
+"Runs on another device; synced through your relay" = "在你的另一台设备上运行，通过中转服务同步";
+"Your other devices" = "你的其他设备";
+"See the tasks on your other Macs here, through a relay you run yourself (relay/server.js in the Beeplight repository). Each device encrypts its titles, states and current steps before uploading; the relay only sees ciphertext. Tasks from other devices are read-only here." = "通过你自己部署的中转服务（Beeplight 仓库里的 relay/server.js），在这里看到其他 Mac 上的任务。每台设备上传前先把标题、状态和当前步骤加密，中转服务只看得到密文。其他设备的任务在这里只能看，不能操作。";
+"Join code for your other devices. It holds the group key: share it only with your own devices." = "给你其他设备用的加入码。里面有设备组的密钥，只发给你自己的设备。";
+"Start a group" = "创建设备组";
+"Relay address" = "中转服务地址";
+"Access token (BEEPLIGHT_RELAY_TOKEN)" = "访问令牌（BEEPLIGHT_RELAY_TOKEN）";
+"Create group" = "创建";
+"Or join a group" = "或者加入已有的设备组";
+"Join code from another device" = "另一台设备上的加入码";
+"Join" = "加入";
+"This Mac: %@" = "这台 Mac：%@";
+"Devices in the group" = "组里的设备";
+"No other device yet. On another Mac, open Settings → Devices and paste this group's join code." = "还没有其他设备。在另一台 Mac 上打开「设置 → 设备」，粘贴这个设备组的加入码。";
+"Tasks: %lld" = "任务 %lld 个";
+"Last seen %@" = "最后在线 %@";
+"Copy join code" = "复制加入码";
+"Leave group" = "退出设备组";
+"Stops syncing and removes this Mac from the group on the relay" = "停止同步，并从中转服务上的设备组里移除这台 Mac";
+"Connected to %@" = "已连接 %@";
+"Can't reach the relay at %@" = "连不上中转服务 %@";
+"Connecting to %@…" = "正在连接 %@…";
+

@@ -1,0 +1,23 @@
+{
+  "name": "beeplight",
+  "version": "0.2.0",
+  "description": "Beeplight: a menu bar status light for every Claude Code session and agent on your Mac",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test",
+    "service:install": "sh scripts/launchd.sh install",
+    "service:uninstall": "sh scripts/launchd.sh uninstall",
+    "service:restart": "sh scripts/launchd.sh restart",
+    "service:status": "sh scripts/launchd.sh status",
+    "app": "sh desktop/build.sh",
+    "app:install": "sh desktop/build.sh --install",
+    "app:dist": "sh desktop/build.sh --dist",
+    "relay": "node relay/server.js"
+  },
+  "engines": {
+    "node": ">=20.11"
+  }
+}
