@@ -19,13 +19,27 @@ arch -x86_64 desktop/build/Beeplight.app/Contents/MacOS/Beeplight --snapshot /tm
 desktop/build/Beeplight.app/Contents/MacOS/Beeplight --snapshot /tmp/snap   # 把看板、菜单栏面板、菜单栏徽章渲染成 PNG 后退出
 ```
 
-保持零依赖，不要引入 npm 包。需要 Node ≥ 20.11（用到 `import.meta.dirname`）。改完前端直接刷新页面即可（静态文件 no-store）；改后端要重启服务（或 `npm run service:restart`）。
+需要 Node ≥ 20.11（用到 `import.meta.dirname`）。改完前端直接刷新页面即可（静态文件 no-store）；改后端要重启服务（或 `npm run service:restart`）。
 
 **Mac 应用会把 `src/` 和 `public/` 复制进 app 包**，所以改了服务端代码，要重新 `npm run app`，再退出并重开 app，它才会用上新代码。app 退出时会停掉自己启动的 Node 进程。但如果 7333 端口上已经有服务在跑（开发时的 `npm start`），app 会直接复用它，这时 app 内置的那份代码不生效。截图不能用 `screencapture`，因为终端没有屏幕录制权限，只能截到壁纸；用上面的 `--snapshot`。
 
-## 架构
+## 开发约束
 
-目录分层（`src/`）：每层只能 import 自己这一层和下表右栏列出的层，`test/architecture.test.js` 会检查。
+改代码前先读这一节。这里每一条都是约束，不是建议；确实要打破某一条时，先改这里并写明原因。安全约束和多语言约定在文末各自的章节。
+
+### 架构
+
+- 判断只在服务端做。Node 服务（`src/`）负责采集、判定状态、总结和统计用量；网页、Mac 应用、iPhone 应用都读同一个 `/api/stream`，只负责展示，不自己重新判定状态。
+- 只读，不侵入。只读 Claude Code 写下的文件和进程表：不装 hook，不改 Claude Code 的配置，不往 `~/.claude` 里写东西。
+- Claude Code 的内部格式是逆向得来的，随时会变，只在 `src/sources/claude-code/` 里解析，其他地方只用解析后的结果。Claude Code 升级后的适配只改这个目录。
+- 同一条规则只写在一处：状态判定只在 `deriveStatus()`；请求的安全检查只在 `src/transports/http.js`；Mac 和 iOS 画形象只用 `Figure.draw()`。
+- 离开这台 Mac 的数据只有两类：一是总结时经用户自己的 `claude` 登录发给 Anthropic 的对话摘录，二是跨设备同步时经 `shareView()` 白名单裁剪并加密的任务摘要。新增任何对外发送，都要先在 README 的隐私说明里写清楚。
+- 开源边界：本仓库按 Apache-2.0 开源。收费功能（iOS 上的抽卡形象）的逻辑和美术素材不进本仓库，本仓库只放格式定义和接口。
+- 零依赖：Node 服务和 `relay/server.js` 不引入 npm 包；Mac 应用只用系统框架。
+
+### 分层
+
+`src/` 按层分目录。每层只能 import 自己这一层，以及右栏列出的层；`test/architecture.test.js` 会检查每一条 import。
 
 | 目录 | 内容 | 可以 import |
 |---|---|---|
@@ -38,7 +52,90 @@ desktop/build/Beeplight.app/Contents/MacOS/Beeplight --snapshot /tmp/snap   # �
 | `actions/` | 在 Mac 上动手：跳转窗口（`focus.js`）、检测看过的标签页（`seen.js`） | lib、config |
 | `transports/` | 对外：`http.js`（统一的请求检查）、`api.js`（全部接口）、`web.js`（页面外壳）、`stream.js`（SSE）、`lan.js`、`relay.js` | lib、config |
 
-`src/server.js` 是入口，也是唯一知道所有模块的地方：它创建各个模块，把 actions、transports 要用的 core 对象作为参数传进去，它们不直接 import core。新加目录要同时加进测试里的 `ALLOWED` 和 `server.js` 顶部的说明。
+- `src/server.js` 是入口，也是唯一知道所有模块的地方，所有模块都在这里创建和接线。actions 和 transports 需要的 core 对象由它作为参数传入，它们不直接 import core。
+- 任何模块都不能 import `server.js`。
+- 新加一层或一个目录时，先想清楚它建立在哪些层之上，然后同时更新测试里的 `ALLOWED`、`server.js` 顶部的分层说明和这张表。
+- transports 里不写业务逻辑。路由只取出参数，然后调用模块的方法。
+
+### 模块化
+
+- 一个文件只做一件事，放在它所属层的目录里。文件开头用一两句注释说明它负责什么，必要时说明为什么这样做。
+- 依赖从构造参数传入（`store`、`runner`、`config` 等），不在模块内部创建别的模块。全局单例只有 `config` 和 i18n 的当前语言；接收 `config` 的类默认用单例，测试时可以换掉。
+- 不直接改别的模块的内部字段，一律通过方法。例如从看板移除任务调用 `collector.dismiss()`，而不是在路由里改 `collector.sig`。
+- 新增接口：在 `src/transports/api.js` 里声明路由和它的 `access`，并在 `test/http.test.js` 里补测试。
+- 新增视图字段（`buildView()`）：客户端模型里写成可选，iPhone 应用才能继续解码。新字段默认不同步到其他设备，要同步就加进 `shareView()` 白名单。
+- 和 iPhone 应用共用的文件有使用限制，见文末「和 iPhone 应用共用的文件」。
+- 改动要配套测试：状态规则对应 `test/status.test.js`，接口对应 `test/http.test.js`，参数对应 `test/config.test.js`，分层由 `test/architecture.test.js` 自动检查。`npm test` 全部通过才能提交。
+
+### 性能
+
+目标：Mac 应用空闲时 CPU 接近 0，有任务执行时在个位数；服务端常态约 1%，一次 tick 在 1 毫秒左右（看 `/api/state` 的 `meta.tickMs`）。
+
+服务端：
+
+- tick 里只做轻活：不同步读大文件，不启动子进程，不调 LLM。重活异步、分块做，中间让出事件循环（参照 `UsageIndex`）。
+- 文件只增量读：记住读到的位置，只读新写入的部分。首次读取和每次读取都有上限（`transcript.initialTailMB`、`transcript.maxReadMB`）。
+- 只在变化时推送：state 按签名去重；每秒都在变的数据（今日统计、用量）放在 meta 里，不进 state 签名。SSE 每个事件只序列化一次。
+- 外部命令按固定节奏调用，并且只在需要时调用：`ps` 每 2 秒一次；`osascript` 只在跳转时调用，另外在有未读任务时由 `seen.js` 每 1.5 秒调用一次。
+- LLM 调用一律经过 `Summarizer` 的队列，由它负责去重、并发、每小时上限和失败退避；额度探测也有固定间隔。不要在别处直接调 `claude -p`。
+- 常驻内存的数据都要有上限或过期时间：解析结果只保留最近若干条，用量记录和额度样本只保留 8 天，store 里的条目都带过期时间。待改：store 目前只在启动时清理一次，app 长时间不重启时会一直累积。
+
+Mac 应用：
+
+- `Monitor` 是 `@Observable`，视图只在自己读过的属性变化时重算。所以属性一律变了才赋值（`assign`），变化频率不同的数据分开存，比如 meta 拆成 `hz`、`today`、`summarizer`、`usage`、`limits`。
+- 每秒变一次的时钟只在叶子视图里读：用 `Ticking(monitor) { now in … }` 包住，不要在列表或窗口的 body 里读。按分钟显示的倒计时读 `minute`；判断任务是否紧急用 `isUrgent(_:)`，它不读时钟。
+- 常驻动画用 `LayerEffects.swift` 里的 Core Animation 图层实现。不要用 `TimelineView(.animation)`、`.symbolEffect`、`repeatForever` 或按时钟切换的 `.animation`：SwiftUI 每一帧都会让整个窗口重新布局，并在 CPU 上重画。
+- 阴影由形状投射（`themedCard` 给底板加阴影），不要给整张卡片加 `.shadow`。否则卡片里任何文字一变，就要连同模糊效果整张重画。
+- 只有任务增减、换位置或换状态时才加列表动画；只是文字或数字变了，直接更新。
+- 创建成本高的对象（`DateFormatter`、渲染好的图片）要缓存。父视图每次重算时，子视图的 `init` 和 `@State` 的初始值都会重新执行，里面不能做耗时操作。
+- 菜单栏图标的帧按内容缓存，像素相同的帧共用一张图，图没变就不调用 `setImage`。
+
+网页：
+
+- 列表按任务 id 原地更新（`patchList()`），不整体重建。
+- 常驻动画只改 CSS 的 `transform` 和 `opacity`，它们由合成器处理，不触发布局和重绘。`box-shadow` 这类属性每帧都要重绘。待改：现有的 `breathe`、`amb-orb` 还在循环动画 `box-shadow`。
+
+验证：
+
+- 性能相关的改动，要在相同条件下测改动前后：开着哪些窗口、几个任务在执行或等待，都要一致。提交说明里写上数字和条件。
+- 平均 CPU 用 `top -l 16 -s 1 -pid <pid> -stats pid,cpu` 测，热点用 `sample <pid> 4 -file <文件>` 找：看主线程里 `CA::Transaction::commit`、`_layoutSubtreeWithOldSize`、`NSStatusItem _updateReplicants` 的占比。窗口是否在屏幕上，用 `CGWindowListCopyWindowInfo` 确认。界面用 `--snapshot` 核对，它能截到图层画的效果。
+
+### 配置化
+
+服务端的运行参数集中在 `src/config/schema.js` 这一张表里，由 `src/config/index.js` 的 `Config` 加载。
+
+- 优先级：默认值 < 数据目录下的 `config.json` < 环境变量。环境变量名是 `BEEPLIGHT_<键名大写下划线>`，旧的变量名作为 `aliases` 保留。
+- `config.json` 每 2 秒检查一次修改时间，手改后自动重新加载。JSON 写坏时保留上一次的有效值；未知的键和非法值会被忽略，但在文件里原样保留，并在设置页列出来。
+- `GET/POST /api/config` 只对本机开放，POST 是全有或全无。Mac 的「高级」设置页（`AdvancedSettings.swift`）完全按接口返回的描述生成。
+
+约束：
+
+- 会影响行为、成本或性能、用户可能想调的数值，都放进 schema。模块里不新写这类魔法数字，也不直接读 `process.env`；数据目录、Claude 配置目录、语言这类路径和环境信息，只在 `src/config/index.js` 里读。
+- schema 里一个参数一行：键名带单位后缀（`…Ms`、`…Sec`、`…Minutes`、`…Hours`、`…MB`），写明类型、默认值、范围（数字用 `min`/`max`，文本用 `pattern` 或 `maxLength`）、标签和说明，再到 `src/lib/i18n.js` 补上标签和说明的中文。Mac 端不用改。
+- 用到的时候才调用 `config.get(key)`，不要在模块加载时把值存成常量，否则改了不会生效。定时器用 `config.every(key, 倍数, fn)`，间隔一改就自动重新计时。
+- `restart: true` 只给确实无法热更新的参数（目前只有端口）。
+- 校验只在 schema 里做一处：客户端把输入原样提交，由服务端校验并返回错误。
+- 不放进配置的：别的程序依赖的约定（meta 每秒推一次，是 Mac 端判断连接是否断开的心跳；同步相关的时间要在所有设备上一致），以及解析细节。
+- 测试里用 `new Config({ file: null, env: {} })`，不读本机的配置文件和环境变量。
+- 客户端自己的偏好（外观、通知开关、语言）不属于服务端配置：Mac 存在 UserDefaults，网页存在 localStorage。UserDefaults 的解码要手写容错，缺少的字段用默认值（见「外观」）。
+
+### 插件化（主题和形象）
+
+还没有实现。下面是已经定下的设计约束，实现时照此执行：
+
+- 插件是只含数据的包（JSON 加图片或 SVG），不含可执行代码。原因：iOS 不允许下载并执行代码；Beeplight 能控制终端，加载外部代码风险太大；纯数据的包，Mac、网页、iPhone 三端可以共用同一份。
+- 只有官方包。不提供让用户或第三方安装包的目录；app 包以外来源的包，必须带官方签名。
+- 包分三类：主题（浅色和深色两套色板、发光、圆角、字体风格、扫描线和网格、默认动效）、形象（现在 `characters.json` 里的条目）、预设（主题、菜单栏样式、灵动岛、动效、形象的组合）。现有的 5 个主题改成 5 个内置包；网页端用同一份数据生成 CSS 变量。
+- 菜单栏样式和灵动岛布局是绘制代码，不做成数据，包只能选用它们并调参数。
+- 包格式带版本号（`format`）。解码要容错：不认识的字段忽略，新字段一律可选。选中的包不存在或解码失败时，只让那一项回退到默认，不能重置整套外观设置。
+- 包的数据结构和解码写在只依赖 Foundation 或 SwiftUI 的共享文件里（和 `Figure.swift` 一样），供 iPhone 应用编译。
+- 收费的抽卡形象只放在 iOS 应用里（2026-10-30 定）。本仓库不放付费逻辑和付费素材，只提供：形象包里的 `rarity`（稀有度）、`series`（系列）、`requires`（解锁所需的权益）字段，以及共享文件里的权益接口 `EntitlementProvider`。开源版的实现是「内置形象全部可用」。
+- 付费包用 Ed25519 签名，app 内置公钥验签。签名只能证明包来自官方；开源的 app 被人改代码就能绕过解锁，这一点是接受的。
+- App Store 审核指南 3.1.1 要求付费随机物品在购买前公示各档概率，所以概率表是包里的数据，界面必须能展示出来。
+
+## 架构
+
+目录分层和各层的依赖规则见「开发约束 → 分层」。
 
 数据流：`Collector.tick()`（`src/core/collector.js`）每 tick 读取下面的数据源 → `deriveStatus()`（`src/core/status.js`）判定状态 → 必要时让 `Summarizer` 排队调 LLM → 拼出视图，签名有变化才 `emit('update')` → `EventStream`（`src/transports/stream.js`）用 SSE 推送，每个事件只序列化一次。
 
@@ -51,15 +148,7 @@ desktop/build/Beeplight.app/Contents/MacOS/Beeplight --snapshot /tmp/snap   # �
 
 三态规则只在 `deriveStatus()` 一处定义，优先级：registry 的 waiting/busy → 不在线的后台 job 用 daemon 判定 → 硬失败信号（中途退出、API 错误、中断）→ 本轮结束时的 LLM 判定（`blocked` 映射成 Waiting，`working` 映射成 Doing）→ 还没判定时临时显示为成功，并带 `pending`。改规则时同步改 `test/status.test.js`。
 
-运行参数（`src/config/schema.js` 是参数表，`src/config/index.js` 的 `Config` 负责加载）：
-
-- 优先级：默认值 < 数据目录下的 `config.json` < 环境变量。环境变量名是 `BEEPLIGHT_<键名大写下划线>`，旧变量名作为 `aliases` 保留。单位写在键名里（`…Ms`、`…Sec`、`…Minutes`、`…Hours`、`…MB`）。
-- 模块在用到参数时才调用 `config.get(key)`，所以改动不用重启。带 `restart: true` 的参数（目前只有端口）只在启动时读一次。定时器用 `config.every(key, 倍数, fn)` 创建，间隔一改就自动重新计时。
-- 各个类通过构造参数接收 `config`，默认用全局单例。测试里传 `new Config({ file: null, env: {} })`，就不会读到本机的配置文件和环境变量。
-- `config.json` 每 2 秒检查一次修改时间，手改后自动重新加载。JSON 写坏时保留上一次的有效值。未知的键和非法值会忽略，但在文件里原样保留，并在设置页列出来。
-- `GET/POST /api/config` 只对本机开放；POST 是全有或全无，任何一项非法就整批不保存。Mac 的「高级」设置页（`AdvancedSettings.swift`）完全按接口返回的描述生成。
-- 新增参数：在 schema 里加一行，再到 `src/lib/i18n.js` 补上标签和说明的中文译文。
-- 故意不放进来的：其他程序依赖的约定（meta 每秒推一次，是 Mac 端判断连接的心跳；同步相关的时间要在所有设备上一致），以及解析细节。
+运行参数见「开发约束 → 配置化」。
 
 LLM 总结（`src/services/summarizer.js`）：
 
@@ -99,13 +188,8 @@ Token 用量与额度：
 Mac 应用（`desktop/`）：
 
 - `Server.swift`：健康检查，端口上没有服务时用内置代码拉起 Node。`build.sh` 打包的是官方 Node.js（版本固定在 `NODE_DIST`），第一次构建时从 nodejs.org 下载、按 SHASUMS256.txt 校验，缓存在 `desktop/build/node`；`--dist` 用 `lipo` 把 arm64 和 x64 合成通用版，平时只打本机架构（`NODE=` 可以换成指定的 node，`--dist` 不用它）。它放在 `Contents/MacOS/node`，许可证放在 `Resources/node-LICENSE`，所以用户不用装 Node；`findNode()` 优先用它。因为 app 跑的不再是 nvm 的 node，`src/config/index.js` 的 `findClaudeBin()` 会自己去 `~/.nvm/versions/node/*/bin` 找 claude。
-- `Monitor.swift`：SSE 客户端（`URLSession.bytes.lines` 会丢掉空行，所以收到 `data:` 行就立刻处理）、通知触发、菜单栏徽章。
-  - `Monitor` 是 `@Observable`：视图只在自己读过的属性变化时重算。所以属性一律变了才赋值（`assign`）；meta 拆成 `hz`、`today`、`summarizer`、`usage`、`limits` 分开存。
-  - 每秒变一次的 `now` 只在 `Ticking(monitor) { now in … }` 这类叶子视图里读，不要在列表或窗口的 body 里读，否则整个窗口每秒重算。按分钟显示的倒计时读 `minute`；任务是否紧急读 `isUrgent(_:)`，它不依赖时钟。
-  - 快照里只有文字或数字变化时不加动画，只有任务增减、换位置或换状态才用弹簧动画。
-  - 有任务执行时，菜单栏徽章每秒换 12 帧。帧按计数、样式、相位、主题、深浅缓存，像素相同的帧共用一张图，图没变就不调用 `setImage`。
-- 常驻动画（转圈、紧急卡片的呼吸发光、等待图标的脉冲）写在 `LayerEffects.swift` 里，用 Core Animation 图层实现，由窗口服务器驱动，app 每帧没有开销。不要用 `TimelineView(.animation)`、`.symbolEffect`、`repeatForever` 或按时钟切换的 `.animation` 做常驻动画：SwiftUI 每帧都会让整个窗口重新布局，并在 CPU 上重画。卡片阴影由底板形状投射（`themedCard`），不要给整张卡片加 `.shadow`，否则卡片里任何文字一变，就要连同模糊效果整张重画。
-- 查 CPU：`sample <pid> 4 -file <文件>`，看主线程里 `CA::Transaction::commit`、`_layoutSubtreeWithOldSize`、`NSStatusItem _updateReplicants` 的占比。截图验证用 `--snapshot`，它能截到图层画的效果。
+- `Monitor.swift`：SSE 客户端（`URLSession.bytes.lines` 会丢掉空行，所以收到 `data:` 行就立刻处理）、通知触发、菜单栏徽章。它是 `@Observable`，写法上的约束见「开发约束 → 性能」。有任务执行时，菜单栏徽章每秒换 12 帧。
+- `LayerEffects.swift`：常驻动画（转圈、紧急卡片的呼吸发光、等待图标的脉冲）的 Core Animation 实现，由窗口服务器驱动，所有实例对齐到同一个相位。
 - `Board.swift` / `Panel.swift`：两套界面。
 - `Glyphs.swift`：状态图标、时间轴和菜单栏渲染。
 - 菜单栏图标「看不见」有两种情况，先用 `CGWindowListCopyWindowInfo` 看 layer 25 的窗口：
@@ -115,7 +199,7 @@ Mac 应用（`desktop/`）：
 - `Info.plist`：必须带 `NSAppleEventsUsageDescription`，否则由 app 拉起的 Node 调 osascript 控制 iTerm2 会被 TCC 静默拒绝。
 - 签名：默认 ad-hoc 签名，每次重新构建签名都会变，系统可能会重新询问通知和自动化权限。发布版见下面的「发布」。
 
-看板过滤（`Collector.publish()`）：从没收到过请求的会话（`state: idle`）不显示；超过 `RETAIN_ENDED_MS` 没有动静、且不是执行中或真实授权等待的也不显示，例如桌面端在启动时重新拉起的老对话。
+看板过滤（`Collector.publish()`）：从没收到过请求的会话（`state: idle`）不显示；超过 `collector.retainHours`（默认 12 小时）没有动静、且不是执行中或真实授权等待的也不显示，例如桌面端在启动时重新拉起的老对话。
 
 手机访问（`src/transports/lan.js`）：默认关闭。打开后，为每个 Wi-Fi / 有线网卡地址（`en*`、`bridge*`，不含 VPN 的 `utun*`）各起一个额外的 http.Server，和本机服务共用同一个 `handler`。
 - 本机请求的判定：来源是 loopback，并且 Host 是 localhost / 127.0.0.1。除此之外都按局域网请求处理：Host 必须是网卡地址或 `<LocalHostName>.local`，`/api/*` 必须带配对码（`x-beeplight-token` 头或 `?t=`）。
