@@ -225,14 +225,33 @@ struct CornerBrackets: View {
     }
 }
 
+/// The theme's color scheme for one view, or the surrounding one when the theme follows the system.
+private struct ThemedScheme: ViewModifier {
+    @Environment(\.colorScheme) private var surrounding
+
+    func body(content: Content) -> some View {
+        content.environment(\.colorScheme, Theme.palette.scheme ?? surrounding)
+    }
+}
+
 extension View {
     /// Root-level styling for the current theme: color scheme, font design, text color, overlays.
     func themedRoot() -> some View {
+        themedStyle().preferredColorScheme(Theme.palette.scheme)
+    }
+
+    /// themedRoot() for a view that shares its window, like the Appearance settings tab. The color
+    /// scheme is set for this view only: preferredColorScheme applies to the whole window's content,
+    /// so with a dark theme the other tabs drew white text on their light background.
+    func themedPage() -> some View {
+        themedStyle().modifier(ThemedScheme())
+    }
+
+    private func themedStyle() -> some View {
         let p = Theme.palette
         return self
             .fontDesign(p.fontDesign)
             .foregroundStyle(p.text.map { AnyShapeStyle($0) } ?? AnyShapeStyle(.primary))
-            .preferredColorScheme(p.scheme)
             .overlay { if p.scanlines { Scanlines().ignoresSafeArea() } }
     }
 

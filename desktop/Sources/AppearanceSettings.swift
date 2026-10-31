@@ -73,7 +73,7 @@ struct AppearanceSettingsView: View {
         }
         .frame(width: 890, height: 640)
         .background(ThemedBackdrop().ignoresSafeArea())
-        .themedRoot()
+        .themedPage()
         .id(appearance.revision)
     }
 
