@@ -43,9 +43,10 @@
 "Menu bar style" = "菜单栏样式";
 "Sample: 1 waiting for you, 2 running, 1 new" = "示例：1 个等你处理、2 个进行中、1 个新完成";
 "Island" = "灵动岛";
-"Notch mode shows a pill at the top center on screens without a notch; floating mode can be dragged anywhere" = "刘海模式在没有刘海的屏幕上显示为顶部居中的胶囊；悬浮模式可以拖到任意位置";
+"Notch mode grows out of the notch and shows a pill on screens without one; floating mode is always a pill. The pill can be dragged anywhere" = "刘海模式从刘海里展开，没有刘海时显示为胶囊；悬浮模式始终是胶囊。胶囊可以随意拖动";
 "Expand on hover" = "鼠标悬停时展开";
 "Pop up when a task finishes or needs you" = "任务完成或需要你时弹出提示";
+"Hide until a task needs you or finishes" = "平时隐藏，有任务需要你或完成时再出现";
 "Motion" = "动效";
 "Spinners, pulses, breathing glow and island animations; “Gentle” keeps only a slow spinner" = "转圈、脉冲、呼吸光晕和灵动岛动画；“柔和”只保留慢速转圈";
 "Restore defaults" = "恢复默认";

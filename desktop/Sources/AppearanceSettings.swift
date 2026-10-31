@@ -30,15 +30,18 @@ struct AppearanceSettingsView: View {
                             }
                         }
                     }
-                    section(String(localized: "Island"), String(localized: "Notch mode shows a pill at the top center on screens without a notch; floating mode can be dragged anywhere")) {
+                    section(String(localized: "Island"), String(localized: "Notch mode grows out of the notch and shows a pill on screens without one; floating mode is always a pill. The pill can be dragged anywhere")) {
                         Picker("", selection: $appearance.config.island) {
                             ForEach(IslandMode.allCases) { Text($0.name).tag($0) }
                         }
                         .pickerStyle(.segmented)
                         .labelsHidden()
-                        HStack(spacing: 18) {
-                            Toggle("Expand on hover", isOn: $appearance.config.islandHover)
-                            Toggle("Pop up when a task finishes or needs you", isOn: $appearance.config.islandLiveActivity)
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(spacing: 18) {
+                                Toggle("Expand on hover", isOn: $appearance.config.islandHover)
+                                Toggle("Pop up when a task finishes or needs you", isOn: $appearance.config.islandLiveActivity)
+                            }
+                            Toggle("Hide until a task needs you or finishes", isOn: $appearance.config.islandAutoHide)
                         }
                         .disabled(appearance.config.island == .off)
                         .font(.system(size: 12))

@@ -48,6 +48,7 @@ number, e.g. "Running 2", "2 running", "Waiting: 3".
 | 周（紧凑标签，如「5h 6% · 周 46%」） | wk ("5h 6% · wk 46%") |
 | 重置（额度） | Resets |
 | 消耗速度 / 预计用完 | Burn rate / Runs out |
+| 平时隐藏，有任务需要你或完成时再出现（灵动岛） | Hide until a task needs you or finishes |
 | 子 agent | subagent |
 | 会话 | session |
 | 任务 | task |

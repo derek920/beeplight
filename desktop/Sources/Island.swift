@@ -2,13 +2,15 @@ import AppKit
 import SwiftUI
 
 // A Dynamic-Island-style status pill at the top of the screen. In notch mode it grows out of the
-// MacBook notch (and falls back to a top-center pill on screens without one); in floating mode it
-// is a draggable pill. It peeks open for a few seconds when a task finishes or needs you.
+// MacBook notch (and falls back to a pill on screens without one); in floating mode it is always a
+// pill. The pill can be dragged anywhere. It peeks open for a few seconds when a task finishes or
+// needs you, and with auto-hide on it is out of sight the rest of the time.
 
 struct IslandGeometry: Equatable {
     var notch = false
     var notchWidth: CGFloat = 0
     var notchHeight: CGFloat = 30
+    /// A draggable pill: floating mode, or notch mode with no notch to grow out of.
     var floating = false
 }
 
@@ -158,7 +160,6 @@ final class IslandController {
     func layout(_ config: AppearanceConfig) {
         guard let panel else { return }
         var g = IslandGeometry()
-        g.floating = config.island == .floating
         var screen = NSScreen.main ?? NSScreen.screens[0]
         if config.island == .notch, let s = NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) {
             screen = s
@@ -166,6 +167,8 @@ final class IslandController {
             g.notchHeight = s.safeAreaInsets.top
             if let l = s.auxiliaryTopLeftArea, let r = s.auxiliaryTopRightArea { g.notchWidth = r.minX - l.maxX } else { g.notchWidth = 190 }
         }
+        // Without a notch the pill sits over the top of windows, so it can be moved out of the way.
+        g.floating = !g.notch
         model.geometry = g
         let size = Self.canvas
         var origin: CGPoint
@@ -245,9 +248,13 @@ struct IslandView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            island
+            // A hidden pill is not drawn at all, so its transparent canvas lets clicks through.
+            if !(hidden && !g.notch) {
+                island.transition(.scale(scale: 0.6, anchor: .top).combined(with: .opacity))
+            }
             Spacer(minLength: 0)
         }
+        .animation(spring, value: hidden)
         .frame(width: IslandController.canvas.width, height: IslandController.canvas.height, alignment: .top)
         .environment(\.colorScheme, .dark)
         .fontDesign(Theme.palette.fontDesign)
@@ -259,6 +266,12 @@ struct IslandView: View {
     private var g: IslandGeometry { model.geometry }
     private var peek: Bool { !model.open && model.flash != nil }
     private var active: Bool { !(monitor.waiting.isEmpty && monitor.doing.isEmpty && monitor.unreadDone.isEmpty) }
+    /// Auto-hide while nothing needs the user: the pill disappears, and the notch island pulls back
+    /// into the notch, where hovering still opens the list. Running tasks alone don't bring it back.
+    private var hidden: Bool {
+        appearance.config.islandAutoHide && !model.open && model.flash == nil
+            && monitor.waiting.isEmpty && monitor.unreadDone.isEmpty
+    }
     private var rows: [TaskItem] { Array((monitor.waiting + monitor.doing + monitor.unreadDone).prefix(6)) }
     private var topInset: CGFloat { g.notch ? g.notchHeight : 0 }
     private let wing: CGFloat = 62
@@ -273,7 +286,7 @@ struct IslandView: View {
             return CGSize(width: 440, height: topInset + 44 + CGFloat(list) * 44 + 40)
         }
         if peek { return CGSize(width: max(g.notchWidth + 2 * wing, 380), height: topInset + (g.notch ? 44 : 50)) }
-        if g.notch { return CGSize(width: g.notchWidth + (active ? 2 * wing : faceOn ? 2 * idleWing : 0), height: g.notchHeight) }
+        if g.notch { return CGSize(width: g.notchWidth + (hidden ? 0 : active ? 2 * wing : faceOn ? 2 * idleWing : 0), height: g.notchHeight) }
         return CGSize(width: 236, height: 32)
     }
 
@@ -400,7 +413,9 @@ struct IslandView: View {
     @ViewBuilder private var collapsed: some View {
         if g.notch {
             HStack(spacing: 0) {
-                if active {
+                if hidden {
+                    EmptyView()
+                } else if active {
                     leadGlyph.frame(width: wing, alignment: .center)
                     Spacer(minLength: g.notchWidth)
                     counts.frame(width: wing, alignment: .center)

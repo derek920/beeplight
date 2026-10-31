@@ -52,6 +52,8 @@ struct AppearanceConfig: Codable, Equatable {
     var islandHover = true
     /// Pop the island open for a few seconds when a task finishes or needs you.
     var islandLiveActivity = true
+    /// Hide the island while no task waits for you or is newly done.
+    var islandAutoHide = false
     var motion: Motion = .full
     /// `Characters.eyes`, `Characters.classic`, or a drawn character's id from characters.json.
     var character = Characters.eyes
@@ -68,6 +70,7 @@ extension AppearanceConfig {
         island = try c.decodeIfPresent(IslandMode.self, forKey: .island) ?? d.island
         islandHover = try c.decodeIfPresent(Bool.self, forKey: .islandHover) ?? d.islandHover
         islandLiveActivity = try c.decodeIfPresent(Bool.self, forKey: .islandLiveActivity) ?? d.islandLiveActivity
+        islandAutoHide = try c.decodeIfPresent(Bool.self, forKey: .islandAutoHide) ?? d.islandAutoHide
         motion = try c.decodeIfPresent(Motion.self, forKey: .motion) ?? d.motion
         character = try c.decodeIfPresent(String.self, forKey: .character) ?? d.character
     }
