@@ -1,27 +1,37 @@
+<p align="center">
+  <a href="https://beeplight.dev"><img src="docs/images/banner.png" alt="Beeplight: know the moment Claude needs you. A menu bar status light for every Claude Code session on your Mac." width="760"></a>
+</p>
+
 # Beeplight — for Claude Code
 
-**English** · [简体中文](README.zh-CN.md)
+**Know the moment Claude needs you.** Beeplight is a free, open-source status light for every Claude Code session and agent on your Mac.
 
-A status light for every Claude Code session and agent on your Mac. Beeplight checks all of them three times a second, sorts them into **Doing**, **Waiting** and **Done**, and takes you straight to the right window when you click one. Start a task, go do something else, and the menu bar tells you when Claude needs you or has finished.
+[beeplight.dev](https://beeplight.dev) · **English** · [简体中文](README.zh-CN.md)
+
+Beeplight checks every session three times a second, sorts them into **Doing**, **Waiting** and **Done**, and takes you straight to the right window when you click one. Start a task, go do something else, and the menu bar tells you when Claude needs you or has finished.
 
 It has a SwiftUI menu bar app and a web board. Both show the same live data, in English or Simplified Chinese depending on your system language; task titles follow the Mac's language too. To pick a language for Beeplight alone, choose it in the app's Settings → General (the same choice as System Settings → General → Language & Region → Applications).
 
 > [!NOTE]
-> **Early preview.** There are no signed builds yet, so you build the app from source.
+> **Early preview.** There are no signed builds or Homebrew cask yet, so for now you build the app from source; it takes about a minute. Signed, notarized builds will be on [beeplight.dev](https://beeplight.dev) and [Releases](https://github.com/derek920/beeplight/releases) with the first release.
 >
 > Beeplight is an independent project. It is not affiliated with or endorsed by Anthropic. Claude and Claude Code are trademarks of Anthropic.
 
 ## Features
 
 - **Menu bar status**: a blue spinner and count while Claude is working, an orange raised hand and count when a task is waiting for you (it turns red if it waits too long), and an empty check mark when everything is handled.
-- **Click to jump**: opens the exact iTerm2 or Terminal tab, Claude desktop session, or editor window where the task lives.
+- **Click to jump**: opens the exact iTerm2 or Terminal tab, the Claude desktop session, or the project window in VS Code, Cursor or Trae. Background (`claude --bg`) and closed sessions open in a new terminal tab.
 - **Unread finishes**: a task that just finished stays marked until you look at it, like an unread message.
 - **Task titles that follow the work**: a short summary of what each session is doing now, not the first thing you typed, plus a success or failure verdict for every turn.
-- **Usage and limits**: your 5-hour and weekly limits, how fast you are using them, and how much each session used.
+- **Usage and limits**: your 5-hour and weekly limits, how fast you are using them, and a warning before one runs out. Click a limit for the details: usage over time at the step you choose, the limit's curve with a projection to the reset, and how it splits by model, token type, project and session.
+- **Notifications**: when a task needs you, finishes or fails, with a button that takes you to it.
 - **Timeline and daily stats**: a colored timeline for each task, time spent working and waiting, and today's totals.
-- **CPU use**: how busy the Mac is, and how much of that is Claude Code and how much is Beeplight itself.
-- **Notch island, themes and menu bar styles**: five presets, six menu bar styles, and an island that grows out of the MacBook notch.
+- **Notch island**: grows out of the MacBook notch, or becomes a pill you can drag anywhere on other screens. It can stay hidden until a task needs you or finishes.
+- **Make it yours**: eight presets and themes, six menu bar styles, and idle characters whose color follows how much limit you have left. Themes, presets and characters are JSON packs ([format](docs/packs.md)).
 - **Phone access**: an optional, paired, LAN-only page that turns a phone into a status screen next to your Mac.
+- **Your other Macs**: their tasks on your board too, through a relay you run yourself, end-to-end encrypted.
+- **Subagents and background sessions**: subagents show under their parent session, and `claude --bg` sessions are tracked too.
+- **CPU use**: how busy the Mac is, and how much of that is Claude Code and how much is Beeplight itself.
 
 ## Requirements
 
@@ -63,8 +73,8 @@ The app carries its own copy of the service and runs it with its own bundled Nod
 
 Open ⚙ → Appearance, or press ⌘, while the app is in front. A live preview sits on the right.
 
-- **Presets**: Native macOS, Neon, Terminal, Hologram and Minimal. A preset sets the four options below at once, and you can still change each one afterwards.
-- **Theme**: colors, fonts and surfaces for the board, panel and island. Neon has dark backgrounds and glowing outlines; Terminal has green monospace text and CRT scanlines; Hologram has a blue grid and corner brackets; Minimal is muted, with no glow.
+- **Presets**: Native macOS, Neon, Terminal, Hologram, Minimal, Berry Cream, Rosé Dusk and Milk Candy. A preset sets the four options below at once, and you can still change each one afterwards.
+- **Theme**: colors, fonts and surfaces for the board, panel and island. Neon has dark backgrounds and glowing outlines; Terminal has green monospace text and CRT scanlines; Hologram has a blue grid and corner brackets; Minimal is muted, with no glow; Berry Cream has soft pastels on deep blue-gray, in a rounded font; Rosé Dusk has muted rose and gold, with serif type in the app; Milk Candy is light, with a pink edge on the cards.
 - **Menu bar style**:
   - Pills: one numbered pill per state.
   - Traffic lights: three lights for waiting, working and new finishes.
@@ -73,14 +83,14 @@ Open ⚙ → Appearance, or press ⌘, while the app is in front. A live preview
   - Terminal text: `W1 D2 ✓1▌`.
   - Dot: only the most urgent state's color and count.
 - **Island**:
-  - Notch: grows out of the MacBook notch. Hover to see the task list, click a row to jump. Clicking the island itself keeps it open (a pin shows); clicking anywhere else closes it. On screens without a notch it becomes a pill at the top center.
+  - Notch: grows out of the MacBook notch. Hover to see the task list, click a row to jump. Clicking the island itself keeps it open (a pin shows); clicking anywhere else closes it. On screens without a notch it becomes a pill you can drag anywhere.
   - Floating: drag it anywhere; the position is remembered.
-  - It pops open for a few seconds when a task finishes or needs you. Hover expansion and pop-ups can each be turned off.
+  - It pops open for a few seconds when a task finishes or needs you. Hover expansion and pop-ups can each be turned off, and the island can stay hidden until a task needs you or finishes.
   - The island's wings cover about 60 pt of menu bar on each side of the notch, and fold away when there are no tasks.
 - **Character**: robot eyes, a line-drawn robot, dog or cat, a terminal cat or dog (text art), or the classic icon. When nothing is running, waiting or new, the menu bar and the island show it, with color and energy that follow how much usage limit is left: green and lively with plenty left, amber and slower past half, red and drowsy near the end. Now and then the robot whirls its antenna around, faster with more limit left. It squints happily once you have handled the last task. The phone's status screen shows the same character; a drawn character takes the place of the number in the ring and acts out every state: bobbing while Claude works (the robot whirls its antenna the whole time), hopping when a task waits for you, smiling when one finishes. The terminal cat and dog show their one-line faces (`=o.o=`, `U•ᴥ•U`) in the menu bar; on the status screen they replace the ring with a ground line they walk in full ASCII art: strolling now and then when idle (less as the limit runs out), pacing end to end while Claude works, stopping to hop when a task waits for you. Characters live in `public/characters.json`, as thin-line drawings (SVG paths) or text art; add an entry there to add one.
 - **Motion**: Full, Gentle (slow spinners only) or Off.
 
-The web board has the same five themes in its top-right menu. That choice is stored in the browser and is separate from the app's.
+The web board has the same eight themes in its top-right menu. That choice is stored in the browser and is separate from the app's.
 
 ### Phone access (LAN)
 
@@ -156,6 +166,12 @@ When a task moves from Doing to Done, success or failure, it is marked as a new 
 ## Usage and limits
 
 The top of the board has three cards: the **5-hour limit**, the **weekly limit**, and **this week's heaviest session**. Each task card also shows that session's usage.
+
+- **Details**: click the 5-hour or weekly card ("Details ›") to see where the limit went. It opens in its own window in the app and as a dialog on the web board, phones included.
+  - Pick the window and the size of each bar: 10 min, 30 min or 1 hour across 5 hours; 1 hour, 6 hours or 1 day across the week.
+  - **Limit used**: the server's readings through the window, with a dashed line at the current rate until the reset.
+  - **Usage on this Mac**: one bar per step. Point at a bar, or tap it on a phone, for its tokens, cost, requests and the sessions that used the most.
+  - How the window's usage splits by model, token type (input, output, cache write, cache read), project and session. Click a session to jump to it.
 
 - **Limit percentages** come from Anthropic's servers and match `/usage` in Claude Code, including usage on claude.ai and your other devices. Every summary call brings back fresh numbers. When there are no summary calls, Beeplight sends a tiny probe request every 10 minutes while you are active, or every hour when you are not. Set `BEEPLIGHT_LIMITS_PROBE_MINUTES=0` to turn probes off.
 - **Windows line up with the server's**: the 5-hour window is the 5 hours before the server's reset time, and the weekly window is the 7 days before it, so local token counts cover the same period as the limits.
@@ -256,6 +272,26 @@ These can only be set in the environment:
 | `CLAUDE_CONFIG_DIR` | `~/.claude` | Claude Code's config directory |
 | `BEEPLIGHT_LANG` | system language | `en` or `zh-Hans` for labels and task titles (the app sets it to its own language) |
 
+## FAQ
+
+**Is Beeplight free?** Yes. The Mac app, the web board and the relay are open source under Apache 2.0. A companion iPhone app, planned for the App Store, will be paid.
+
+**Does it change my Claude Code setup?** No. It only reads Claude Code's session files and transcripts: no hooks, no edits to your settings. Quit it and nothing is left behind.
+
+**Does it use my Claude usage?** A little. Titles and verdicts come from Claude Haiku through your own `claude` login; see [How status is determined](#how-status-is-determined) for how often and what it costs.
+
+**Will it slow my Mac down?** The panel shows Beeplight's own CPU use next to Claude Code's, so you can check. It reads only what is new in each file and redraws only what changed.
+
+**Which terminals and editors can it jump to?** See [Click to jump](#click-to-jump). Sessions inside tmux can't be located yet.
+
+**Can I see sessions from my other Macs?** Yes, through a relay you run yourself; see [Sync across your devices](#sync-across-your-devices).
+
+**Will a Claude Code update break it?** It can: Beeplight reads Claude Code's internal files, which may change. When that happens, Beeplight gets an update.
+
+**Is Beeplight made by Anthropic?** No. It's an independent project, not affiliated with or endorsed by Anthropic.
+
+More questions are answered on [beeplight.dev](https://beeplight.dev/#faq).
+
 ## Known limitations
 
 - Tool progress such as "Bash · npm test" appears 3 to 4 seconds late, because Claude Code buffers transcript writes.
@@ -269,8 +305,12 @@ npm test     # node --test
 npm run app  # build the Mac app
 ```
 
-The service has no dependencies; please keep it that way. [CLAUDE.md](CLAUDE.md) describes the architecture and data sources (in Chinese for now).
+The service has no dependencies; please keep it that way. [CLAUDE.md](CLAUDE.md) describes the architecture and data sources (in Chinese for now), and [docs/packs.md](docs/packs.md) the theme, preset and character packs.
+
+Bugs and ideas are welcome in [GitHub issues](https://github.com/derek920/beeplight/issues).
 
 ## License
 
 [Apache License 2.0](LICENSE). The license doesn't cover the Beeplight name or icon: a fork is welcome, under a name of its own.
+
+The Berry Cream and Milk Candy themes use colors from [Catppuccin](https://catppuccin.com) (Mocha and Latte), and Rosé Dusk from [Rosé Pine](https://rosepinetheme.com) (Moon); both are MIT-licensed.
