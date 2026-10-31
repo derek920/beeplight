@@ -1,5 +1,7 @@
 // Draws the app icon into an .iconset directory: `make-icon <out.iconset>`, then `iconutil -c icns`.
-// `make-icon --mobile <dir>` writes full-bleed PNGs for phone home screens (the OS applies the mask).
+// `make-icon --mobile public/icons` writes the web app's icons: full-bleed PNGs for phone home screens
+// and maskable use (the OS applies the mask), and icon-any-*, the rounded Mac icon, for systems that
+// show an icon as it is, like a web app in the Mac Dock.
 // `make-icon --ios <file.png>` writes the iOS app's 1024 px icon: full-bleed and opaque, as App Store wants it.
 import AppKit
 
@@ -33,7 +35,9 @@ func render(_ px: Int, fullBleed: Bool = false) -> Data {
     ctx.addPath(shape)
     ctx.clip()
     let bg = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB), colors: [color(0x232B3B), color(0x0B0F17)] as CFArray, locations: [0, 1])!
-    ctx.drawLinearGradient(bg, start: CGPoint(x: 512, y: 924), end: CGPoint(x: 512, y: 100), options: [])
+    // Spans the body: nothing is drawn past a gradient's ends, which left full-bleed icons with
+    // transparent bands at the top and bottom.
+    ctx.drawLinearGradient(bg, start: CGPoint(x: 512, y: body.maxY), end: CGPoint(x: 512, y: body.minY), options: [])
     // Soft glow behind the ring.
     let glow = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB), colors: [color(0x3B82F6, 0.28), color(0x3B82F6, 0)] as CFArray, locations: [0, 1])!
     ctx.drawRadialGradient(glow, startCenter: CGPoint(x: 512, y: 512), startRadius: 0, endCenter: CGPoint(x: 512, y: 512), endRadius: 380, options: [])
@@ -77,6 +81,9 @@ if args.count > 2, args[1] == "--mobile" {
     try FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
     for (name, size) in [("apple-touch-icon", 180), ("icon-192", 192), ("icon-512", 512)] {
         try render(size, fullBleed: true).write(to: out.appending(path: "\(name).png"))
+    }
+    for size in [192, 512] {
+        try render(size).write(to: out.appending(path: "icon-any-\(size).png"))
     }
     exit(0)
 }

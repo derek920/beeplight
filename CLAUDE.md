@@ -214,6 +214,7 @@ Mac 应用（`desktop/`）：
 手机访问（`src/transports/lan.js`）：默认关闭。打开后，为每个 Wi-Fi / 有线网卡地址（`en*`、`bridge*`，不含 VPN 的 `utun*`）各起一个额外的 http.Server，和本机服务共用同一个 `handler`。
 - 本机请求的判定：来源是 loopback，并且 Host 是 localhost / 127.0.0.1。除此之外都按局域网请求处理：Host 必须是网卡地址或 `<LocalHostName>.local`，`/api/*` 必须带配对码（`x-beeplight-token` 头或 `?t=`）。
 - 页面外壳、图标和 manifest 不需要配对码就能访问；`/api/lan*` 只允许本机调用。
+- 网页图标（`public/icons/`）和 Mac 图标出自同一个 `desktop/Icon.swift`，改了画法要重新生成：`swiftc -o /tmp/make-icon desktop/Icon.swift && /tmp/make-icon --mobile public/icons`。manifest 里 `maskable` 图标铺满整张图，由系统裁形状；`any` 图标会被原样显示（比如 Chrome 把网页应用放进程序坞），所以画成带透明边距的 Mac 圆角图标。两种不能共用一个文件，否则总有一边难看（以前上下有白边）。
 - 配对码故意保留在 URL 里：iOS 主屏幕 web app 有独立的存储，只认它被添加时的 URL；manifest 的 `start_url` 也会带上配对码。
 - Mac 端的「手机」设置页在 `desktop/Sources/PhoneSettings.swift`，二维码用 CoreImage 的 `CIQRCodeGenerator` 生成。
 - 页面版本：服务端启动时对 `public/` 的文件算一个哈希，放在 meta 的 `page` 字段里；网页发现它变了就自动刷新，所以一直开着的手机状态屏在更新后会换上新代码。

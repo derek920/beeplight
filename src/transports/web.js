@@ -14,6 +14,8 @@ const FILES = {
   '/icons/apple-touch-icon.png': ['icons/apple-touch-icon.png', 'image/png'],
   '/icons/icon-192.png': ['icons/icon-192.png', 'image/png'],
   '/icons/icon-512.png': ['icons/icon-512.png', 'image/png'],
+  '/icons/icon-any-192.png': ['icons/icon-any-192.png', 'image/png'],
+  '/icons/icon-any-512.png': ['icons/icon-any-512.png', 'image/png'],
 };
 
 /**
@@ -40,9 +42,14 @@ function manifest(token) {
     orientation: 'any',
     background_color: '#0b0f17',
     theme_color: '#0b0f17',
+    // Drawn by desktop/Icon.swift (`make-icon --mobile public/icons`). Maskable ones fill the square
+    // and the OS cuts its shape; "any" ones are shown as they are, so they carry the rounded Mac shape
+    // with a transparent margin. One file for both purposes looks wrong in one of them.
     icons: [
-      { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
-      { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+      { src: '/icons/icon-any-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/icons/icon-any-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+      { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
   };
 }

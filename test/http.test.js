@@ -133,6 +133,26 @@ test('pairing by code: refused on this Mac, wrong code answers 401 instead of cr
   assert.equal((await call(h, phone({ method: 'POST', url: '/api/pair', body: { pin: '123456' } }))).status, 403, 'header still required');
 });
 
+test('every manifest icon is served at its stated size, with separate any and maskable icons', async () => {
+  const lan = fakeLan();
+  const h = createHandler({ routes: webRoutes({ dir: PUBLIC_DIR, lan }), lan, port: PORT, log: quiet });
+  const get = async (url) => {
+    const res = { status: 0, type: '', chunks: [], writeHead(s, hd) { this.status = s; this.type = hd['content-type']; }, end(c) { if (c) this.chunks.push(Buffer.from(c)); } };
+    await h(request({ url }), res);
+    return { status: res.status, type: res.type, body: Buffer.concat(res.chunks) };
+  };
+  const { icons } = JSON.parse((await get('/manifest.webmanifest')).body);
+  // A maskable icon fills the square and an "any" one keeps a margin, so no file can be both.
+  assert.deepEqual([...new Set(icons.map((i) => i.purpose))].sort(), ['any', 'maskable']);
+  for (const icon of icons) {
+    const res = await get(icon.src);
+    assert.equal(res.status, 200, icon.src);
+    assert.equal(res.type, 'image/png', icon.src);
+    // PNG header: width and height are the big-endian words at bytes 16 and 20.
+    assert.equal(`${res.body.readUInt32BE(16)}x${res.body.readUInt32BE(20)}`, icon.sizes, icon.src);
+  }
+});
+
 test('the page carries the theme and preset packs inline', async () => {
   const lan = fakeLan();
   const h = createHandler({ routes: webRoutes({ dir: PUBLIC_DIR, lan }), lan, port: PORT, log: quiet });
