@@ -50,7 +50,9 @@ test('store.keepDays is capped at 30', () => {
 test('a shorter keepDays wins over retainHours, and changing it prunes at once', () => {
   const now = Date.now();
   const config = new Config({ file: null, env: { BEEPLIGHT_COLLECTOR_RETAIN_HOURS: '48' }, log: quiet });
-  const s = new Store(storeFile({ ...sample(now), ended: { a: { endedAt: now - 30 * HOUR }, b: { endedAt: now - HOUR } } }), config);
+  // A minute older, so the day-old entries are past a 1-day limit even when prune() runs in the same
+  // millisecond (it drops what is strictly older than the limit).
+  const s = new Store(storeFile({ ...sample(now - 60_000), ended: { a: { endedAt: now - 30 * HOUR }, b: { endedAt: now - HOUR } } }), config);
   assert.deepEqual(Object.keys(s.ended), ['a', 'b']);
   s.start();
   config.set({ 'store.keepDays': 1 });
