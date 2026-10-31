@@ -167,9 +167,9 @@ export class Collector extends EventEmitter {
           s.tx?.poll();
           if (s.subs && this.tickCount % 3 === 0) s.subs.poll();
         }
-        this.maybeSummarize(s, now);
+        if (this.aiTitles()) this.maybeSummarize(s, now);
       }
-      this.summarizer.pump();
+      if (this.aiTitles()) this.summarizer.pump();
       if (this.tickCount % 6 === 0 && this.limits.due(now, this.recentlyActive(now))) this.limits.probe();
       this.publish(now);
     } catch (e) {
@@ -241,6 +241,16 @@ export class Collector extends EventEmitter {
     }
   }
 
+  // summarizer.titles = original shows the session's own name and never calls the summarizer.
+  aiTitles() {
+    return this.config.get('summarizer.titles') === 'ai';
+  }
+
+  // Summaries already stored stay unused while titles are original.
+  summaryOf(sid) {
+    return this.aiTitles() ? this.store.getSummary(sid) : null;
+  }
+
   summaryInput(s) {
     const a = s.tx?.a;
     if (!a) return '';
@@ -256,7 +266,7 @@ export class Collector extends EventEmitter {
   resummarize(sid) {
     const s = this.sessions.get(sid);
     const a = s?.tx?.a;
-    if (!a?.turn) return false;
+    if (!a?.turn || !this.aiTitles()) return false;
     const idle = s.ended || s.reg?.status === 'idle';
     this.summarizer.force(sid, {
       sid,
@@ -271,7 +281,7 @@ export class Collector extends EventEmitter {
   buildView(s, now) {
     const a = s.tx?.a;
     const job = this.jobs.get(s.sid);
-    const summary = this.store.getSummary(s.sid);
+    const summary = this.summaryOf(s.sid);
     const subagents = s.subs ? s.subs.list(now, !s.ended) : [];
     const st = deriveStatus({
       live: !s.ended,
@@ -280,6 +290,7 @@ export class Collector extends EventEmitter {
       job: s.ended ? job : null,
       a,
       summary,
+      verdicts: this.aiTitles(),
       runningAgents: subagents.filter((x) => x.running).length,
     });
     const reg = s.reg || {};
@@ -483,7 +494,7 @@ export class Collector extends EventEmitter {
   // limits reading arrived, or every USAGE_CACHE_MS (window starts move with the clock).
   refreshUsageCache(now) {
     const c = this.usageCache;
-    const key = `${this.usage.version}:${this.limits.version}`;
+    const key = `${this.usage.version}:${this.limits.version}:${this.aiTitles()}`;
     if (key === c.key && now - c.at < USAGE_CACHE_MS) return c;
     const w = this.limits.windows(now);
     const lim = this.limits.snapshot(now);
@@ -536,7 +547,7 @@ export class Collector extends EventEmitter {
 
   /** A title for a usage row ({sid, cwd, title}): the summary's, the transcript's, else the folder. */
   usageTitle(row) {
-    return this.store.getSummary(row.sid)?.title || cleanTitle(row.title) || path.basename(row.cwd || '') || row.sid.slice(0, 8);
+    return this.summaryOf(row.sid)?.title || cleanTitle(row.title) || path.basename(row.cwd || '') || row.sid.slice(0, 8);
   }
 
   /** The limit details view (src/core/usage-detail.js); null for an unknown window or step. */
@@ -568,6 +579,7 @@ export class Collector extends EventEmitter {
       tickMs: Math.round(this.lastTickMs * 10) / 10,
       character: this.store.flags.character || 'eyes',
       cpu: this.cpu?.view() ?? null,
+      titles: this.config.get('summarizer.titles'),
       summarizer: {
         queued: this.summarizer.queue.size,
         inflight: this.summarizer.inflight.size,

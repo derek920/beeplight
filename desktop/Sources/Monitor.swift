@@ -33,6 +33,9 @@ final class Monitor {
     private(set) var usage: UsageMeta?
     private(set) var limits: LimitsInfo?
     private(set) var cpu: CpuMeta?
+    private(set) var titles: String?
+    /// False when the service shows original titles and makes no summary calls.
+    var aiTitles: Bool { titles != "original" }
 
     var showSDK = UserDefaults.standard.bool(forKey: "showSDK") {
         didSet { UserDefaults.standard.set(showSDK, forKey: "showSDK"); derive(); refreshImage() }
@@ -196,6 +199,7 @@ final class Monitor {
             assign(\.usage, m.usage)
             assign(\.limits, m.usage?.limits)
             assign(\.cpu, m.cpu)
+            assign(\.titles, m.titles)
             if !connected {
                 connected = true
                 syncCharacter()

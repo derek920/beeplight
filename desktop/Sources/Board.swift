@@ -347,7 +347,9 @@ struct TaskCard: View {
                 // Another device's task is read-only here.
                 if item.remote == nil {
                     if hover {
-                        IconButton(symbol: "arrow.clockwise", help: String(localized: "Summarize title and result again")) { monitor.resummarize(item.id) }
+                        if monitor.aiTitles {
+                            IconButton(symbol: "arrow.clockwise", help: String(localized: "Summarize title and result again")) { monitor.resummarize(item.id) }
+                        }
                         if item.phase == .success || item.phase == .failed {
                             IconButton(symbol: "xmark", help: String(localized: "Remove from board (it comes back on new activity)")) { monitor.dismiss(item.id) }
                         }
@@ -429,7 +431,7 @@ private struct FooterLine: View {
         var parts: [String] = []
         if monitor.idleCount > 0 { parts.append(String(localized: "Empty sessions hidden: \(monitor.idleCount)")) }
         if monitor.staleCount > 0 { parts.append(String(localized: "Sessions quiet for 12+ hr hidden: \(monitor.staleCount)")) }
-        if let s = monitor.summarizer {
+        if monitor.aiTitles, let s = monitor.summarizer {
             var t = String(localized: "Haiku summaries: \(s.ok) done")
             if s.inflight + s.queued > 0 { t += String(localized: ", \(s.inflight) running, \(s.queued) queued") }
             if s.failed > 0 { t += String(localized: ", \(s.failed) failed") }
