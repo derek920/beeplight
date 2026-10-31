@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleIdentifier</key><string>app.beeplight.mac</string>
+  <key>CFBundleIdentifier</key><string>dev.beeplight.mac</string>
   <key>CFBundleName</key><string>Beeplight</string>
   <key>CFBundleDisplayName</key><string>Beeplight</string>
   <key>CFBundleExecutable</key><string>Beeplight</string>

@@ -204,9 +204,9 @@ Mac 应用（`desktop/`）：
 - `Board.swift` / `Panel.swift`：两套界面。
 - `Glyphs.swift`：状态图标、时间轴和菜单栏渲染。
 - 菜单栏图标「看不见」有两种情况，先用 `CGWindowListCopyWindowInfo` 看 layer 25 的窗口：
-  - 窗口不在屏幕上（`kCGWindowIsOnscreen` 为假）：带刘海的 Mac 上菜单栏挤满了，排在最左边的图标会被系统藏起来。用 ⌘ 拖动图标，或者设置 `defaults write app.beeplight.mac "NSStatusItem Preferred Position Item-0" -float <离屏幕右边缘的距离>` 后重启 app。`BeeplightApp.init` 在这个键不存在时（首次启动）写入 400，让新用户的图标一开始就靠右。
+  - 窗口不在屏幕上（`kCGWindowIsOnscreen` 为假）：带刘海的 Mac 上菜单栏挤满了，排在最左边的图标会被系统藏起来。用 ⌘ 拖动图标，或者设置 `defaults write dev.beeplight.mac "NSStatusItem Preferred Position Item-0" -float <离屏幕右边缘的距离>` 后重启 app。`BeeplightApp.init` 在这个键不存在时（首次启动）写入 400，让新用户的图标一开始就靠右。
   - 窗口在屏幕上但看不见：图标颜色要看菜单栏自己的深浅（`MenuBarLook`，读 `NSStatusBarWindow` 的外观），不能看 app 的外观。浅色模式配深色壁纸时，菜单栏是深色的。
-- 改名：项目先叫 Claude Monitor（bundle ID `local.claude-monitor`，数据目录 `ClaudeMonitor`），后来叫 Tasklight（`app.tasklight.mac`，数据目录 `Tasklight`），都没有公开发布过。`Legacy.swift` 在 `BeeplightApp.init` 里最先执行，一次性把旧设置和数据目录搬过来，新名字的优先。网页端 `app.js` 开头也会把旧的 `tasklight-*`、`claude-monitor-*` localStorage 键搬过来。通知和自动化权限按 bundle ID 记，改名后系统会重新询问。bundle ID `app.beeplight.mac` 要和最终的域名对上，正式发布前确认。
+- 改名：项目先叫 Claude Monitor（bundle ID `local.claude-monitor`，数据目录 `ClaudeMonitor`），后来叫 Tasklight（`app.tasklight.mac`，数据目录 `Tasklight`），改名 Beeplight 后先用过 `app.beeplight.mac`，都没有公开发布过。现在的 bundle ID 是 `dev.beeplight.mac`，和域名 beeplight.dev 对应，发布后不要再改。`Legacy.swift` 在 `BeeplightApp.init` 里最先执行，一次性把旧设置和数据目录搬过来，新名字的优先。网页端 `app.js` 开头也会把旧的 `tasklight-*`、`claude-monitor-*` localStorage 键搬过来。通知、自动化权限和「登录时启动」都按 bundle ID 记，换 ID 后系统会重新询问，登录时启动要重新打开。
 - `Info.plist`：必须带 `NSAppleEventsUsageDescription`，否则由 app 拉起的 Node 调 osascript 控制 iTerm2 会被 TCC 静默拒绝。
 - 签名：默认 ad-hoc 签名，每次重新构建签名都会变，系统可能会重新询问通知和自动化权限。发布版见下面的「发布」。
 

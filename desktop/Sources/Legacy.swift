@@ -1,12 +1,15 @@
 import Foundation
 
-/// One-time move from the pre-release names, "Tasklight" (`app.tasklight.mac`) and before it
+/// One-time move from the pre-release identities: Beeplight's first bundle ID (`app.beeplight.mac`,
+/// before it matched the beeplight.dev domain), "Tasklight" (`app.tasklight.mac`) and before it
 /// "Claude Monitor" (`local.claude-monitor`). Runs before anything reads settings, so appearance,
 /// island position, notification switches and the menu bar slot carry over, and the data folder
 /// keeps the phone pairing token.
 enum LegacyMigration {
-    /// Newest first, so a setting or folder from the newer name wins.
-    private static let names = [(domain: "app.tasklight.mac", folder: "Tasklight"),
+    /// Newest first, so a setting or folder from the newer name wins. The first entry only brings
+    /// settings: its folder is the current one.
+    private static let names = [(domain: "app.beeplight.mac", folder: "Beeplight"),
+                                (domain: "app.tasklight.mac", folder: "Tasklight"),
                                 (domain: "local.claude-monitor", folder: "ClaudeMonitor")]
     private static let doneKey = "migratedFromLegacyNames"
 
