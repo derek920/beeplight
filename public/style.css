@@ -982,9 +982,18 @@ button {
 /* ---------- footer & toast ---------- */
 
 .foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 16px;
   padding: 4px 24px 24px;
   font-size: 12px;
   color: var(--faint);
+}
+
+.foot .cpu {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .toast {

@@ -147,6 +147,8 @@
 "No Claude tasks right now" = "现在没有 Claude 任务";
 "Connecting to the local Beeplight service…" = "正在连接本地监控服务…";
 "Today" = "今天";
+"This Mac" = "本机";
+"Average over the last %lld sec, as a share of the whole Mac (%lld cores). Claude: every session and the commands it runs. Beeplight: the app, its service and its Haiku calls." = "最近 %lld 秒的平均值，按整台 Mac（%lld 核）计算。Claude：所有会话，以及它们运行的命令。Beeplight：app、监控服务，以及它发起的 Haiku 调用。";
 "%lld done" = "完成 %lld 轮";
 "%lld failed" = "失败 %lld 轮";
 "Claude worked %@" = "Claude 工作 %@";

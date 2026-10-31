@@ -416,9 +416,10 @@ private struct FooterLine: View {
     let monitor: Monitor
 
     var body: some View {
-        HStack {
+        HStack(alignment: .firstTextBaseline) {
             Text(text).font(.system(size: 11)).foregroundStyle(.tertiary)
-            Spacer()
+            Spacer(minLength: 16)
+            CpuLine(monitor: monitor)
         }
         .padding(.horizontal, 20)
         .padding(.bottom, 10)

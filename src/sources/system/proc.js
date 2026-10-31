@@ -1,34 +1,56 @@
 import { execFile } from 'node:child_process';
+import os from 'node:os';
 
-// pid ppid stat tty lstart(5 tokens) comm(full path, may contain spaces)
-const PS_LINE = /^\s*(\d+)\s+(\d+)\s+(\S+)\s+(\S+)\s+(\w{3}\s+\w{3}\s+\d+\s+[\d:]+\s+\d{4})\s+(.*)$/;
+// pid ppid stat tty time lstart(5 tokens) comm(full path, may contain spaces)
+const PS_LINE = /^\s*(\d+)\s+(\d+)\s+(\S+)\s+(\S+)\s+([\d:.-]+)\s+(\w{3}\s+\w{3}\s+\d+\s+[\d:]+\s+\d{4})\s+(.*)$/;
 
 export function psSnapshot() {
   return new Promise((resolve) => {
     execFile(
       'ps',
-      ['-axww', '-o', 'pid=,ppid=,stat=,tty=,lstart=,comm='],
+      ['-axww', '-o', 'pid=,ppid=,stat=,tty=,time=,lstart=,comm='],
       { maxBuffer: 16 * 1024 * 1024, env: { ...process.env, LC_ALL: 'C' } },
-      (err, stdout) => {
-        const map = new Map();
-        if (!err) {
-          for (const line of stdout.split('\n')) {
-            const m = PS_LINE.exec(line);
-            if (!m) continue;
-            map.set(Number(m[1]), {
-              pid: Number(m[1]),
-              ppid: Number(m[2]),
-              stat: m[3],
-              tty: m[4],
-              start: new Date(m[5]).getTime(),
-              comm: m[6],
-            });
-          }
-        }
-        resolve(map);
-      },
+      (err, stdout) => resolve(err ? new Map() : parsePs(stdout)),
     );
   });
+}
+
+/** pid -> process, from the output of the ps command above. `cpu` is the CPU time used so far, in seconds. */
+export function parsePs(stdout) {
+  const map = new Map();
+  for (const line of stdout.split('\n')) {
+    const m = PS_LINE.exec(line);
+    if (!m) continue;
+    map.set(Number(m[1]), {
+      pid: Number(m[1]),
+      ppid: Number(m[2]),
+      stat: m[3],
+      tty: m[4],
+      cpu: cpuSeconds(m[5]),
+      start: new Date(m[6]).getTime(),
+      comm: m[7],
+    });
+  }
+  return map;
+}
+
+/** ps's CPU time, "[[dd-]hh:]mm:ss.cc" (macOS prints minutes past 59, e.g. "405:22.76"), in seconds. */
+export function cpuSeconds(text) {
+  const [days, rest] = text.includes('-') ? text.split('-') : [0, text];
+  const secs = rest.split(':').reduce((sum, part) => sum * 60 + Number(part), 0);
+  return Number(days) * 86400 + secs || 0;
+}
+
+/** CPU time of the whole Mac so far, summed over every core, in ms. */
+export function machineCpu() {
+  let busy = 0;
+  let total = 0;
+  const cpus = os.cpus();
+  for (const { times: t } of cpus) {
+    busy += t.user + t.nice + t.sys + t.irq;
+    total += t.user + t.nice + t.sys + t.irq + t.idle;
+  }
+  return { busy, total, cores: cpus.length };
 }
 
 const IDE_APPS = /^(Visual Studio Code|Code - Insiders|Cursor|Trae|Trae CN|Windsurf|VSCodium|Zed)$/;

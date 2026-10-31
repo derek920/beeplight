@@ -46,6 +46,11 @@ export const PARAMS = [
     help: "How often the process list is read to find each session's terminal and app.",
   },
   {
+    key: 'collector.cpuAverageSec', type: 'number', default: 10, min: 2, max: 120,
+    label: 'CPU use averaged over (seconds)',
+    help: 'The CPU use of the Mac, Claude and Beeplight shown in the panel and on the board is averaged over this long. Shorter shows spikes, longer reads steadier.',
+  },
+  {
     key: 'collector.retainHours', type: 'number', default: 12, min: 1, max: 168, aliases: ['BEEPLIGHT_RETAIN_HOURS'],
     label: 'Keep finished tasks (hours)',
     help: 'Finished or quiet tasks leave the board after this long.',

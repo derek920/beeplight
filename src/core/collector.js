@@ -4,7 +4,7 @@ import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { config as defaultConfig, PROJECTS_DIR } from '../config/index.js';
 import { Jobs } from '../sources/claude-code/jobs.js';
-import { detectHost, psSnapshot } from '../sources/system/proc.js';
+import { detectHost, machineCpu, psSnapshot } from '../sources/system/proc.js';
 import { Registry } from '../sources/claude-code/registry.js';
 import { deriveStatus, endKey, matchingEndSummary } from './status.js';
 import { Subagents } from '../sources/claude-code/subagents.js';
@@ -21,7 +21,7 @@ const ENDED_GRACE_MS = 5000;
 const TRANSCRIPT_PROBE_MS = 2000;
 
 export class Collector extends EventEmitter {
-  constructor({ store, summarizer, runner, usage, limits, relay, config = defaultConfig }) {
+  constructor({ store, summarizer, runner, usage, limits, relay, cpu, config = defaultConfig }) {
     super();
     this.config = config;
     this.store = store;
@@ -31,6 +31,8 @@ export class Collector extends EventEmitter {
     this.limits = limits;
     // Tasks from your other devices (src/transports/relay.js), shown read-only next to this Mac's.
     this.relay = relay;
+    // CPU use of the Mac, Claude and Beeplight (src/core/cpu.js), fed by each process scan.
+    this.cpu = cpu;
     this.remoteVersion = 0;
     relay?.on('change', () => this.remoteVersion++);
     this.localSig = '';
@@ -95,7 +97,11 @@ export class Collector extends EventEmitter {
     this.psBusy = true;
     try {
       const ps = await psSnapshot();
-      if (ps.size) this.ps = ps;
+      if (ps.size) {
+        this.ps = ps;
+        const claudePids = [...this.sessions.values()].filter((s) => !s.ended).map((s) => s.pid);
+        this.cpu?.record({ ps, machine: machineCpu(), claudePids });
+      }
       for (const s of this.sessions.values()) {
         if (s.ended) continue;
         s.host = detectHost(s.pid, this.ps) ?? s.host;
@@ -544,6 +550,7 @@ export class Collector extends EventEmitter {
       hz: Math.round(hz * 10) / 10,
       tickMs: Math.round(this.lastTickMs * 10) / 10,
       character: this.store.flags.character || 'eyes',
+      cpu: this.cpu?.view() ?? null,
       summarizer: {
         queued: this.summarizer.queue.size,
         inflight: this.summarizer.inflight.size,

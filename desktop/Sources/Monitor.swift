@@ -32,6 +32,7 @@ final class Monitor {
     private(set) var summarizer: SummarizerStats?
     private(set) var usage: UsageMeta?
     private(set) var limits: LimitsInfo?
+    private(set) var cpu: CpuMeta?
 
     var showSDK = UserDefaults.standard.bool(forKey: "showSDK") {
         didSet { UserDefaults.standard.set(showSDK, forKey: "showSDK"); derive(); refreshImage() }
@@ -194,6 +195,7 @@ final class Monitor {
             assign(\.summarizer, m.summarizer)
             assign(\.usage, m.usage)
             assign(\.limits, m.usage?.limits)
+            assign(\.cpu, m.cpu)
             if !connected {
                 connected = true
                 syncCharacter()

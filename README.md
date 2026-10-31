@@ -19,6 +19,7 @@ It has a SwiftUI menu bar app and a web board. Both show the same live data, in 
 - **Task titles that follow the work**: a short summary of what each session is doing now, not the first thing you typed, plus a success or failure verdict for every turn.
 - **Usage and limits**: your 5-hour and weekly limits, how fast you are using them, and how much each session used.
 - **Timeline and daily stats**: a colored timeline for each task, time spent working and waiting, and today's totals.
+- **CPU use**: how busy the Mac is, and how much of that is Claude Code and how much is Beeplight itself.
 - **Notch island, themes and menu bar styles**: five presets, six menu bar styles, and an island that grows out of the MacBook notch.
 - **Phone access**: an optional, paired, LAN-only page that turns a phone into a status screen next to your Mac.
 
@@ -51,6 +52,7 @@ On first use, macOS asks for a few permissions:
 - **Board window**: a three-column board. While it is open, Beeplight shows in the Dock and ⌘-Tab; close it and the app stays in the menu bar.
 - **Notifications**: posted when a task needs you, finishes or fails. The notification's jump button takes you to the window. Each kind can be turned off in the ⚙ menu.
 - **Launch at login**: turn it on in the ⚙ menu.
+- **CPU use**: the panel and the bottom of the board show the CPU use of the whole Mac, of Claude Code (every session and the commands it runs) and of Beeplight (the app, its service and its Haiku calls), averaged over the last 10 seconds. All three are shares of the whole Mac, so they add up; Activity Monitor and `top` show a process against one core, which is this number times the number of cores. The web board shows the same line at the bottom.
 
 The app carries its own copy of the service and runs it with its own bundled Node.js. Data lives in `~/Library/Application Support/Beeplight`. If something is already serving port 7333 (for example `npm start`), the app uses that instead.
 

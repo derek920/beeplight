@@ -248,6 +248,7 @@ private struct PanelFooter: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             PanelToday(monitor: monitor)
+            CpuLine(monitor: monitor, compact: true)
             HStack(spacing: 8) {
                 Button(action: openBoard) { Label("Open board", systemImage: "rectangle.split.3x1") }
                     .buttonStyle(.borderedProminent)
@@ -267,6 +268,36 @@ private struct PanelToday: View {
 
     var body: some View {
         if let t = monitor.today { TodayLine(today: t, compact: true) }
+    }
+}
+
+/// CPU use of the Mac, Claude and Beeplight. It changes with every process scan, so only this view reads it.
+struct CpuLine: View {
+    let monitor: Monitor
+    var compact = false
+
+    var body: some View {
+        if let c = monitor.cpu {
+            HStack(spacing: compact ? 10 : 14) {
+                Text("CPU").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+                part(String(localized: "This Mac"), c.total)
+                part("Claude", c.claude)
+                part("Beeplight", c.beeplight)
+            }
+            .lineLimit(1)
+            .layoutPriority(1)
+            .help(String(localized: "Average over the last \(Int(c.sec ?? 0)) sec, as a share of the whole Mac (\(c.cores ?? 0) cores). Claude: every session and the commands it runs. Beeplight: the app, its service and its Haiku calls."))
+        }
+    }
+
+    // The numbers sit in fixed widths, so the line never changes size: a size change would lay out
+    // the whole window again on every process scan.
+    private func part(_ label: String, _ value: Double) -> some View {
+        HStack(spacing: 4) {
+            Text(label).foregroundStyle(.tertiary)
+            Text(Fmt.pct(value)).foregroundStyle(.secondary).frame(width: 34, alignment: .trailing)
+        }
+        .font(.system(size: 11).monospacedDigit())
     }
 }
 

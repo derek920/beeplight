@@ -373,6 +373,16 @@ function renderFoot() {
   $('#foot').textContent = parts.join(' · ');
 }
 
+// CPU use of the Mac, Claude and Beeplight, as shares of the whole Mac (meta.cpu, src/core/cpu.js).
+function renderCpu() {
+  const c = meta?.cpu;
+  const el = $('#cpu');
+  const text = c ? t('CPU · This Mac {total} · Claude {claude} · Beeplight {beeplight}', { total: pct(c.total), claude: pct(c.claude), beeplight: pct(c.beeplight) }) : '';
+  const title = c ? t('Average over the last {sec} sec, as a share of the whole Mac ({cores} cores). Claude: every session and the commands it runs. Beeplight: the app, its service and its Haiku calls.', { sec: c.sec, cores: c.cores }) : '';
+  if (el.textContent !== text) el.textContent = text;
+  if (el.title !== title) el.title = title;
+}
+
 function updateElapsed() {
   const now = Date.now();
   const clock = $('#amb-clock');
@@ -1360,6 +1370,7 @@ function connect() {
     lastMetaAt = Date.now();
     renderLive();
     renderFoot();
+    renderCpu();
     renderToday();
     renderQuota();
     renderAmbientQuota();

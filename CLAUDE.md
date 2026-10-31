@@ -46,9 +46,9 @@ desktop/build/Beeplight.app/Contents/MacOS/Beeplight --snapshot /tmp/snap   # �
 | `lib/` | `util.js`、`i18n.js` | 无 |
 | `config/` | 运行参数（`index.js`、`schema.js`）和路径 | lib |
 | `sources/claude-code/` | Claude Code 写的文件：registry、transcript、subagents、jobs、usage。全是逆向得来的格式，Claude Code 升级后先查这里 | lib、config |
-| `sources/system/` | 进程表（`proc.js`） | lib、config |
+| `sources/system/` | 进程表、各进程和整机的 CPU 时间（`proc.js`） | lib、config |
 | `services/` | `claude -p` 调用（`claude-cli.js`）、总结、额度 | lib、config |
-| `core/` | collector、status、timeline、store | lib、config、sources、services |
+| `core/` | collector、status、timeline、store、cpu | lib、config、sources、services |
 | `actions/` | 在 Mac 上动手：跳转窗口（`focus.js`）、检测看过的标签页（`seen.js`） | lib、config |
 | `transports/` | 对外：`http.js`（统一的请求检查）、`api.js`（全部接口）、`web.js`（页面外壳）、`stream.js`（SSE）、`lan.js`、`relay.js` | lib、config |
 
@@ -76,7 +76,7 @@ desktop/build/Beeplight.app/Contents/MacOS/Beeplight --snapshot /tmp/snap   # �
 - tick 里只做轻活：不同步读大文件，不启动子进程，不调 LLM。重活异步、分块做，中间让出事件循环（参照 `UsageIndex`）。
 - 文件只增量读：记住读到的位置，只读新写入的部分。首次读取和每次读取都有上限（`transcript.initialTailMB`、`transcript.maxReadMB`）。
 - 只在变化时推送：state 按签名去重；每秒都在变的数据（今日统计、用量）放在 meta 里，不进 state 签名。SSE 每个事件只序列化一次。
-- 外部命令按固定节奏调用，并且只在需要时调用：`ps` 每 2 秒一次；`osascript` 只在跳转时调用，另外在有未读任务时由 `seen.js` 每 1.5 秒调用一次。
+- 外部命令按固定节奏调用，并且只在需要时调用：`ps` 每 2 秒一次，CPU 占用也从这次扫描里算，不另起命令；`osascript` 只在跳转时调用，另外在有未读任务时由 `seen.js` 每 1.5 秒调用一次。
 - LLM 调用一律经过 `Summarizer` 的队列，由它负责去重、并发、每小时上限和失败退避；额度探测也有固定间隔。不要在别处直接调 `claude -p`。
 - 常驻内存和存盘的数据都要有上限或过期时间：解析结果只保留最近若干条，用量记录和额度样本只保留 8 天，store 里的历史最长保留 `store.keepDays` 天（见「LLM 总结」的持久化）。
 
@@ -99,7 +99,7 @@ Mac 应用：
 验证：
 
 - 性能相关的改动，要在相同条件下测改动前后：开着哪些窗口、几个任务在执行或等待，都要一致。提交说明里写上数字和条件。
-- 平均 CPU 用 `top -l 16 -s 1 -pid <pid> -stats pid,cpu` 测，热点用 `sample <pid> 4 -file <文件>` 找：看主线程里 `CA::Transaction::commit`、`_layoutSubtreeWithOldSize`、`NSStatusItem _updateReplicants` 的占比。窗口是否在屏幕上，用 `CGWindowListCopyWindowInfo` 确认。界面用 `--snapshot` 核对，它能截到图层画的效果。
+- 平均 CPU 用 `top -l 16 -s 1 -pid <pid> -stats pid,cpu` 测（`top` 按单核算；app 自己显示的 CPU 是占整台 Mac 的比例，乘以核数才是 `top` 的数），热点用 `sample <pid> 4 -file <文件>` 找：看主线程里 `CA::Transaction::commit`、`_layoutSubtreeWithOldSize`、`NSStatusItem _updateReplicants` 的占比。窗口是否在屏幕上，用 `CGWindowListCopyWindowInfo` 确认。界面用 `--snapshot` 核对，它能截到图层画的效果。
 
 ### 配置化
 
@@ -188,6 +188,8 @@ Token 用量与额度：
 新完成（未读）：`Collector.trackState()` 发现某个会话的轨迹从非 done 变成 `done:*`，并且判定已经出来（不是 `p: true`）时，写入 `store.unread[sid]`。下面几种情况会清除：会话回到 doing/waiting（发了新消息，或者 Claude 自己继续干活）；调用 focus 或 read 接口；`POST /api/read-all`；dismiss；`src/actions/seen.js` 检测到这个会话的终端标签页连续两次是前台。`seen.js` 只有在 `store.flags.appleEventsOk` 为真时才轮询，这个标志在第一次通过 AppleScript 跳转成功时写入，所以轮询永远不会成为触发系统授权弹窗的原因。每次标记和清除都会打 `[unread]` / `[focus]` 日志，带上原因和来源（`via=panel|board|notification|web`）。查「徽章为什么没了 / 为什么清不掉」时先看这里。客户端的未读计数都从可见列表里算，菜单栏、面板、看板、Dock 用的是同一个判定。
 
 桌面端的收尾卡片：Claude 桌面端结束一轮时会调用 `mcp__ccd_turn__wrap_up`，参数是 `recap / ask / actions`。向用户的提问只出现在这里，回复正文里看不到，所以 `transcript.js` 把它记到 `turn.wrapUp`。在 `deriveStatus()` 里，有 `ask` 就直接判 Waiting，不交给 LLM。
+
+CPU 占用（`src/core/cpu.js` `CpuMeter`）：面板和看板底部、网页页脚显示整台 Mac、Claude、Beeplight 三个数，都是占整台 Mac 的比例（0～1），按 `collector.cpuAverageSec`（默认 10 秒）取平均，放在 meta 的 `cpu` 里下发，不进 state 签名，也不同步到其他设备。数据来自 `refreshPs()` 那次 `ps`：多读一列 `time`（进程累计 CPU 时间），两次扫描之差就是这段时间用的；整机用 `os.cpus()` 的累计时间（`machineCpu()`）。Claude 是每个在线会话的进程加上它启动的所有子进程（工具命令、MCP 服务）；Beeplight 是服务自己和它的子进程（Haiku 调用、ps、osascript），再加上 Mac 应用（可执行文件路径是 `…/Beeplight.app/Contents/MacOS/Beeplight` 的进程）。每个进程只算一次，先算 Beeplight，所以开发时从 Claude 会话的终端里 `npm start` 起的服务算 Beeplight。在两次扫描之间结束的进程，最后这段用量会丢掉；浏览器里打开的网页算在浏览器上。
 
 点击跳转（`src/actions/focus.js`）：`detectHost()`（`src/sources/system/proc.js`）沿父进程链找最外层的 `.app`。iTerm2/Terminal 用 AppleScript 按 TTY 选中标签页；桌面端用 `claude://code/continue?session=<hostSessionId>`（从 Claude.app 的 URL handler 逆向得到）；后台 job 用 `claude attach`；已关闭的会话用 `claude --resume`。外部命令一律走 `execFile`，拼进 AppleScript 的字符串用 `appleScriptString()` 转义，ID 先过 `util.js` 里的正则校验。
 

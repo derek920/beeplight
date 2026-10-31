@@ -30,6 +30,7 @@ open desktop/build/Beeplight.app
 - **看板窗口**：三列看板。打开时 app 出现在 Dock 和 ⌘-Tab 里，关掉后只留在菜单栏。
 - **系统通知**：任务等你处理、完成或失败时弹出，通知上的「跳转」按钮直达窗口。在 ⚙ 菜单里可以分别关闭。
 - **登录时启动**：在 ⚙ 菜单里打开。
+- **CPU 占用**：面板和看板底部显示整台 Mac 的 CPU 占用，以及其中 Claude Code（各会话和它们运行的命令）和 Beeplight（app、监控服务和它发起的 Haiku 调用）各占多少，按最近 10 秒取平均。三个数都是占整台 Mac 的比例，可以直接比较；活动监视器和 `top` 按单核算，等于这个数乘以核数。网页看板底部也有同一行。
 
 app 自带 Node 和监控服务，并负责守护它，数据在 `~/Library/Application Support/Beeplight`。如果 7333 端口已经有监控服务在跑（比如 `npm start`），app 会直接用它。
 

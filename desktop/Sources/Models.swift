@@ -18,6 +18,16 @@ struct Meta: Decodable {
     var usage: UsageMeta?
     /// The character picked in the Mac app, for the phone's status screen.
     var character: String?
+    var cpu: CpuMeta?
+}
+
+/// CPU use as shares (0…1) of the whole Mac, averaged over the last `sec` seconds (src/core/cpu.js).
+struct CpuMeta: Decodable, Equatable {
+    var cores: Int?
+    var sec: Double?
+    var total: Double
+    var claude: Double
+    var beeplight: Double
 }
 
 // MARK: token usage & plan limits (src/services/limits.js, src/sources/claude-code/usage.js)

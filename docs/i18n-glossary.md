@@ -52,6 +52,8 @@ number, e.g. "Running 2", "2 running", "Waiting: 3".
 | 会话 | session |
 | 任务 | task |
 | 今天 | Today |
+| CPU 占用 | CPU use |
+| 本机（CPU 占用里整台 Mac 那一项） | This Mac |
 | 登录时启动 | Launch at login |
 | 系统通知 | Notifications |
 | SDK 会话 | SDK sessions |

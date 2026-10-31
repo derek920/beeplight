@@ -114,6 +114,9 @@ const ZH = {
   ', {inflight} in progress, {queued} queued': '，进行中 {inflight}，排队 {queued}',
   ', {failed} failed': '，失败 {failed}',
   'Haiku calls by Beeplight today: {n}, ≈{cost}': '监控自身今天调用 Haiku {n} 次 ≈{cost}',
+  'CPU · This Mac {total} · Claude {claude} · Beeplight {beeplight}': 'CPU · 本机 {total} · Claude {claude} · Beeplight {beeplight}',
+  'Average over the last {sec} sec, as a share of the whole Mac ({cores} cores). Claude: every session and the commands it runs. Beeplight: the app, its service and its Haiku calls.':
+    '最近 {sec} 秒的平均值，按整台 Mac（{cores} 核）计算。Claude：所有会话，以及它们运行的命令。Beeplight：app、监控服务，以及它发起的 Haiku 调用。',
   'Done keeps tasks from the last 12 hours': 'Done 只保留 12 小时内的任务',
 
   // Limits and usage

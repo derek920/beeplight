@@ -110,6 +110,9 @@ const ZH = {
   'How often every session is checked. Lower reacts faster and uses more CPU.': '多久检查一次所有会话。越小反应越快，CPU 占用也越高。',
   'Process scan interval (ms)': '进程扫描间隔（毫秒）',
   "How often the process list is read to find each session's terminal and app.": '多久读一次进程列表，用来找到每个会话所在的终端和 app。',
+  'CPU use averaged over (seconds)': 'CPU 占用取平均的时长（秒）',
+  'The CPU use of the Mac, Claude and Beeplight shown in the panel and on the board is averaged over this long. Shorter shows spikes, longer reads steadier.':
+    '面板和看板上显示的本机、Claude、Beeplight 的 CPU 占用，按这段时间取平均。越短越能看出瞬间的高峰，越长越平稳。',
   'Keep finished tasks (hours)': '已结束任务保留（小时）',
   'Finished or quiet tasks leave the board after this long.': '已结束或长时间没有动静的任务，过了这么久就从看板上移走。',
   'Summary model': '总结模型',

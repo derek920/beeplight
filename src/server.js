@@ -3,6 +3,7 @@ import { focusTarget } from './actions/focus.js';
 import { SeenWatcher } from './actions/seen.js';
 import { claudeBin, config, HOST, PORT, PUBLIC_DIR } from './config/index.js';
 import { Collector } from './core/collector.js';
+import { CpuMeter } from './core/cpu.js';
 import { Store } from './core/store.js';
 import { ClaudeRunner } from './services/claude-cli.js';
 import { Limits } from './services/limits.js';
@@ -23,7 +24,7 @@ import { pageVersion, webRoutes } from './transports/web.js';
 //   sources     what Claude Code writes (claude-code/: reverse-engineered, the first thing a
 //               Claude Code update breaks) and the process list (system/)
 //   services    claude -p calls: titles and verdicts, plan limits
-//   core        sessions, their state and the board; the persisted store
+//   core        sessions, their state and the board; the persisted store; CPU use
 //   actions     on this Mac: bring a task's window to the front, notice a tab was looked at
 //   transports  HTTP, the event stream, phone access, the relay to other devices
 //
@@ -35,7 +36,8 @@ const limits = new Limits(store, runner);
 const summarizer = new Summarizer(store, runner);
 const usage = new UsageIndex();
 const relay = new Relay(store);
-const collector = new Collector({ store, summarizer, runner, usage, limits, relay });
+const cpu = new CpuMeter();
+const collector = new Collector({ store, summarizer, runner, usage, limits, relay, cpu });
 const seen = new SeenWatcher({ collector, store });
 
 const page = pageVersion(PUBLIC_DIR);
