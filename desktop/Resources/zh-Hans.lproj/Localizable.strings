@@ -23,11 +23,6 @@
 "%@ ago" = "%@前";
 
 /* Appearance.swift */
-"Native" = "原生";
-"Neon" = "赛博霓虹";
-"Terminal" = "黑客终端";
-"Hologram" = "全息 HUD";
-"Minimal" = "极简";
 "Capsules" = "胶囊计数";
 "Traffic light" = "红绿灯";
 "Radar" = "雷达环";
@@ -39,12 +34,6 @@
 "Floating" = "悬浮";
 "Full" = "完整";
 "Gentle" = "柔和";
-"Native macOS" = "原生 macOS";
-"System colors, quiet and solid" = "系统材质与配色，安静可靠";
-"Dark neon glow, radar menu bar" = "暗色底、霓虹描边与发光，雷达环菜单栏";
-"Green mono text, scanlines" = "荧光绿等宽字、扫描线，终端文字菜单栏";
-"Blue grid, HUD corners" = "深蓝网格、角标框、能量条菜单栏";
-"Muted and still, one dot" = "低饱和、无动效，只用单点提示";
 
 /* AppearanceSettings.swift */
 "Presets" = "一键预设";

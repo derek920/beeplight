@@ -1,5 +1,8 @@
 {
   "_about": "Line-drawn characters for the Mac app and the phone status screen, drawn in thin strokes in the color of the current state. Coordinates are in a box of [width, height]. \"paths\" are SVG path strings (M L H V C Q Z, absolute or relative; no arcs) always drawn; \"rest\" are drawn normally and \"alt\" instead during the character's own move (ear flop, ear twitch, antenna spark). The eyes are drawn by the app at \"eyes\" (centers) with height \"eye\", so they can blink, look around, squint happily and droop as the limit runs out. \"spin\" (optional) holds parts drawn upright at rest that whirl around \"base\" like a spring antenna during the character's spin. A terminal-style character has \"text\" instead: \"face\" is one line for the menu bar and the island, \"rest\" and \"alt\" the full text art (lines of equal width), \"*\" marks its eyes, drawn \"eye\" when open and as ~ _ - ^ when tired, nearly shut, blinking or happy. Its \"walk\" frames let the phone's status screen show it walking back and forth on a ground line in place of the ring, a frame every \"step\" character widths at \"speed\" widths a second; \"facing\" is the way it walks as written (the tail trails), -1 left or 1 right. Add a character by adding an entry; its id is what the app stores.",
+  "format": 1,
+  "id": "beeplight.characters",
+  "kind": "characters",
   "characters": [
     {
       "id": "robot",

@@ -110,6 +110,11 @@ struct Figure: Decodable {
     /// Parts that whirl around `base` like a spring antenna; upright at rest.
     let spin: Spin?
     let text: TextArt?
+    /// Pack fields (Packs.swift): the entitlement that unlocks it (nil = free), and for paid
+    /// characters, how rare it is and which series it belongs to.
+    let requires: String?
+    let rarity: String?
+    let series: String?
 
     struct Spin: Decodable {
         let base: [CGFloat]
@@ -143,7 +148,7 @@ struct Figure: Decodable {
         }
     }
 
-    private enum Keys: String, CodingKey { case id, name, box, paths, rest, alt, eyes, eye, spin, text }
+    private enum Keys: String, CodingKey { case id, name, box, paths, rest, alt, eyes, eye, spin, text, requires, rarity, series }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: Keys.self)
@@ -157,6 +162,9 @@ struct Figure: Decodable {
         eyes = try c.decodeIfPresent([[CGFloat]].self, forKey: .eyes) ?? []
         eye = try c.decodeIfPresent(CGFloat.self, forKey: .eye) ?? 0
         spin = try c.decodeIfPresent(Spin.self, forKey: .spin)
+        requires = try c.decodeIfPresent(String.self, forKey: .requires)
+        rarity = try c.decodeIfPresent(String.self, forKey: .rarity)
+        series = try c.decodeIfPresent(String.self, forKey: .series)
     }
 
     var isValid: Bool {

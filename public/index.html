@@ -30,13 +30,7 @@
         <span class="live" id="live"><i></i><span data-i18n>Connecting…</span></span>
         <button class="fs-btn" id="amb-on" title="Status screen" data-i18n-title data-i18n hidden>◱ Simple</button>
         <button class="fs-btn" id="fs-btn" title="Full screen" data-i18n-title hidden>⛶</button>
-        <select id="opt-skin" class="skin" aria-label="Theme" data-i18n-aria-label>
-          <option value="native" data-i18n>Native macOS</option>
-          <option value="neon" data-i18n>Neon</option>
-          <option value="terminal" data-i18n>Terminal</option>
-          <option value="hologram" data-i18n>Hologram</option>
-          <option value="minimal" data-i18n>Minimal</option>
-        </select>
+        <select id="opt-skin" class="skin" aria-label="Theme" data-i18n-aria-label></select>
         <label class="switch"><input type="checkbox" id="opt-notify" /><span data-i18n>Notifications</span></label>
         <label class="switch"><input type="checkbox" id="opt-sdk" /><span data-i18n>SDK sessions</span></label>
       </div>
@@ -141,6 +135,8 @@
 
     <footer class="foot" id="foot"></footer>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <!-- public/themes.json and presets.json, inlined by the service (src/transports/web.js). -->
+    <script id="packs" type="application/json"></script>
     <script type="module" src="/app.js"></script>
   </body>
 </html>

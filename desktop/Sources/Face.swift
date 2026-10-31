@@ -189,11 +189,11 @@ enum Characters {
     static let classic = "classic"
 
     static let figures: [Figure] = {
-        // characters.json ships with the web page, which the app bundles as the service's files.
-        guard let url = Bundle.main.resourceURL?.appending(path: "server/public/characters.json"),
-              let data = try? Data(contentsOf: url),
-              let file = try? JSONDecoder().decode(File.self, from: data) else { return [] }
-        return file.characters.filter(\.isValid)
+        // characters.json ships with the web page, which the app bundles as the service's files. It
+        // is the character pack: each entry decodes on its own, so one bad entry hides only itself,
+        // and one that needs a purchase is not offered in the open-source app.
+        guard let url = Bundle.main.resourceURL?.appending(path: "server/public/characters.json") else { return [] }
+        return Packs.available(Packs.load(Figure.self, from: url), NoPurchases()).filter(\.isValid)
     }()
 
     static var all: [String] { [eyes] + figures.map(\.id) + [classic] }
@@ -211,7 +211,6 @@ enum Characters {
         }
     }
 
-    private struct File: Decodable { let characters: [Figure] }
 }
 
 /// A character in thin strokes, colored by energy; a text-art one shows its one-line face.

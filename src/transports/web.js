@@ -47,6 +47,20 @@ function manifest(token) {
   };
 }
 
+const PACKS_TAG = '<script id="packs" type="application/json"></script>';
+
+/** The theme and preset packs for the page, as JSON safe to put inside a script element. */
+async function packs(dir) {
+  const read = async (name) => {
+    try {
+      return JSON.parse(await fs.promises.readFile(path.join(dir, `${name}.json`), 'utf8'));
+    } catch {
+      return null;
+    }
+  };
+  return JSON.stringify({ themes: await read('themes'), presets: await read('presets') }).replace(/</g, '\\u003c');
+}
+
 function send(res, type, body) {
   res.writeHead(200, { 'content-type': type, 'cache-control': 'no-store' });
   res.end(body);
@@ -63,6 +77,9 @@ export function webRoutes({ dir, lan }) {
       method: 'GET', path: '/', access: 'public',
       handle: async (ctx) => {
         let page = (await fs.promises.readFile(path.join(dir, 'index.html'), 'utf8')).replace('<html lang="en">', `<html lang="${LANG}">`);
+        // The packs go into the page so the theme applies before the first paint.
+        const inlined = await packs(dir);
+        page = page.replace(PACKS_TAG, () => `<script id="packs" type="application/json">${inlined}</script>`);
         const token = phoneToken(ctx);
         if (token) page = page.replace('href="/manifest.webmanifest"', `href="/manifest.webmanifest?t=${token}"`);
         send(ctx.res, 'text/html; charset=utf-8', page);

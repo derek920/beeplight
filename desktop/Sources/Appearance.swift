@@ -4,20 +4,6 @@ import SwiftUI
 // One place for every look-and-feel choice: theme, menu bar style, island, motion.
 // Presets set them all at once; each can then be changed on its own.
 
-enum ThemeID: String, CaseIterable, Codable, Identifiable {
-    case native, neon, terminal, hologram, minimal
-    var id: String { rawValue }
-    var name: String {
-        switch self {
-        case .native: return String(localized: "Native")
-        case .neon: return String(localized: "Neon")
-        case .terminal: return String(localized: "Terminal")
-        case .hologram: return String(localized: "Hologram")
-        case .minimal: return String(localized: "Minimal")
-        }
-    }
-}
-
 enum MenuBarStyle: String, CaseIterable, Codable, Identifiable {
     case capsules, traffic, radar, energy, terminal, dot
     var id: String { rawValue }
@@ -58,7 +44,8 @@ enum Motion: String, CaseIterable, Codable, Identifiable {
 }
 
 struct AppearanceConfig: Codable, Equatable {
-    var theme: ThemeID = .native
+    /// A theme id from the theme pack (Themes.swift).
+    var theme = Themes.native
     var menuBar: MenuBarStyle = .capsules
     var island: IslandMode = .off
     /// Expand the island on hover (otherwise on click).
@@ -76,7 +63,7 @@ extension AppearanceConfig {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let d = AppearanceConfig()
-        theme = try c.decodeIfPresent(ThemeID.self, forKey: .theme) ?? d.theme
+        theme = try c.decodeIfPresent(String.self, forKey: .theme) ?? d.theme
         menuBar = try c.decodeIfPresent(MenuBarStyle.self, forKey: .menuBar) ?? d.menuBar
         island = try c.decodeIfPresent(IslandMode.self, forKey: .island) ?? d.island
         islandHover = try c.decodeIfPresent(Bool.self, forKey: .islandHover) ?? d.islandHover
@@ -92,18 +79,20 @@ struct Preset: Identifiable {
     let blurb: String
     let config: AppearanceConfig
 
-    static let all: [Preset] = [
-        Preset(id: "native", name: String(localized: "Native macOS"), blurb: String(localized: "System colors, quiet and solid"),
-               config: .init(theme: .native, menuBar: .capsules, island: .off, motion: .full)),
-        Preset(id: "neon", name: String(localized: "Neon"), blurb: String(localized: "Dark neon glow, radar menu bar"),
-               config: .init(theme: .neon, menuBar: .radar, island: .notch, motion: .full)),
-        Preset(id: "terminal", name: String(localized: "Terminal"), blurb: String(localized: "Green mono text, scanlines"),
-               config: .init(theme: .terminal, menuBar: .terminal, island: .notch, motion: .soft)),
-        Preset(id: "hologram", name: String(localized: "Hologram"), blurb: String(localized: "Blue grid, HUD corners"),
-               config: .init(theme: .hologram, menuBar: .energy, island: .floating, motion: .full)),
-        Preset(id: "minimal", name: String(localized: "Minimal"), blurb: String(localized: "Muted and still, one dot"),
-               config: .init(theme: .minimal, menuBar: .dot, island: .off, motion: .off)),
-    ]
+    /// From the preset pack (public/presets.json). A value this app does not know falls back to its
+    /// default, a theme it does not have to the native one.
+    static let all: [Preset] = {
+        guard let url = Bundle.main.resourceURL?.appending(path: "server/public/presets.json") else { return [] }
+        let lang = Bundle.main.preferredLocalizations.first ?? "en"
+        let d = AppearanceConfig()
+        return Packs.available(Packs.load(PresetPack.self, from: url), NoPurchases()).map { p in
+            Preset(id: p.id, name: p.name.localized(lang) ?? p.id, blurb: p.blurb.localized(lang) ?? "",
+                   config: .init(theme: Themes.has(p.theme) ? p.theme : Themes.native,
+                                 menuBar: MenuBarStyle(rawValue: p.menuBar) ?? d.menuBar,
+                                 island: IslandMode(rawValue: p.island) ?? d.island,
+                                 motion: Motion(rawValue: p.motion) ?? d.motion))
+        }
+    }()
 
     /// `base` with this preset's theme, menu bar style, island and motion. The character and the
     /// island's toggles are left as they are, so picking a preset never resets them.
@@ -117,69 +106,6 @@ struct Preset: Identifiable {
     }
 }
 
-/// Colors and finish of one theme.
-struct Palette {
-    var waiting: Color
-    var doing: Color
-    var success: Color
-    var failed: Color
-    var urgent: Color
-    /// nil = system label colors.
-    var text: Color?
-    /// nil = window material; otherwise a solid backdrop.
-    var backdrop: Color?
-    var column: Color
-    var card: Color
-    var cardStroke: Color
-    /// Glow radius around state-colored elements; 0 = none.
-    var glow: CGFloat
-    var corner: CGFloat
-    var fontDesign: Font.Design
-    var scheme: ColorScheme?
-    var grid = false
-    var scanlines = false
-    var brackets = false
-    /// Labels as "[Running]" instead of filled capsules.
-    var bracketLabels = false
-
-    static func of(_ id: ThemeID) -> Palette {
-        switch id {
-        case .native:
-            return Palette(
-                waiting: Color(nsColor: .systemOrange), doing: Color(nsColor: .systemBlue), success: Color(nsColor: .systemGreen),
-                failed: Color(nsColor: .systemRed), urgent: Color(red: 1, green: 0.30, blue: 0.24), text: nil, backdrop: nil,
-                column: Color.primary.opacity(0.045), card: Color(nsColor: .controlBackgroundColor).opacity(0.92),
-                cardStroke: Color.primary.opacity(0.07), glow: 0, corner: 12, fontDesign: .default, scheme: nil)
-        case .neon:
-            return Palette(
-                waiting: hex(0xFFB020), doing: hex(0x00E5FF), success: hex(0x39FF88), failed: hex(0xFF3B7F), urgent: hex(0xFF2E63),
-                text: hex(0xEDEBFF), backdrop: hex(0x07060E), column: hex(0x120F24).opacity(0.75), card: hex(0x14112A),
-                cardStroke: hex(0xB14CFF).opacity(0.35), glow: 10, corner: 14, fontDesign: .rounded, scheme: .dark)
-        case .terminal:
-            return Palette(
-                waiting: hex(0xFFB000), doing: hex(0x33FF66), success: hex(0x9DFFB8), failed: hex(0xFF5555), urgent: hex(0xFF3B3B),
-                text: hex(0x46FF7A), backdrop: hex(0x010401), column: hex(0x031003), card: hex(0x020A02),
-                cardStroke: hex(0x1E7A32).opacity(0.8), glow: 4, corner: 3, fontDesign: .monospaced, scheme: .dark,
-                scanlines: true, bracketLabels: true)
-        case .hologram:
-            return Palette(
-                waiting: hex(0xFFC24D), doing: hex(0x4DD9FF), success: hex(0x5CFFB0), failed: hex(0xFF5C7A), urgent: hex(0xFF4060),
-                text: hex(0xD6F6FF), backdrop: hex(0x020B18), column: hex(0x06203A).opacity(0.55), card: hex(0x04162C).opacity(0.88),
-                cardStroke: hex(0x4DD9FF).opacity(0.28), glow: 6, corner: 4, fontDesign: .monospaced, scheme: .dark,
-                grid: true, brackets: true)
-        case .minimal:
-            return Palette(
-                waiting: hex(0xC2843B), doing: hex(0x6B7C93), success: hex(0x6E9C7E), failed: hex(0xB56565), urgent: hex(0xC95B4E),
-                text: nil, backdrop: nil, column: Color.primary.opacity(0.03), card: Color(nsColor: .controlBackgroundColor),
-                cardStroke: Color.primary.opacity(0.08), glow: 0, corner: 10, fontDesign: .default, scheme: nil)
-        }
-    }
-}
-
-func hex(_ v: UInt32) -> Color {
-    Color(red: Double((v >> 16) & 0xFF) / 255, green: Double((v >> 8) & 0xFF) / 255, blue: Double(v & 0xFF) / 255)
-}
-
 @MainActor
 final class Appearance: ObservableObject {
     static let shared = Appearance()
@@ -190,7 +116,7 @@ final class Appearance: ObservableObject {
     @Published var config: AppearanceConfig {
         didSet {
             guard config != oldValue else { return }
-            Theme.palette = Palette.of(config.theme)
+            Theme.palette = Themes.palette(config.theme)
             Theme.motion = config.motion
             revision += 1
             if persist, let data = try? JSONEncoder().encode(config) { UserDefaults.standard.set(data, forKey: "appearance") }
@@ -202,9 +128,12 @@ final class Appearance: ObservableObject {
     var onChange: ((AppearanceConfig, AppearanceConfig) -> Void)?
 
     private init() {
-        let saved = UserDefaults.standard.data(forKey: "appearance").flatMap { try? JSONDecoder().decode(AppearanceConfig.self, from: $0) }
-        config = saved ?? AppearanceConfig()
-        Theme.palette = Palette.of(config.theme)
+        var saved = UserDefaults.standard.data(forKey: "appearance").flatMap { try? JSONDecoder().decode(AppearanceConfig.self, from: $0) } ?? AppearanceConfig()
+        // A theme or character that is no longer there falls back on its own; the rest stays.
+        if !Themes.has(saved.theme) { saved.theme = Themes.native }
+        if !Characters.all.contains(saved.character) { saved.character = Characters.eyes }
+        config = saved
+        Theme.palette = Themes.palette(config.theme)
         Theme.motion = config.motion
     }
 

@@ -1193,9 +1193,62 @@ $('#amb-on').addEventListener('click', () => {
 });
 applyView();
 
+// ---------- themes (public/themes.json, presets.json; format in docs/packs.md) ----------
+// The menu lists the presets; each picks a theme and motion. The service inlines both packs into
+// the page (#packs), so the look is there before anything is fetched.
+
+const PACKS = (() => {
+  try {
+    return JSON.parse($('#packs').textContent || '{}');
+  } catch {
+    return {};
+  }
+})();
+const THEMES = new Map((PACKS.themes?.themes || []).map((th) => [th.id, th]));
+const PRESETS = (PACKS.presets?.presets || []).filter((p) => THEMES.has(p.theme));
+
+/** A pack color for CSS. System colors (system:…, primary) stay with the page's own light and dark defaults. */
+function cssColor(v) {
+  const m = /^#([0-9a-f]{6})(?:@([\d.]+))?$/i.exec(v || '');
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return m[2] === undefined ? `#${m[1]}` : `rgb(${n >> 16} ${(n >> 8) & 255} ${n & 255} / ${Number(m[2])})`;
+}
+
+let themeProps = [];
+function applyPreset(id) {
+  const root = document.documentElement;
+  for (const p of themeProps) root.style.removeProperty(p);
+  themeProps = [];
+  const set = (prop, value) => {
+    if (!value) return;
+    root.style.setProperty(prop, value);
+    themeProps.push(prop);
+  };
+  const preset = PRESETS.find((p) => p.id === id);
+  const theme = THEMES.get(preset?.theme) || {};
+  const c = theme.colors || {};
+  set('--bg', cssColor(c.backdrop));
+  set('--panel', cssColor(c.column));
+  set('--card', cssColor(c.card));
+  set('--text', cssColor(c.text));
+  for (const s of ['doing', 'waiting', 'success', 'failed']) set(`--${s}`, cssColor(c[s]));
+  if (typeof theme.corner === 'number') set('--radius', `${theme.corner}px`);
+  // Colors only the page uses: shadowHover → --shadow-hover.
+  for (const [k, v] of Object.entries(theme.web || {})) set(`--${k.replace(/[A-Z]/g, (ch) => `-${ch.toLowerCase()}`)}`, v);
+  if (theme.scheme === 'dark' || theme.scheme === 'light') set('color-scheme', theme.scheme);
+  root.dataset.font = theme.font || 'default';
+  root.dataset.glow = (theme.glow || 0) >= 8 ? 'strong' : 'none';
+  root.dataset.effects = (theme.effects || []).join(' ');
+  root.dataset.motion = preset?.motion || 'full';
+}
+
 const optSkin = $('#opt-skin');
+for (const p of PRESETS) optSkin.add(new Option(p.name?.[LANG] || p.name?.en || p.id, p.id));
 const applySkin = () => {
-  document.documentElement.dataset.skin = prefs.skin;
+  // A preset that is gone falls back to the native one.
+  if (!PRESETS.some((p) => p.id === prefs.skin)) prefs.skin = 'native';
+  applyPreset(prefs.skin);
   optSkin.value = prefs.skin;
 };
 applySkin();

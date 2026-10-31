@@ -4,6 +4,8 @@ import test from 'node:test';
 import { setLang } from '../src/lib/i18n.js';
 import { apiRoutes } from '../src/transports/api.js';
 import { createHandler, json } from '../src/transports/http.js';
+import { webRoutes } from '../src/transports/web.js';
+import { PUBLIC_DIR } from '../src/config/index.js';
 
 setLang('en');
 
@@ -129,4 +131,16 @@ test('pairing by code: refused on this Mac, wrong code answers 401 instead of cr
   assert.match(wrong.json.error, /Wrong or expired pairing code/);
   assert.deepEqual((await pair(phone({ body: { pin: '123456' } }))).json, { ok: true, token: 'tok' });
   assert.equal((await call(h, phone({ method: 'POST', url: '/api/pair', body: { pin: '123456' } }))).status, 403, 'header still required');
+});
+
+test('the page carries the theme and preset packs inline', async () => {
+  const lan = fakeLan();
+  const h = createHandler({ routes: webRoutes({ dir: PUBLIC_DIR, lan }), lan, port: PORT, log: quiet });
+  const res = { body: '', writeHead() {}, end(c = '') { this.body += c; } };
+  await h(request({ url: '/' }), res);
+  const m = /<script id="packs" type="application\/json">(.*?)<\/script>/s.exec(res.body);
+  assert.ok(m, 'packs script element');
+  const packs = JSON.parse(m[1]);
+  assert.ok(packs.themes.themes.some((t) => t.id === 'neon'));
+  assert.ok(packs.presets.presets.some((p) => p.id === 'minimal'));
 });

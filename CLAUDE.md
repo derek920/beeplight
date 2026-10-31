@@ -123,17 +123,22 @@ Mac 应用：
 
 ### 插件化（主题和形象）
 
-还没有实现。下面是已经定下的设计约束，实现时照此执行：
+格式规范见 `docs/packs.md`。内置包是 `public/` 下的 `themes.json`、`presets.json`、`characters.json`，共享解码在 `desktop/Sources/Packs.swift`，Mac 端的主题注册表和颜色映射在 `Themes.swift`。
+
+已经实现：包格式、5 个主题和 5 个预设改成内置包、Mac 应用和网页都从包里读主题和预设、形象走同一个宽松解码器、付费相关的字段和接口。还没做：下载签名包（只有 iPhone 应用会用到）。
+
+网页的主题：服务端把 `themes.json`、`presets.json` 内嵌进首页（`<script id="packs">`，`src/transports/web.js`），所以首屏就是对的颜色。网页的主题菜单列的是预设，选择存在浏览器里（`prefs.skin`，存的是预设 id）。`app.js` 的 `applyPreset()` 把主题里的 `#RRGGBB` 颜色、`corner`、`scheme` 和 `web` 里的网页专用颜色写成 `:root` 上的 CSS 变量；系统色（`system:…`、`primary`）在 CSS 里没有对应，这些位置沿用页面自己的浅色、深色默认值，所以原生主题在网页上什么都不覆盖。装饰按特性生效，不按主题名：`data-font`、`data-glow`（`glow` ≥ 8 为 `strong`，和 Mac 画色块的门槛一致）、`data-effects`、`data-motion`（预设 `motion: off` 时停掉所有动画）。新加一种装饰：在 `ThemePack.knownEffects` 里登记，再在 `style.css` 里写 `:root[data-effects~='…']` 规则。
 
 - 插件是只含数据的包（JSON 加图片或 SVG），不含可执行代码。原因：iOS 不允许下载并执行代码；Beeplight 能控制终端，加载外部代码风险太大；纯数据的包，Mac、网页、iPhone 三端可以共用同一份。
 - 只有官方包。不提供让用户或第三方安装包的目录；app 包以外来源的包，必须带官方签名。
-- 包分三类：主题（浅色和深色两套色板、发光、圆角、字体风格、扫描线和网格、默认动效）、形象（现在 `characters.json` 里的条目）、预设（主题、菜单栏样式、灵动岛、动效、形象的组合）。现有的 5 个主题改成 5 个内置包；网页端用同一份数据生成 CSS 变量。
+- 包分三类：主题（色板、发光、圆角、字体风格、深浅外观、`effects` 里的扫描线、网格、角标等装饰）、预设（主题、菜单栏样式、灵动岛、动效的组合）、形象（`characters.json` 里的条目）。动效属于预设，不属于主题。
+- 加主题、预设或形象只改包文件，不改代码，改完跑 `npm test`：`test/packs.test.js` 会按 app 的解码规则检查内置包，允许的取值（菜单栏样式、系统色名、字体、效果等）直接从 Swift 源码里读，两边不会对不上。
 - 菜单栏样式和灵动岛布局是绘制代码，不做成数据，包只能选用它们并调参数。
-- 包格式带版本号（`format`）。解码要容错：不认识的字段忽略，新字段一律可选。选中的包不存在或解码失败时，只让那一项回退到默认，不能重置整套外观设置。
-- 包的数据结构和解码写在只依赖 Foundation 或 SwiftUI 的共享文件里（和 `Figure.swift` 一样），供 iPhone 应用编译。
-- 收费的抽卡形象只放在 iOS 应用里（2026-10-30 定）。本仓库不放付费逻辑和付费素材，只提供：形象包里的 `rarity`（稀有度）、`series`（系列）、`requires`（解锁所需的权益）字段，以及共享文件里的权益接口 `EntitlementProvider`。开源版的实现是「内置形象全部可用」。
-- 付费包用 Ed25519 签名，app 内置公钥验签。签名只能证明包来自官方；开源的 app 被人改代码就能绕过解锁，这一点是接受的。
-- App Store 审核指南 3.1.1 要求付费随机物品在购买前公示各档概率，所以概率表是包里的数据，界面必须能展示出来。
+- 包格式带版本号（`format`），只有旧 app 读不懂的改动才升版本。解码要容错：不认识的字段忽略，新字段一律可选，条目逐个解码，坏一条只跳过这一条。选中的主题或形象不存在时，只让那一项回退到默认（`native`、机器人眼睛），不能重置整套外观设置（`Appearance` 启动时修正）。
+- 包的数据结构和解码写在只依赖 SwiftUI 的共享文件里（`Packs.swift`），供 iPhone 应用编译；把包里的颜色变成平台颜色由各端自己做。
+- 收费的抽卡形象只放在 iOS 应用里（2026-10-30 定）。本仓库不放付费逻辑和付费素材，只提供：条目上的 `requires`（解锁所需的权益）、`rarity`（稀有度）、`series`（系列）字段，权益接口 `EntitlementProvider`，以及抽卡池格式 `PoolPack`。开源版用 `NoPurchases`：带 `requires` 的条目一律不提供，内置条目全部免费（测试会检查内置条目没有 `requires`）。
+- 付费包用 Ed25519 签名，app 内置公钥验签，信封格式见 `docs/packs.md`。签名只能证明包来自官方；开源的 app 被人改代码就能绕过解锁，这一点是接受的。
+- App Store 审核指南 3.1.1 要求付费随机物品在购买前公示各档概率，所以概率表是包里的数据（`PoolPack.entries[].odds`，加起来等于 1），界面必须能展示出来。
 
 ## 架构
 
@@ -167,11 +172,11 @@ Token 用量与额度：
 - `src/services/limits.js` `Limits`：`claude -p --output-format stream-json --verbose` 每次调用都会输出 `rate_limit_event`，里面的 `unifiedWindows.five_hour / seven_day` 带 `utilization` 和 `resetsAt`。`src/services/claude-cli.js` 是总结器和额度探测共用的运行器，它会把这个事件交给 `Limits.ingest()`。窗口边界用 `resetsAt - 5h/7d`，已过重置时间的读数视为失效。`project()` 用同一窗口内的历史样本估算增长速度。
 - 汇总：`Collector.refreshUsageCache()` 算出各会话的窗口用量和账号视图，只在 usage 或 limits 的 version 变化时、或每 10 秒重算一次。账号视图放在 meta 事件里下发，不进 state 签名。
 
-外观（`desktop/Sources/Appearance.swift`）：`AppearanceConfig` 包含主题、菜单栏样式、灵动岛、动效四项，存在 UserDefaults 的 `appearance` 键里；`Preset.all` 是五个预设。`Theme` 的颜色全部从 `Theme.palette` 计算，动效从 `Theme.motion` 读取，`Appearance` 改动时会更新这两个全局值。根视图（Board、Panel、Island、设置窗口）用 `.id(appearance.revision)` 强制整棵树重建，并用 `.themedRoot()` 应用配色方案、字体设计、文字色和扫描线。卡片统一用 `.themedCard()`。新增界面时不要写死系统颜色，一律用 `Theme.*`，否则换了主题会露馅。
+外观（`desktop/Sources/Appearance.swift`）：`AppearanceConfig` 包含主题、菜单栏样式、灵动岛、动效四项，存在 UserDefaults 的 `appearance` 键里。主题是主题包里的 id（字符串），调色板由 `Themes.palette(id)` 从 `public/themes.json` 生成（`Themes.swift`）；`Preset.all` 读 `public/presets.json`，见「开发约束 → 插件化」。`Theme` 的颜色全部从 `Theme.palette` 计算，动效从 `Theme.motion` 读取，`Appearance` 改动时会更新这两个全局值。根视图（Board、Panel、Island、设置窗口）用 `.id(appearance.revision)` 强制整棵树重建，并用 `.themedRoot()` 应用配色方案、字体设计、文字色和扫描线。卡片统一用 `.themedCard()`。新增界面时不要写死系统颜色，一律用 `Theme.*`，否则换了主题会露馅。
 
 - 形象（`Face.swift`；不依赖 AppKit 的 `Energy`、`EyePose`、`Figure`、`SVGPath` 在 `Figure.swift`，iPhone 应用也编译这个文件）：外观设置里选，存为 `AppearanceConfig.character`（`eyes`、`classic` 或简笔形象的 id）。简笔形象是 `public/characters.json` 里的 SVG 路径（只支持 M L H V C Q Z，Mac 端用 `SVGPath.parse` 自己解析），Mac 端从 app 包里的 `server/public/` 读取，网页直接请求，加形象只需要改这个文件。Mac 端连上服务时和切换形象时会 `POST /api/character`，服务端记在 `store.flags.character`，通过 meta 下发给手机状态屏。没有任务时菜单栏、灵动岛显示所选形象，颜色和睁眼程度由 `Energy` 按两个额度窗口里用得更多的那个决定，阈值和额度条颜色一致（50% / 80% / 95%）。`FaceAnimator` 是事件驱动的：静止时只挂一个随机 2～12 秒的定时器，眨眼、张望时才以 30fps 出帧，菜单栏位图还按姿态缓存，所以空闲时几乎不耗电。手机状态屏上，机器人眼睛用纯 CSS 动画（`.amb-eyes`、`data-energy`）；简笔形象在所有状态下都显示，`syncFigure()` 按状态或剩余额度选一组 `MOODS`（睁眼程度、动作频率），只在动作时用 setTimeout 换帧，眼睛的画法和 Mac 端 `Figure.eyePath` 一致。
 - 转天线：形象可以带 `spin`（`base` 加一组路径，目前只有机器人的天线），静止时竖直，动作时绕 `base` 像弹簧天线一样甩圈：`EyePose.spin`（朝向，单位是圈）和 `swing`（倾斜程度）经 `Figure.spinTransform` 变成一个斜切矩阵，网页端的 `spinMatrix()`、`whirlAt()` 用同一套公式。空闲时它是随机动作之一，圈数看 `Energy.turns`；手机状态屏和 iOS app 在执行中一直转。网页端的 SVG 每个形象只画一次，转天线时每 33ms 只改 `.s` 组的 `transform`，所以眨眼不会打断转圈。天线在转时不放 `alt` 帧，因为火花是按竖直的天线画的。Mac 和 iOS 都用 `Figure.draw()` 画形象，改画法只改这一处。
-- 字符画形象（终端猫、终端狗）：`characters.json` 里用 `text` 代替路径字段，`face` 是一行颜文字（菜单栏、灵动岛、设置页和小组件用），`rest`/`alt` 是完整字符画（每行等宽），`*` 标出眼睛：睁眼画 `eye`，累了 `~`、快睁不开 `_`、眨眼 `-`、笑 `^`，规则在 `Figure.TextArt.eyeGlyph` 和网页的 `eyeGlyph()` 两处，要一起改。Swift 的 `Figure` 手写了解码，路径字段缺省为空，所以字符画和简笔形象能放在同一个数组里；新增字段也要在 `init(from:)` 里补，否则整个文件解码失败，所有形象都会消失。
+- 字符画形象（终端猫、终端狗）：`characters.json` 里用 `text` 代替路径字段，`face` 是一行颜文字（菜单栏、灵动岛、设置页和小组件用），`rest`/`alt` 是完整字符画（每行等宽），`*` 标出眼睛：睁眼画 `eye`，累了 `~`、快睁不开 `_`、眨眼 `-`、笑 `^`，规则在 `Figure.TextArt.eyeGlyph` 和网页的 `eyeGlyph()` 两处，要一起改。Swift 的 `Figure` 手写了解码，路径字段缺省为空，所以字符画和简笔形象能放在同一个数组里；新增字段要在 `init(from:)` 里补上才读得到。文件经 `Packs.load` 逐条解码，某一条解码失败只会让这一条消失。
 - 走路（只在网页状态屏）：字符画形象可以带 `walk`（`facing`、`speed`、`step`、`frames`），状态屏用 `data-text` 把能量环换成一条虚线地面，`walk()`/`stepWalker()` 让它在线上走：空闲时按 `MOODS[].walk` 隔几秒溜达到一个点，执行中（`pace`）来回踱步，等你和失败时停下。位置以字符宽度为单位，帧号由走过的距离除以 `step` 算出；反方向走时整段字符画用 `scale` 镜像，转身是 `scale` 从 1 过 0 到 -1。每帧只改 `<pre>` 的 CSS `translate`/`scale`，所以晃动和跳的动画写在 `.amb-figure > *` 的 `transform` 上，两者不冲突。Mac 和 iOS app 里形象不走路，iOS 状态屏在环里显示完整字符画。
 - `AppearanceConfig` 的解码在扩展里手写，缺少的字段用默认值。新增外观字段时要在这里补一行，否则旧版本存下的设置会整体解码失败，用户的外观被重置。
 - 菜单栏的 6 种样式在 `Glyphs.swift` 的 `MenuBarBadge` 里，用 `ImageRenderer` 渲染成位图。徽章视图显式接收 `Palette` 和 `ink` 参数，所以设置页能用别的主题渲染预览。
@@ -227,7 +232,7 @@ Mac 应用（`desktop/`）：
 
 ## 和 iPhone 应用共用的文件
 
-不开源的 iPhone 应用直接编译 `desktop/Sources/Models.swift`、`desktop/Sources/Figure.swift` 和 `public/characters.json`。所以 `Models.swift` 里只能用 Foundation，`Figure.swift` 只能用 SwiftUI，不能引入 AppKit；改字段或格式时要兼容 iPhone 端（新字段写成可选）。
+不开源的 iPhone 应用直接编译 `desktop/Sources/Models.swift`、`desktop/Sources/Figure.swift` 和 `public/characters.json`。所以 `Models.swift` 里只能用 Foundation，`Figure.swift` 只能用 SwiftUI，不能引入 AppKit；改字段或格式时要兼容 iPhone 端（新字段写成可选）。`desktop/Sources/Packs.swift`（只用 SwiftUI）和 `public/themes.json`、`presets.json` 也是为 iPhone 应用准备的，它要用包、权益接口或抽卡池时把它们加进工程即可；`Figure.swift` 不依赖 `Packs.swift`，只编译前者不受影响。
 
 ## 跨设备同步
 

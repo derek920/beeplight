@@ -1,0 +1,153 @@
+{
+  "_about": "Theme pack: colors and finish of the board, the menu bar panel and the island. \"web\" holds the extra colors only the web page uses. Format in docs/packs.md.",
+  "format": 1,
+  "id": "beeplight.themes",
+  "kind": "themes",
+  "themes": [
+    {
+      "id": "native",
+      "name": { "en": "Native", "zh-Hans": "原生" },
+      "scheme": "system",
+      "font": "default",
+      "corner": 12,
+      "glow": 0,
+      "colors": {
+        "waiting": "system:orange",
+        "doing": "system:blue",
+        "success": "system:green",
+        "failed": "system:red",
+        "urgent": "#FF4D3D",
+        "column": "primary@0.045",
+        "card": "system:controlBackground@0.92",
+        "cardStroke": "primary@0.07"
+      },
+      "effects": []
+    },
+    {
+      "id": "neon",
+      "name": { "en": "Neon", "zh-Hans": "赛博霓虹" },
+      "scheme": "dark",
+      "font": "rounded",
+      "corner": 14,
+      "glow": 10,
+      "colors": {
+        "waiting": "#FFB020",
+        "doing": "#00E5FF",
+        "success": "#39FF88",
+        "failed": "#FF3B7F",
+        "urgent": "#FF2E63",
+        "text": "#EDEBFF",
+        "backdrop": "#07060E",
+        "column": "#120F24@0.75",
+        "card": "#14112A",
+        "cardStroke": "#B14CFF@0.35"
+      },
+      "effects": [],
+      "web": {
+        "muted": "#A29FC8",
+        "faint": "#6D6A92",
+        "line": "#2A2550",
+        "chip": "#1F1A3D",
+        "shadow": "0 0 0 1px rgb(177 76 255 / 0.35), 0 0 14px rgb(0 229 255 / 0.1)",
+        "shadowHover": "0 0 0 1px rgb(0 229 255 / 0.6), 0 0 24px rgb(0 229 255 / 0.3)",
+        "doingSoft": "rgb(0 229 255 / 0.12)",
+        "waitingSoft": "rgb(255 176 32 / 0.12)",
+        "successSoft": "rgb(57 255 136 / 0.1)",
+        "failedSoft": "rgb(255 59 127 / 0.12)"
+      }
+    },
+    {
+      "id": "terminal",
+      "name": { "en": "Terminal", "zh-Hans": "黑客终端" },
+      "scheme": "dark",
+      "font": "monospaced",
+      "corner": 3,
+      "glow": 4,
+      "colors": {
+        "waiting": "#FFB000",
+        "doing": "#33FF66",
+        "success": "#9DFFB8",
+        "failed": "#FF5555",
+        "urgent": "#FF3B3B",
+        "text": "#46FF7A",
+        "backdrop": "#010401",
+        "column": "#031003",
+        "card": "#020A02",
+        "cardStroke": "#1E7A32@0.8"
+      },
+      "effects": ["scanlines", "bracketLabels"],
+      "web": {
+        "muted": "#2FBF5A",
+        "faint": "#1D7A3A",
+        "line": "#0F3D1C",
+        "chip": "#062006",
+        "shadow": "0 0 0 1px #1E7A32",
+        "shadowHover": "0 0 0 1px #46FF7A, 0 0 12px rgb(70 255 122 / 0.25)",
+        "doingSoft": "rgb(51 255 102 / 0.1)",
+        "waitingSoft": "rgb(255 176 0 / 0.1)",
+        "successSoft": "rgb(157 255 184 / 0.08)",
+        "failedSoft": "rgb(255 85 85 / 0.1)"
+      }
+    },
+    {
+      "id": "hologram",
+      "name": { "en": "Hologram", "zh-Hans": "全息 HUD" },
+      "scheme": "dark",
+      "font": "monospaced",
+      "corner": 4,
+      "glow": 6,
+      "colors": {
+        "waiting": "#FFC24D",
+        "doing": "#4DD9FF",
+        "success": "#5CFFB0",
+        "failed": "#FF5C7A",
+        "urgent": "#FF4060",
+        "text": "#D6F6FF",
+        "backdrop": "#020B18",
+        "column": "#06203A@0.55",
+        "card": "#04162C@0.88",
+        "cardStroke": "#4DD9FF@0.28"
+      },
+      "effects": ["grid", "brackets"],
+      "web": {
+        "muted": "#8FB9CC",
+        "faint": "#56788A",
+        "line": "#0F3550",
+        "chip": "#0A2A44",
+        "shadow": "0 0 0 1px rgb(77 217 255 / 0.28)",
+        "shadowHover": "0 0 0 1px rgb(77 217 255 / 0.6), 0 0 18px rgb(77 217 255 / 0.25)",
+        "doingSoft": "rgb(77 217 255 / 0.1)",
+        "waitingSoft": "rgb(255 194 77 / 0.1)",
+        "successSoft": "rgb(92 255 176 / 0.08)",
+        "failedSoft": "rgb(255 92 122 / 0.1)"
+      }
+    },
+    {
+      "id": "minimal",
+      "name": { "en": "Minimal", "zh-Hans": "极简" },
+      "scheme": "system",
+      "font": "default",
+      "corner": 10,
+      "glow": 0,
+      "colors": {
+        "waiting": "#C2843B",
+        "doing": "#6B7C93",
+        "success": "#6E9C7E",
+        "failed": "#B56565",
+        "urgent": "#C95B4E",
+        "column": "primary@0.03",
+        "card": "system:controlBackground",
+        "cardStroke": "primary@0.08"
+      },
+      "effects": [],
+      "web": {
+        "shadow": "none",
+        "shadowHover": "0 0 0 1px var(--line)",
+        "doingSoft": "rgb(107 124 147 / 0.1)",
+        "waitingSoft": "rgb(194 132 59 / 0.1)",
+        "successSoft": "rgb(110 156 126 / 0.1)",
+        "failedSoft": "rgb(181 101 101 / 0.1)"
+      }
+    }
+  ]
+}

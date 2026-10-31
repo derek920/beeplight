@@ -18,7 +18,7 @@ struct AppearanceSettingsView: View {
                     }
                     section(String(localized: "Theme"), String(localized: "Colors, fonts and finish of the board, the menu bar panel and the island")) {
                         Picker("", selection: $appearance.config.theme) {
-                            ForEach(ThemeID.allCases) { Text($0.name).tag($0) }
+                            ForEach(Themes.all, id: \.id) { Text(Themes.name($0.id)).tag($0.id) }
                         }
                         .pickerStyle(.segmented)
                         .labelsHidden()
@@ -95,7 +95,7 @@ private struct PresetCard: View {
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        let p = Palette.of(preset.config.theme)
+        let p = Themes.palette(preset.config.theme)
         Button(action: action) {
             VStack(alignment: .leading, spacing: 6) {
                 ZStack {

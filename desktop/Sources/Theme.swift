@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Current theme's colors and motion level (set by `Appearance`; read everywhere on the main thread).
 enum Theme {
-    static var palette = Palette.of(.native)
+    static var palette = Themes.palette(Themes.native)
     static var motion = Motion.full
 
     static var waiting: Color { palette.waiting }

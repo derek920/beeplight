@@ -62,3 +62,7 @@ number, e.g. "Running 2", "2 running", "Waiting: 3".
 | 需重启 / 重启后生效 | Needs restart / Restart to apply |
 | 恢复默认 | Reset to default |
 | 自动（留空时的默认） | Automatic |
+| 数据包 / 主题包 / 预设包 / 形象包 | Pack / theme pack / preset pack / character pack |
+| 稀有度 | Rarity |
+| 系列 | Series |
+| 抽卡池 / 概率 | Draw pool / Odds |

@@ -24,7 +24,6 @@ const ZH = {
   'Full screen': '全屏',
   'Exit full screen': '退出全屏',
   Theme: '主题',
-  'Native macOS': '原生',
   Neon: '赛博霓虹',
   Terminal: '黑客终端',
   Hologram: '全息 HUD',

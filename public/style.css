@@ -1109,73 +1109,36 @@ button {
   box-shadow: 0 0 0 3px var(--doing-soft);
 }
 
-:root[data-skin='neon'] {
-  color-scheme: dark;
-  --bg: #07060e;
-  --panel: rgb(18 15 36 / 0.75);
-  --card: #14112a;
-  --text: #edebff;
-  --muted: #a29fc8;
-  --faint: #6d6a92;
-  --line: #2a2550;
-  --chip: #1f1a3d;
-  --shadow: 0 0 0 1px rgb(177 76 255 / 0.35), 0 0 14px rgb(0 229 255 / 0.1);
-  --shadow-hover: 0 0 0 1px rgb(0 229 255 / 0.6), 0 0 24px rgb(0 229 255 / 0.3);
-  --doing: #00e5ff;
-  --doing-soft: rgb(0 229 255 / 0.12);
-  --waiting: #ffb020;
-  --waiting-soft: rgb(255 176 32 / 0.12);
-  --success: #39ff88;
-  --success-soft: rgb(57 255 136 / 0.1);
-  --failed: #ff3b7f;
-  --failed-soft: rgb(255 59 127 / 0.12);
-  --radius: 14px;
+/* Themes come from public/themes.json and presets.json (docs/packs.md). app.js sets a theme's
+   colors as custom properties on :root, and the attributes below for the finishes drawn here. */
+
+:root[data-font='monospaced'] body {
+  font-family: var(--mono);
 }
 
-:root[data-skin='neon'] body {
-  background: radial-gradient(900px 600px at 0% 0%, rgb(255 59 127 / 0.14), transparent 60%),
-    radial-gradient(900px 700px at 100% 100%, rgb(0 229 255 / 0.12), transparent 60%), var(--bg);
+/* A strong glow (glow ≥ 8, where the Mac app draws the same color pools): pools of the failed and
+   doing colors behind everything, glowing card outlines and numbers. */
+:root[data-glow='strong'] body {
+  background: radial-gradient(900px 600px at 0% 0%, color-mix(in srgb, var(--failed) 14%, transparent), transparent 60%),
+    radial-gradient(900px 700px at 100% 100%, color-mix(in srgb, var(--doing) 12%, transparent), transparent 60%), var(--bg);
 }
 
-:root[data-skin='neon'] .card {
+:root[data-glow='strong'] .card {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent), 0 0 18px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
-:root[data-skin='neon'] .pill,
-:root[data-skin='neon'] .stat b,
-:root[data-skin='neon'] .q-pct {
+:root[data-glow='strong'] .pill,
+:root[data-glow='strong'] .stat b,
+:root[data-glow='strong'] .q-pct {
   text-shadow: 0 0 8px currentColor;
 }
 
-:root[data-skin='terminal'] {
-  color-scheme: dark;
-  --bg: #010401;
-  --panel: #031003;
-  --card: #020a02;
-  --text: #46ff7a;
-  --muted: #2fbf5a;
-  --faint: #1d7a3a;
-  --line: #0f3d1c;
-  --chip: #062006;
-  --shadow: 0 0 0 1px #1e7a32;
-  --shadow-hover: 0 0 0 1px #46ff7a, 0 0 12px rgb(70 255 122 / 0.25);
-  --doing: #33ff66;
-  --doing-soft: rgb(51 255 102 / 0.1);
-  --waiting: #ffb000;
-  --waiting-soft: rgb(255 176 0 / 0.1);
-  --success: #9dffb8;
-  --success-soft: rgb(157 255 184 / 0.08);
-  --failed: #ff5555;
-  --failed-soft: rgb(255 85 85 / 0.1);
-  --radius: 3px;
+/* scanlines: a CRT screen, glowing text under lines. */
+:root[data-effects~='scanlines'] body {
+  text-shadow: 0 0 4px color-mix(in srgb, var(--text) 35%, transparent);
 }
 
-:root[data-skin='terminal'] body {
-  font-family: var(--mono);
-  text-shadow: 0 0 4px rgb(70 255 122 / 0.35);
-}
-
-:root[data-skin='terminal'] body::after {
+:root[data-effects~='scanlines'] body::after {
   content: '';
   position: fixed;
   inset: 0;
@@ -1184,57 +1147,33 @@ button {
   background: repeating-linear-gradient(to bottom, rgb(0 0 0 / 0.22) 0 1px, transparent 1px 3px);
 }
 
-:root[data-skin='terminal'] .pill {
+/* bracketLabels: state labels as [Running]. */
+:root[data-effects~='bracketLabels'] .pill {
   background: none;
   padding: 0;
 }
 
-:root[data-skin='terminal'] .pill::before {
+:root[data-effects~='bracketLabels'] .pill::before {
   content: '[';
 }
 
-:root[data-skin='terminal'] .pill::after {
+:root[data-effects~='bracketLabels'] .pill::after {
   content: ']';
 }
 
-:root[data-skin='hologram'] {
-  color-scheme: dark;
-  --bg: #020b18;
-  --panel: rgb(6 32 58 / 0.55);
-  --card: rgb(4 22 44 / 0.88);
-  --text: #d6f6ff;
-  --muted: #8fb9cc;
-  --faint: #56788a;
-  --line: #0f3550;
-  --chip: #0a2a44;
-  --shadow: 0 0 0 1px rgb(77 217 255 / 0.28);
-  --shadow-hover: 0 0 0 1px rgb(77 217 255 / 0.6), 0 0 18px rgb(77 217 255 / 0.25);
-  --doing: #4dd9ff;
-  --doing-soft: rgb(77 217 255 / 0.1);
-  --waiting: #ffc24d;
-  --waiting-soft: rgb(255 194 77 / 0.1);
-  --success: #5cffb0;
-  --success-soft: rgb(92 255 176 / 0.08);
-  --failed: #ff5c7a;
-  --failed-soft: rgb(255 92 122 / 0.1);
-  --radius: 4px;
+/* grid: a backdrop grid in the doing color. */
+:root[data-effects~='grid'] body {
+  background: linear-gradient(color-mix(in srgb, var(--doing) 6%, transparent) 1px, transparent 1px) 0 0 / 26px 26px,
+    linear-gradient(90deg, color-mix(in srgb, var(--doing) 6%, transparent) 1px, transparent 1px) 0 0 / 26px 26px, var(--bg);
 }
 
-:root[data-skin='hologram'] body {
-  font-family: var(--mono);
-  background: linear-gradient(rgb(77 217 255 / 0.06) 1px, transparent 1px) 0 0 / 26px 26px,
-    linear-gradient(90deg, rgb(77 217 255 / 0.06) 1px, transparent 1px) 0 0 / 26px 26px, var(--bg);
-}
-
-/* HUD corner brackets */
-:root[data-skin='hologram'] .card::after,
-:root[data-skin='hologram'] .q-card::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
+/* brackets: HUD corner marks and outlined labels. A task card draws its marks in its background,
+   because its ::after is the urgent card's breathing ring. */
+:root[data-effects~='brackets'] .card,
+:root[data-effects~='brackets'] .q-card::after {
   --c: var(--accent, var(--doing));
-  background: linear-gradient(var(--c), var(--c)) top left / 12px 1.5px no-repeat,
+  background:
+    linear-gradient(var(--c), var(--c)) top left / 12px 1.5px no-repeat,
     linear-gradient(var(--c), var(--c)) top left / 1.5px 12px no-repeat,
     linear-gradient(var(--c), var(--c)) top right / 12px 1.5px no-repeat,
     linear-gradient(var(--c), var(--c)) top right / 1.5px 12px no-repeat,
@@ -1244,37 +1183,36 @@ button {
     linear-gradient(var(--c), var(--c)) bottom right / 1.5px 12px no-repeat;
 }
 
-:root[data-skin='hologram'] .q-card {
+:root[data-effects~='brackets'] .card {
+  background-color: var(--card);
+}
+
+:root[data-effects~='brackets'] .q-card {
   position: relative;
 }
 
-:root[data-skin='hologram'] .pill {
+:root[data-effects~='brackets'] .q-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+:root[data-effects~='brackets'] .pill {
   background: none;
   box-shadow: inset 0 0 0 1px currentColor;
 }
 
-:root[data-skin='minimal'] {
-  --doing: #6b7c93;
-  --doing-soft: rgb(107 124 147 / 0.1);
-  --waiting: #c2843b;
-  --waiting-soft: rgb(194 132 59 / 0.1);
-  --success: #6e9c7e;
-  --success-soft: rgb(110 156 126 / 0.1);
-  --failed: #b56565;
-  --failed-soft: rgb(181 101 101 / 0.1);
-  --shadow: none;
-  --shadow-hover: 0 0 0 1px var(--line);
-  --radius: 10px;
-}
-
-:root[data-skin='minimal'] *,
-:root[data-skin='minimal'] *::before {
+/* A preset with motion off stills everything. */
+:root[data-motion='off'] *,
+:root[data-motion='off'] *::before,
+:root[data-motion='off'] *::after {
   animation: none !important;
 }
 
 /* Without motion the spinner stands still as an open ring, which reads as a "C": close it around
    a dot instead. */
-:root[data-skin='minimal'] .s-doing .pill .ic {
+:root[data-motion='off'] .s-doing .pill .ic {
   border-right-color: currentColor;
   background: radial-gradient(circle, currentColor 0 1.5px, transparent 2px);
 }

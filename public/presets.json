@@ -1,0 +1,53 @@
+{
+  "_about": "Preset pack: a theme, a menu bar style, the island and motion picked together. Format in docs/packs.md.",
+  "format": 1,
+  "id": "beeplight.presets",
+  "kind": "presets",
+  "presets": [
+    {
+      "id": "native",
+      "name": { "en": "Native macOS", "zh-Hans": "原生 macOS" },
+      "blurb": { "en": "System colors, quiet and solid", "zh-Hans": "系统材质与配色，安静可靠" },
+      "theme": "native",
+      "menuBar": "capsules",
+      "island": "off",
+      "motion": "full"
+    },
+    {
+      "id": "neon",
+      "name": { "en": "Neon", "zh-Hans": "赛博霓虹" },
+      "blurb": { "en": "Dark neon glow, radar menu bar", "zh-Hans": "暗色底、霓虹描边与发光，雷达环菜单栏" },
+      "theme": "neon",
+      "menuBar": "radar",
+      "island": "notch",
+      "motion": "full"
+    },
+    {
+      "id": "terminal",
+      "name": { "en": "Terminal", "zh-Hans": "黑客终端" },
+      "blurb": { "en": "Green mono text, scanlines", "zh-Hans": "荧光绿等宽字、扫描线，终端文字菜单栏" },
+      "theme": "terminal",
+      "menuBar": "terminal",
+      "island": "notch",
+      "motion": "soft"
+    },
+    {
+      "id": "hologram",
+      "name": { "en": "Hologram", "zh-Hans": "全息 HUD" },
+      "blurb": { "en": "Blue grid, HUD corners", "zh-Hans": "深蓝网格、角标框、能量条菜单栏" },
+      "theme": "hologram",
+      "menuBar": "energy",
+      "island": "floating",
+      "motion": "full"
+    },
+    {
+      "id": "minimal",
+      "name": { "en": "Minimal", "zh-Hans": "极简" },
+      "blurb": { "en": "Muted and still, one dot", "zh-Hans": "低饱和、无动效，只用单点提示" },
+      "theme": "minimal",
+      "menuBar": "dot",
+      "island": "off",
+      "motion": "off"
+    }
+  ]
+}
