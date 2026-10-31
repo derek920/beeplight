@@ -6,8 +6,9 @@
 #   sh desktop/build.sh --dist     → a universal app (Apple silicon + Intel), packed as
 #                                     desktop/build/Beeplight-<version>.dmg to share
 # The bundled node is the official Node.js NODE_DIST release, downloaded once from nodejs.org,
-# checked against its SHASUMS256.txt and cached in desktop/build/node. NODE=/path/to/node
-# bundles that binary instead (not with --dist).
+# checked against its SHASUMS256.txt and cached in desktop/build/node.
+# BEEPLIGHT_NODE=/path/to/node bundles that binary instead (not with --dist). It isn't NODE,
+# because `npm run` sets NODE to the node running npm, which may need dylibs the app doesn't carry.
 # Signing is ad-hoc unless SIGN_IDENTITY is set:
 #   SIGN_IDENTITY="Developer ID Application: …"  signs with the hardened runtime, as notarization
 #                                                 requires (SIGN_IDENTITY=- tries it ad-hoc)
@@ -43,7 +44,11 @@ official_node() {
   echo "$dir/$name/bin/node"
 }
 
-rm -rf "$APP"
+# Assembled aside and moved into place once signed: a build that stops halfway leaves the previous
+# app intact, instead of a bundle without Info.plist that crashes at launch.
+OUT="$APP"
+APP="$BUILD/partial/Beeplight.app"
+rm -rf "$BUILD/partial"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/server"
 
 echo "→ 编译 SwiftUI 应用（${ARCHS}）"
@@ -64,10 +69,10 @@ rm -rf "$BUILD/AppIcon.iconset"
 iconutil -c icns "$BUILD/AppIcon.iconset" -o "$APP/Contents/Resources/AppIcon.icns"
 
 # Users don't need Node installed. Node.js is MIT-licensed; its license ships alongside.
-if [ -n "${NODE:-}" ] && [ "$MODE" != "--dist" ]; then
-  NODE_BIN=$(realpath "$NODE")
+if [ -n "${BEEPLIGHT_NODE:-}" ] && [ "$MODE" != "--dist" ]; then
+  NODE_BIN=$(realpath "$BEEPLIGHT_NODE")
   "$NODE_BIN" -e 'const [a, b] = process.versions.node.split(".").map(Number); process.exit(a > 20 || (a === 20 && b >= 11) ? 0 : 1)' \
-    || { echo "✗ 需要 Node ≥ 20.11：$NODE"; exit 1; }
+    || { echo "✗ 需要 Node ≥ 20.11：$BEEPLIGHT_NODE"; exit 1; }
   cp "$NODE_BIN" "$APP/Contents/MacOS/node"
   NODE_LICENSE="$(dirname "$NODE_BIN")/../LICENSE"
 else
@@ -79,7 +84,10 @@ else
 fi
 [ -f "$NODE_LICENSE" ] && cp "$NODE_LICENSE" "$APP/Contents/Resources/node-LICENSE"
 
-echo "→ 打包监控服务（node $("$APP/Contents/MacOS/node" --version)，$(lipo -archs "$APP/Contents/MacOS/node")）"
+# Run it from inside the bundle, so a node that needs dylibs left outside fails the build here.
+NODE_VERSION=$("$APP/Contents/MacOS/node" --version) \
+  || { echo "✗ 打包进 app 的 node 无法运行（Homebrew 的 node 依赖 libnode.dylib，不能单独复制）"; exit 1; }
+echo "→ 打包监控服务（node ${NODE_VERSION}，$(lipo -archs "$APP/Contents/MacOS/node")）"
 cp -R "$ROOT/src" "$ROOT/public" "$ROOT/package.json" "$APP/Contents/Resources/server/"
 cp -R "$DESK"/Resources/*.lproj "$APP/Contents/Resources/"
 sed -e "s|__VERSION__|$VERSION|g" "$DESK/Info.plist" > "$APP/Contents/Info.plist"
@@ -98,6 +106,10 @@ else
   codesign --force --sign - "$APP/Contents/MacOS/node"
   codesign --force --sign - "$APP"
 fi
+rm -rf "$OUT"
+mv "$APP" "$OUT"
+rmdir "$BUILD/partial"
+APP="$OUT"
 
 case "$MODE" in
   --install)

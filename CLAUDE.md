@@ -197,7 +197,7 @@ CPU 占用（`src/core/cpu.js` `CpuMeter`）：面板和看板底部、网页页
 
 Mac 应用（`desktop/`）：
 
-- `Server.swift`：健康检查，端口上没有服务时用内置代码拉起 Node。`build.sh` 打包的是官方 Node.js（版本固定在 `NODE_DIST`），第一次构建时从 nodejs.org 下载、按 SHASUMS256.txt 校验，缓存在 `desktop/build/node`；`--dist` 用 `lipo` 把 arm64 和 x64 合成通用版，平时只打本机架构（`NODE=` 可以换成指定的 node，`--dist` 不用它）。它放在 `Contents/MacOS/node`，许可证放在 `Resources/node-LICENSE`，所以用户不用装 Node；`findNode()` 优先用它。因为 app 跑的不再是 nvm 的 node，`src/config/index.js` 的 `findClaudeBin()` 会自己去 `~/.nvm/versions/node/*/bin` 找 claude。
+- `Server.swift`：健康检查，端口上没有服务时用内置代码拉起 Node。`build.sh` 打包的是官方 Node.js（版本固定在 `NODE_DIST`），第一次构建时从 nodejs.org 下载、按 SHASUMS256.txt 校验，缓存在 `desktop/build/node`；`--dist` 用 `lipo` 把 arm64 和 x64 合成通用版，平时只打本机架构（`BEEPLIGHT_NODE=` 可以换成指定的 node，`--dist` 不用它；不用 `NODE`，因为 `npm run` 会把它设成运行 npm 的那个 node）。它放在 `Contents/MacOS/node`，许可证放在 `Resources/node-LICENSE`，所以用户不用装 Node；`findNode()` 优先用它。因为 app 跑的不再是 nvm 的 node，`src/config/index.js` 的 `findClaudeBin()` 会自己去 `~/.nvm/versions/node/*/bin` 找 claude。
 - `Monitor.swift`：SSE 客户端（`URLSession.bytes.lines` 会丢掉空行，所以收到 `data:` 行就立刻处理）、通知触发、菜单栏徽章。它是 `@Observable`，写法上的约束见「开发约束 → 性能」。有任务执行时，菜单栏徽章每秒换 12 帧。
 - `LayerEffects.swift`：常驻动画（转圈、紧急卡片的呼吸发光、等待图标的脉冲）的 Core Animation 实现，由窗口服务器驱动，所有实例对齐到同一个相位。
 - `Board.swift` / `Panel.swift`：两套界面。
