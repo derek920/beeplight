@@ -148,6 +148,108 @@
         "successSoft": "rgb(110 156 126 / 0.1)",
         "failedSoft": "rgb(181 101 101 / 0.1)"
       }
+    },
+    {
+      "id": "berry",
+      "name": { "en": "Berry Cream", "zh-Hans": "莓果奶霜" },
+      "credit": "Colors from Catppuccin Mocha, https://catppuccin.com (MIT)",
+      "scheme": "dark",
+      "font": "rounded",
+      "corner": 16,
+      "glow": 3,
+      "colors": {
+        "waiting": "#FAB387",
+        "doing": "#CBA6F7",
+        "success": "#A6E3A1",
+        "failed": "#F38BA8",
+        "urgent": "#FF7A9A",
+        "text": "#CDD6F4",
+        "backdrop": "#1E1E2E",
+        "column": "#181825@0.8",
+        "card": "#313244",
+        "cardStroke": "#F5C2E7@0.22"
+      },
+      "effects": [],
+      "web": {
+        "muted": "#A6ADC8",
+        "faint": "#6C7086",
+        "line": "#45475A",
+        "chip": "#45475A",
+        "shadow": "0 0 0 1px rgb(245 194 231 / 0.2), 0 4px 14px rgb(17 17 27 / 0.45)",
+        "shadowHover": "0 0 0 1px rgb(203 166 247 / 0.55), 0 6px 20px rgb(17 17 27 / 0.55)",
+        "doingSoft": "rgb(203 166 247 / 0.14)",
+        "waitingSoft": "rgb(250 179 135 / 0.14)",
+        "successSoft": "rgb(166 227 161 / 0.12)",
+        "failedSoft": "rgb(243 139 168 / 0.14)"
+      }
+    },
+    {
+      "id": "rose",
+      "name": { "en": "Rosé Dusk", "zh-Hans": "玫瑰暮色" },
+      "credit": "Colors from Rosé Pine Moon, https://rosepinetheme.com (MIT)",
+      "scheme": "dark",
+      "font": "serif",
+      "corner": 12,
+      "glow": 0,
+      "colors": {
+        "waiting": "#F6C177",
+        "doing": "#C4A7E7",
+        "success": "#9CCFD8",
+        "failed": "#EB6F92",
+        "urgent": "#FF5C8A",
+        "text": "#E0DEF4",
+        "backdrop": "#232136",
+        "column": "#2A273F@0.75",
+        "card": "#393552",
+        "cardStroke": "#EA9A97@0.3"
+      },
+      "effects": [],
+      "web": {
+        "muted": "#908CAA",
+        "faint": "#6E6A86",
+        "line": "#44415A",
+        "chip": "#44415A",
+        "shadow": "0 0 0 1px rgb(234 154 151 / 0.22), 0 4px 16px rgb(0 0 0 / 0.3)",
+        "shadowHover": "0 0 0 1px rgb(234 154 151 / 0.55), 0 6px 20px rgb(0 0 0 / 0.4)",
+        "doingSoft": "rgb(196 167 231 / 0.14)",
+        "waitingSoft": "rgb(246 193 119 / 0.14)",
+        "successSoft": "rgb(156 207 216 / 0.12)",
+        "failedSoft": "rgb(235 111 146 / 0.14)"
+      }
+    },
+    {
+      "id": "latte",
+      "name": { "en": "Milk Candy", "zh-Hans": "奶糖" },
+      "credit": "Colors from Catppuccin Latte, https://catppuccin.com (MIT)",
+      "scheme": "light",
+      "font": "rounded",
+      "corner": 16,
+      "glow": 0,
+      "colors": {
+        "waiting": "#FE640B",
+        "doing": "#7287FD",
+        "success": "#40A02B",
+        "failed": "#D20F39",
+        "urgent": "#E64553",
+        "text": "#4C4F69",
+        "backdrop": "#EFF1F5",
+        "column": "#E6E9EF",
+        "card": "#FFFFFF@0.9",
+        "cardStroke": "#EA76CB@0.22"
+      },
+      "effects": [],
+      "web": {
+        "muted": "#6C6F85",
+        "faint": "#9CA0B0",
+        "line": "#CCD0DA",
+        "chip": "#E6E9EF",
+        "shadow": "0 1px 2px rgb(76 79 105 / 0.08), 0 2px 10px rgb(234 118 203 / 0.08)",
+        "shadowHover": "0 6px 18px rgb(234 118 203 / 0.2)",
+        "doingSoft": "rgb(114 135 253 / 0.12)",
+        "waitingSoft": "rgb(254 100 11 / 0.1)",
+        "successSoft": "rgb(64 160 43 / 0.1)",
+        "failedSoft": "rgb(210 15 57 / 0.08)"
+      }
     }
   ]
 }

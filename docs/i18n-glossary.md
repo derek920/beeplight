@@ -36,7 +36,7 @@ number, e.g. "Running 2", "2 running", "Waiting: 3".
 | 主题 | Theme |
 | 菜单栏样式 | Menu bar style |
 | 动效：完整 / 柔和 / 关闭 | Motion: Full / Gentle / Off |
-| 预设：原生 macOS / 赛博霓虹 / 黑客终端 / 全息 HUD / 极简专注 | Presets: Native macOS / Neon / Terminal / Hologram / Minimal |
+| 预设：原生 macOS / 赛博霓虹 / 黑客终端 / 全息 HUD / 极简专注 / 莓果奶霜 / 玫瑰暮色 / 奶糖 | Presets: Native macOS / Neon / Terminal / Hologram / Minimal / Berry Cream / Rosé Dusk / Milk Candy |
 | 通用（设置页） | General |
 | 语言 / 跟随系统 | Language / Follow system |
 | 手机访问 | Phone Access |

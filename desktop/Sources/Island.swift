@@ -316,7 +316,13 @@ struct IslandView: View {
         .frame(width: size.width, height: size.height, alignment: .top)
     }
 
-    private var fill: Color { g.notch ? Color.black : (Theme.palette.backdrop ?? Color.black).opacity(0.94) }
+    /// Always dark, like the island it imitates: its text is drawn light, so a light theme's backdrop
+    /// would leave it unreadable. A dark theme lends its backdrop; the accents follow any theme.
+    private var fill: Color {
+        if g.notch { return .black }
+        let p = Theme.palette
+        return (p.scheme == .dark ? p.backdrop ?? .black : .black).opacity(0.94)
+    }
     private var lit: Bool { Theme.palette.glow > 0 || Theme.palette.brackets }
     private var strokeColor: Color { lit ? accent.opacity(model.open || peek ? 0.7 : 0.45) : Color.white.opacity(g.notch ? 0 : 0.12) }
     private var glowColor: Color { Theme.palette.glow > 0 ? accent.opacity(0.55) : Color.black.opacity(0.35) }

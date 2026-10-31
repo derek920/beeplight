@@ -125,7 +125,7 @@ Mac 应用：
 
 格式规范见 `docs/packs.md`。内置包是 `public/` 下的 `themes.json`、`presets.json`、`characters.json`，共享解码在 `desktop/Sources/Packs.swift`，Mac 端的主题注册表和颜色映射在 `Themes.swift`。
 
-已经实现：包格式、5 个主题和 5 个预设改成内置包、Mac 应用和网页都从包里读主题和预设、形象走同一个宽松解码器、付费相关的字段和接口。还没做：下载签名包（只有 iPhone 应用会用到）。
+已经实现：包格式、内置主题和预设都是包（目前各 8 个，其中莓果奶霜、玫瑰暮色、奶糖的配色来自 Catppuccin 和 Rosé Pine，出处写在主题的 `credit` 里）、Mac 应用和网页都从包里读主题和预设、形象走同一个宽松解码器、付费相关的字段和接口。还没做：下载签名包（只有 iPhone 应用会用到）。
 
 网页的主题：服务端把 `themes.json`、`presets.json` 内嵌进首页（`<script id="packs">`，`src/transports/web.js`），所以首屏就是对的颜色。网页的主题菜单列的是预设，选择存在浏览器里（`prefs.skin`，存的是预设 id）。`app.js` 的 `applyPreset()` 把主题里的 `#RRGGBB` 颜色、`corner`、`scheme` 和 `web` 里的网页专用颜色写成 `:root` 上的 CSS 变量；系统色（`system:…`、`primary`）在 CSS 里没有对应，这些位置沿用页面自己的浅色、深色默认值，所以原生主题在网页上什么都不覆盖。装饰按特性生效，不按主题名：`data-font`、`data-glow`（`glow` ≥ 8 为 `strong`，和 Mac 画色块的门槛一致）、`data-effects`、`data-motion`（预设 `motion: off` 时停掉所有动画）。新加一种装饰：在 `ThemePack.knownEffects` 里登记，再在 `style.css` 里写 `:root[data-effects~='…']` 规则。
 

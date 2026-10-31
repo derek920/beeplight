@@ -10,18 +10,19 @@ struct AppearanceSettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     section(String(localized: "Presets"), String(localized: "Sets theme, menu bar style, island and motion at once; each can still be changed on its own afterwards")) {
-                        HStack(spacing: 10) {
+                        // Rows of four, so a pack can add presets without pushing the page sideways.
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10, alignment: .top), count: 4), alignment: .leading, spacing: 12) {
                             ForEach(Preset.all) { p in
                                 PresetCard(preset: p, selected: appearance.presetID == p.id) { appearance.apply(p) }
                             }
                         }
                     }
                     section(String(localized: "Theme"), String(localized: "Colors, fonts and finish of the board, the menu bar panel and the island")) {
-                        Picker("", selection: $appearance.config.theme) {
-                            ForEach(Themes.all, id: \.id) { Text(Themes.name($0.id)).tag($0.id) }
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
+                            ForEach(Themes.all, id: \.id) { t in
+                                ThemeChip(id: t.id, selected: appearance.config.theme == t.id) { appearance.config.theme = t.id }
+                            }
                         }
-                        .pickerStyle(.segmented)
-                        .labelsHidden()
                     }
                     section(String(localized: "Menu bar style"), String(localized: "Sample: 1 waiting for you, 2 running, 1 new")) {
                         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
@@ -122,7 +123,37 @@ private struct PresetCard: View {
                 Text(preset.name).font(.system(size: 12, weight: .semibold)).lineLimit(1)
                 Text(preset.blurb).font(.system(size: 10.5)).foregroundStyle(.secondary).lineLimit(2).fixedSize(horizontal: false, vertical: true)
             }
-            .frame(width: 92, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// A theme to pick: its name in its own font and colors on its backdrop, with its four state colors.
+private struct ThemeChip: View {
+    let id: String
+    let selected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        let p = Themes.palette(id)
+        Button(action: action) {
+            HStack(spacing: 6) {
+                HStack(spacing: 3) {
+                    ForEach([p.waiting, p.doing, p.success, p.failed], id: \.self) { Circle().fill($0).frame(width: 7, height: 7) }
+                }
+                Text(Themes.name(id))
+                    .font(.system(size: 11.5, weight: .medium))
+                    .fontDesign(p.fontDesign)
+                    .foregroundStyle(p.text ?? Color.primary)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 8)
+            .frame(height: 30)
+            .background(RoundedRectangle(cornerRadius: 7).fill(p.backdrop ?? Color(nsColor: .windowBackgroundColor)))
+            .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(selected ? Color.accentColor : Color.primary.opacity(0.12), lineWidth: selected ? 2 : 1))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

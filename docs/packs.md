@@ -76,6 +76,7 @@ Rules that hold for every pack:
 | `colors` | required | See below. |
 | `effects` | `[]` | Finishes the apps draw: `grid` (a backdrop grid), `scanlines` (CRT lines over everything), `brackets` (HUD corner marks on cards), `bracketLabels` (state labels as `[Running]`). Unknown ones are ignored. |
 | `web` | `{}` | Colors only the web page uses; see [On the web page](#on-the-web-page). The apps ignore it. |
+| `credit` | optional | Where the colors come from and under what license, for a theme built on someone else's palette (e.g. `berry`, `rose`, `latte`). The apps don't show it. |
 
 Colors:
 
