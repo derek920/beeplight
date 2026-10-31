@@ -121,6 +121,23 @@ test('cleaning up stored data is for this Mac only and reports what it did', asy
   assert.equal(r.json.message, 'Removed 3 entries. The data file is now 64 KB.');
 });
 
+test('limit details: a paired phone may ask, a bad window or step is a 400', async () => {
+  const lan = fakeLan();
+  const asked = [];
+  const collector = {
+    usageDetail: (window, step) => {
+      asked.push([window, step]);
+      return window === '5h' && (step === null || step === '30m') ? { window, step } : null;
+    },
+  };
+  const h = createHandler({ routes: apiRoutes({ lan, collector }), lan, port: PORT, log: quiet });
+  assert.equal((await call(h, { url: '/api/usage/detail?window=5h&step=30m' })).status, 200);
+  assert.equal((await call(h, phone({ url: '/api/usage/detail?window=5h&t=tok' }))).status, 200);
+  assert.equal((await call(h, phone({ url: '/api/usage/detail?window=5h' }))).status, 401);
+  assert.equal((await call(h, { url: '/api/usage/detail?window=1y' })).status, 400);
+  assert.deepEqual(asked, [['5h', '30m'], ['5h', null], ['1y', null]]);
+});
+
 test('pairing by code: refused on this Mac, wrong code answers 401 instead of crashing', async () => {
   const lan = fakeLan();
   const h = createHandler({ routes: apiRoutes({ lan }), lan, port: PORT, log: quiet });

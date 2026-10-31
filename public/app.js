@@ -471,13 +471,13 @@ function axisHTML(start, end, days) {
   );
 }
 
-function quotaCard(name, w, local, win, buckets, now, withDay) {
+function quotaCard(key, name, w, local, win, buckets, now, withDay) {
   const u = w?.utilization;
   const head = w
     ? `<b class="q-pct ${level(u)}">${pct(u)}</b><span class="q-reset">${t('Resets {time} · {left} left', { time: clock(w.resetsAt, withDay), left: dur(w.resetsAt - now) })}</span>`
     : `<b class="q-pct">—</b><span class="q-reset">${t('No limit data yet')}</span>`;
-  return `<div class="q-card">
-  <div class="q-title">${name}</div>
+  return `<div class="q-card q-open" data-window="${key}" role="button" tabindex="0" title="${esc(t('Show details: usage at finer or coarser steps, the limit over time, and where it went'))}">
+  <div class="q-title">${name}<span class="q-more">${t('Details ›')}</span></div>
   <div class="q-head">${head}</div>
   <div class="q-bar"><i class="${level(u || 0)}" style="width:${Math.min(100, (u || 0) * 100).toFixed(1)}%"></i></div>
   <div class="q-proj">${w ? projectionText(w.projection, w, now) : ''}</div>
@@ -510,8 +510,8 @@ function renderQuota() {
       : L.at
         ? t('Limits updated {time}', { time: clock(L.at) })
         : '';
-  const html = `${quotaCard(t('5-hour limit'), L.fiveHour, u.fiveHour, u.windows.fiveHour, u.buckets5h, now, false)}
-${quotaCard(t('Weekly limit'), L.sevenDay, u.sevenDay, u.windows.sevenDay, u.buckets7d, now, true)}
+  const html = `${quotaCard('5h', t('5-hour limit'), L.fiveHour, u.fiveHour, u.windows.fiveHour, u.buckets5h, now, false)}
+${quotaCard('7d', t('Weekly limit'), L.sevenDay, u.sevenDay, u.windows.sevenDay, u.buckets7d, now, true)}
 <div class="q-card q-top">
   <div class="q-title">${t('Top sessions this week')} <span class="muted">${t('share of weekly limit (est.)')}</span></div>
   <ol>${top || `<li class="muted">${t('No usage this week yet')}</li>`}</ol>
@@ -522,6 +522,227 @@ ${quotaCard(t('Weekly limit'), L.sevenDay, u.sevenDay, u.windows.sevenDay, u.buc
     el._html = html;
   }
 }
+
+// ---------- limit details (a click on a limit card) ----------
+// The service builds them on request (GET /api/usage/detail, src/core/usage-detail.js), so they
+// are fetched only while open. Same content as desktop/Sources/QuotaDetail.swift.
+
+const STEP_NAMES = { '10m': '10 min', '30m': '30 min', '1h': '1 hour', '6h': '6 hours', '1d': '1 day' };
+// window: '5h' | '7d' while open; hover: the start of the bar under the pointer.
+const qd = { window: null, detail: null, error: null, hover: null, timer: 0 };
+
+function openDetail(window) {
+  qd.window = window;
+  qd.detail = null;
+  qd.hover = null;
+  $('#qd').hidden = false;
+  document.documentElement.classList.add('qd-open');
+  renderDetail();
+  loadDetail();
+  clearInterval(qd.timer);
+  qd.timer = setInterval(loadDetail, 15000);
+}
+
+function closeDetail() {
+  qd.window = null;
+  clearInterval(qd.timer);
+  $('#qd').hidden = true;
+  document.documentElement.classList.remove('qd-open');
+}
+
+async function loadDetail() {
+  const w = qd.window;
+  if (!w) return;
+  const step = prefs.detailSteps?.[w];
+  const q = new URLSearchParams({ window: w });
+  if (step) q.set('step', step);
+  const r = await fetch(`/api/usage/detail?${q}`, { headers: authHeaders() }).catch((e) => ({ ok: false, error: e }));
+  // A size this service no longer offers: fall back to its default.
+  if (r.status === 400 && step) {
+    delete prefs.detailSteps[w];
+    savePrefs();
+    return loadDetail();
+  }
+  const d = r.ok ? await r.json().catch(() => null) : null;
+  if (qd.window !== w) return;
+  qd.error = d ? null : t("Couldn't load: {error}", { error: r.error?.message || r.status || '?' });
+  if (d) qd.detail = d;
+  renderDetail();
+}
+
+// Charts are SVG stretched to the box (preserveAspectRatio="none"), with HTML labels on top so text
+// keeps its shape: x across 0–1000, y down 0–100.
+const PLOT_W = 1000;
+const PLOT_H = 100;
+
+function detailX(d, ms) {
+  return ((ms - d.range.start) / (d.range.end - d.range.start)) * PLOT_W;
+}
+
+function lineChart(d) {
+  const pts = d.utilization;
+  const color = d.limit ? level(d.limit.utilization) : 'ok';
+  // From the last reading at the current rate, until the limit is used up or the window resets.
+  const rate = d.limit?.projection?.ratePerHour;
+  const last = pts[pts.length - 1];
+  const trend = [];
+  if (rate > 0 && last) {
+    const end = Math.min(d.range.end, last.t + ((1 - last.u) / rate) * 3600e3);
+    if (end > last.t) trend.push(last, { t: end, u: Math.min(1, last.u + (rate * (end - last.t)) / 3600e3) });
+  }
+  const peak = Math.max(0, ...pts.map((p) => p.u), ...trend.map((p) => p.u));
+  // Room above the line; the whole limit once it gets close.
+  const top = peak > 0.7 ? 1 : Math.max(0.2, Math.min(1, peak * 1.3));
+  const y = (u) => PLOT_H - (u / top) * PLOT_H;
+  const path = (list) => list.map((p, i) => `${i ? 'L' : 'M'}${detailX(d, p.t).toFixed(1)} ${y(p.u).toFixed(1)}`).join('');
+  const ticks = [0, top / 2, top];
+  const svg = `<svg viewBox="0 0 ${PLOT_W} ${PLOT_H}" preserveAspectRatio="none" class="qd-svg ${color}">
+  ${ticks.map((v) => `<line class="grid" x1="0" x2="${PLOT_W}" y1="${y(v)}" y2="${y(v)}"/>`).join('')}
+  ${top >= 1 ? `<line class="limit" x1="0" x2="${PLOT_W}" y1="0" y2="0"/>` : ''}
+  ${pts.length ? `<path class="area" d="${path(pts)}L${detailX(d, last.t).toFixed(1)} ${PLOT_H}L${detailX(d, pts[0].t).toFixed(1)} ${PLOT_H}Z"/><path class="line" d="${path(pts)}"/>` : ''}
+  ${trend.length ? `<path class="trend" d="${path(trend)}"/>` : ''}
+  <line class="now" x1="${detailX(d, d.now)}" x2="${detailX(d, d.now)}" y1="0" y2="${PLOT_H}"/>
+</svg>`;
+  const yLabels = ticks.map((v) => `<span style="top:${((y(v) / PLOT_H) * 100).toFixed(1)}%">${pct(v)}</span>`).join('');
+  return `<div class="qd-plot"><div class="qd-y">${yLabels}</div><div class="qd-area">${svg}${pts.length ? '' : `<p class="qd-empty">${t('No readings in this window yet')}</p>`}</div></div>
+<div class="qd-x q-axis">${axisHTML(d.range.start, d.range.end, d.window === '7d')}</div>`;
+}
+
+function barChart(d) {
+  const shown = d.buckets.filter((b) => b.start <= d.now);
+  const max = Math.max(...shown.map((b) => b.cost), 1e-9);
+  const bars = shown
+    .map((b) => {
+      const pad = (b.end - b.start) * 0.08;
+      const x = detailX(d, b.start + pad);
+      const h = b.cost > 0 ? Math.max(1.5, (b.cost / max) * PLOT_H) : 0;
+      return `<rect data-start="${b.start}" class="${qd.hover === b.start ? 'on' : ''}" x="${x.toFixed(1)}" width="${(detailX(d, b.end - pad) - x).toFixed(1)}" y="${(PLOT_H - h).toFixed(1)}" height="${h.toFixed(1)}"/>`;
+    })
+    .join('');
+  const yLabels = [0, max / 2, max].map((v) => `<span style="top:${(100 - (v / max) * 100).toFixed(1)}%">${usd(v)}</span>`).join('');
+  return `<div class="qd-plot" data-qd-bars><div class="qd-y">${yLabels}</div><div class="qd-area"><svg viewBox="0 0 ${PLOT_W} ${PLOT_H}" preserveAspectRatio="none" class="qd-svg">
+  ${[0, PLOT_H / 2, PLOT_H].map((v) => `<line class="grid" x1="0" x2="${PLOT_W}" y1="${v}" y2="${v}"/>`).join('')}
+  ${bars}
+  <line class="now" x1="${detailX(d, d.now)}" x2="${detailX(d, d.now)}" y1="0" y2="${PLOT_H}"/>
+</svg></div></div>
+<div class="qd-x q-axis">${axisHTML(d.range.start, d.range.end, d.window === '7d')}</div>`;
+}
+
+/** Under the bars: the one under the pointer, or how to get one. */
+function hoverHTML(d) {
+  const b = d.buckets.find((x) => x.start === qd.hover);
+  if (!b) return `<span class="muted">${t('Point at or tap a bar to see what went into it')}</span>`;
+  const top = b.top.length ? `<div class="muted">${t('Most used by: {list}', { list: esc(b.top.map((x) => x.title).join(', ')) })}</div>` : '';
+  return `<div><b>${clock(b.start, d.window === '7d')}–${clock(b.end)}</b> ${t('{tokens} tokens · {out} output · ≈{cost} · {requests}', { tokens: fmtTokens(b.tokens), out: fmtTokens(b.out), cost: usd(b.cost), requests: requestsText(b.requests) })}</div>${top}`;
+}
+
+function shareRow(name, note, value, fraction, cls = '', attrs = '') {
+  return `<li class="${cls}" ${attrs}><div class="qd-row"><span class="qd-name">${name}</span>${note ? `<span class="qd-note">${note}</span>` : ''}<span class="qd-val">${value}</span></div><span class="qd-bar"><i style="width:${(Math.min(1, fraction) * 100).toFixed(1)}%"></i></span></li>`;
+}
+
+function breakdowns(d) {
+  const T = d.total;
+  const part = (c) => (T.cost > 0 ? c / T.cost : 0);
+  // The limit share when there is a limit reading, else the API-equivalent amount.
+  const amount = (c) => (d.limit && T.cost > 0 ? `≈${pct((c / T.cost) * d.limit.utilization)}` : `≈${usd(c)}`);
+  const none = `<li class="muted">${t('No usage in this window yet')}</li>`;
+  const models = d.models.map((m) => shareRow(esc(m.model), requestsText(m.requests), `${fmtTokens(m.tokens)} · ${pct(part(m.cost))}`, part(m.cost))).join('');
+  const kinds = [
+    [t('Input'), T.in, 'k-in'],
+    [t('Output'), T.out, 'k-out'],
+    [t('Cache write'), T.cw, 'k-cw'],
+    [t('Cache read'), T.cr, 'k-cr'],
+  ]
+    .map(([name, n, cls]) => shareRow(name, '', `${fmtTokens(n)} · ${pct(T.tokens ? n / T.tokens : 0)}`, T.tokens ? n / T.tokens : 0, cls))
+    .join('');
+  const projects = d.projects
+    .map((p) => shareRow(esc(p.project || '—'), t('Sessions: {n}', { n: p.sessions }), `${fmtTokens(p.tokens)} · ${amount(p.cost)}`, part(p.cost)))
+    .join('');
+  const sessions = d.sessions
+    .map((s) =>
+      shareRow(`${esc(s.title)}${s.live ? `<em>${t('Live')}</em>` : ''}`, esc(s.project), `${fmtTokens(s.tokens)} · ${amount(s.cost)}`, part(s.cost), 'qd-link', `data-id="${esc(s.sid)}"`),
+    )
+    .join('');
+  const card = (title, hint, rows) => `<section class="qd-card"><div class="qd-title">${title}${hint ? ` <span class="muted">${hint}</span>` : ''}</div><ul class="qd-list">${rows || none}</ul></section>`;
+  return `<div class="qd-grid">
+${card(t('Models'), '', models)}
+${card(t('Token types'), '', T.tokens ? kinds : '')}
+${card(t('Projects'), '', projects)}
+${card(t('Sessions'), t('Click to jump to one'), sessions)}
+</div>`;
+}
+
+function renderDetail() {
+  if (!qd.window) return;
+  const d = qd.detail?.window === qd.window ? qd.detail : null;
+  const tabs = ['5h', '7d']
+    .map((w) => `<button data-qd-window="${w}" class="${w === qd.window ? 'on' : ''}">${w === '5h' ? t('5-hour limit') : t('Weekly limit')}</button>`)
+    .join('');
+  const step = d && (prefs.detailSteps?.[d.window] || d.step);
+  const steps = d
+    ? `<div class="qd-seg" title="${esc(t('Size of each bar'))}">${d.steps.map((s) => `<button data-qd-step="${s}" class="${s === step ? 'on' : ''}">${t(STEP_NAMES[s] || s)}</button>`).join('')}</div>`
+    : '';
+  let body = qd.error ? `<p class="hot">${esc(qd.error)}</p>` : `<p class="muted">${t('Loading…')}</p>`;
+  if (d) {
+    const w = d.limit;
+    const head = w
+      ? `<b class="q-pct ${level(w.utilization)}">${pct(w.utilization)}</b><div><div class="q-reset">${t('Resets {time} · {left} left', { time: clock(w.resetsAt, d.window === '7d'), left: dur(w.resetsAt - d.now) })}</div><div class="q-proj">${projectionText(w.projection, w, d.now)}</div></div>`
+      : `<b class="q-pct">—</b><div class="q-reset">${t('No limit data yet')}</div>`;
+    body = `<div class="qd-summary">${head}<div class="qd-local">${t('This Mac: {tokens} tokens · {out} output · {cr} cache read · ≈{cost}', { tokens: fmtTokens(d.total.tokens), out: fmtTokens(d.total.out), cr: fmtTokens(d.total.cr), cost: usd(d.total.cost) })}<br>${requestsText(d.total.requests)}</div></div>
+<section class="qd-card"><div class="qd-title">${t('Limit used')} <span class="muted">${t("Readings from Anthropic's servers; the dashed line follows the current rate until the reset")}</span></div>${lineChart(d)}</section>
+<section class="qd-card"><div class="qd-title">${t('Usage on this Mac')} <span class="muted">${t('Weighted by API prices, a rough stand-in for how limits count')}</span></div>${barChart(d)}<div class="qd-hover" id="qd-hover">${hoverHTML(d)}</div></section>
+${breakdowns(d)}`;
+  }
+  const html = `<div class="qd-head"><div class="qd-seg">${tabs}</div>${steps}<button class="qd-close" data-qd-close aria-label="${esc(t('Close'))}">×</button></div>${body}`;
+  const el = $('#qd .qd');
+  if (el._html !== html) {
+    el.innerHTML = html;
+    el._html = html;
+  }
+}
+
+/** The bar under the pointer, without rebuilding the dialog. */
+function setHover(start) {
+  if (qd.hover === start || !qd.detail) return;
+  qd.hover = start;
+  for (const r of document.querySelectorAll('#qd rect')) r.classList.toggle('on', Number(r.dataset.start) === start);
+  $('#qd-hover').innerHTML = hoverHTML(qd.detail);
+  // Keep renderDetail() from redrawing what is already on screen.
+  $('#qd .qd')._html = null;
+}
+
+function bucketAt(e) {
+  const area = e.target.closest('[data-qd-bars]')?.querySelector('.qd-area');
+  const d = qd.detail;
+  if (!area || !d) return null;
+  const box = area.getBoundingClientRect();
+  const ms = d.range.start + ((e.clientX - box.left) / box.width) * (d.range.end - d.range.start);
+  return d.buckets.find((b) => b.start <= ms && ms < b.end && b.start <= d.now)?.start ?? null;
+}
+
+$('#qd').addEventListener('pointermove', (e) => {
+  if (e.pointerType === 'mouse' && e.target.closest('[data-qd-bars]')) setHover(bucketAt(e));
+});
+$('#qd').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget || e.target.closest('[data-qd-close]')) return closeDetail();
+  const w = e.target.closest('[data-qd-window]')?.dataset.qdWindow;
+  if (w && w !== qd.window) return openDetail(w);
+  const step = e.target.closest('[data-qd-step]')?.dataset.qdStep;
+  if (step && qd.detail) {
+    prefs.detailSteps = { ...prefs.detailSteps, [qd.detail.window]: step };
+    savePrefs();
+    qd.hover = null;
+    renderDetail();
+    return loadDetail();
+  }
+  // A tap on the bars, where there is no pointer to follow.
+  if (e.target.closest('[data-qd-bars]')) return setHover(bucketAt(e));
+  const row = e.target.closest('li[data-id]');
+  if (row) act(row.dataset.id, 'focus');
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && qd.window) closeDetail();
+});
 
 // ---------- status screen (phone as a second display) ----------
 
@@ -1145,7 +1366,16 @@ $('#quota').addEventListener('click', async (e) => {
     return;
   }
   const row = e.target.closest('li[data-id]');
-  if (row) act(row.dataset.id, 'focus');
+  if (row) return act(row.dataset.id, 'focus');
+  const card = e.target.closest('.q-open');
+  if (card) openDetail(card.dataset.window);
+});
+$('#quota').addEventListener('keydown', (e) => {
+  const card = e.target.closest('.q-open');
+  if (card && (e.key === 'Enter' || e.key === ' ')) {
+    e.preventDefault();
+    openDetail(card.dataset.window);
+  }
 });
 
 $('#read-all').addEventListener('click', async () => {

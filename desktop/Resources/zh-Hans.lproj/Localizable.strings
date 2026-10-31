@@ -271,3 +271,34 @@
 "Show config file in Finder" = "在访达中显示配置文件";
 "Some entries in the config file were ignored:" = "配置文件里有几项被忽略了：";
 
+
+/* QuotaDetail.swift, Quota.swift: limit details */
+"Limit details" = "额度详情";
+"Details" = "详情";
+"Show details: usage at finer or coarser steps, the limit over time, and where it went" = "查看详情：按不同粒度看用量、额度随时间的变化，以及用在了哪里";
+"Size of each bar" = "每根柱子代表的时长";
+"10 min" = "10 分钟";
+"30 min" = "30 分钟";
+"1 hour" = "1 小时";
+"6 hours" = "6 小时";
+"1 day" = "1 天";
+"Limit used" = "额度用量";
+"Readings from Anthropic's servers; the dashed line follows the current rate until the reset" = "来自 Anthropic 服务器的读数；虚线按当前速度推算到重置";
+"No readings in this window yet" = "这个窗口里还没有额度读数";
+"Usage on this Mac" = "本机用量";
+"Weighted by API prices, a rough stand-in for how limits count" = "按 API 价格加权，大致接近额度的计算方式";
+"Point at a bar to see what went into it" = "鼠标指向柱子查看明细";
+"%@ tokens · %@ output · ≈%@ · requests: %lld" = "%@ tokens · 输出 %@ · ≈%@ · %lld 次请求";
+"Most used by: %@" = "用得最多：%@";
+"Requests: %lld" = "%lld 次请求";
+"Models" = "模型";
+"Token types" = "Token 类型";
+"Input" = "输入";
+"Output" = "输出";
+"Cache write" = "缓存写入";
+"Cache read" = "缓存读取";
+"Projects" = "项目";
+"Sessions" = "会话";
+"Sessions: %lld" = "%lld 个会话";
+"Click to jump to one" = "点击跳到对应会话";
+"No usage in this window yet" = "这个窗口里还没有用量";

@@ -126,12 +126,20 @@ struct QuotaCard: View {
     let buckets: [Double]
     let now: Date
     var withDay = false
+    /// Opens the limit details window on this limit.
+    var onOpen: () -> Void = {}
+    @State private var hover = false
 
     var body: some View {
         let nowMs = now.timeIntervalSince1970 * 1000
         let (proj, hot) = projectionText(window)
         VStack(alignment: .leading, spacing: 5) {
-            Text(title).font(.system(size: 11.5, weight: .semibold)).foregroundStyle(.secondary)
+            HStack(spacing: 4) {
+                Text(title).font(.system(size: 11.5, weight: .semibold)).foregroundStyle(.secondary)
+                Spacer()
+                Text("Details").font(.system(size: 10.5)).foregroundStyle(hover ? Theme.doing : Color.secondary.opacity(0.6))
+                Image(systemName: "chevron.right").font(.system(size: 8.5, weight: .semibold)).foregroundStyle(hover ? Theme.doing : Color.secondary.opacity(0.6))
+            }
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Text(window.map { Fmt.pct($0.utilization) } ?? "—")
                     .font(.system(size: 26, weight: .bold, design: .rounded).monospacedDigit())
@@ -160,6 +168,10 @@ struct QuotaCard: View {
         .padding(12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .themedCard(accent: window.map { quotaColor($0.utilization) } ?? Theme.doing)
+        .contentShape(Rectangle())
+        .onHover { hover = $0 }
+        .onTapGesture(perform: onOpen)
+        .help("Show details: usage at finer or coarser steps, the limit over time, and where it went")
     }
 }
 
@@ -227,18 +239,24 @@ private struct TopRow: View {
 
 struct QuotaRow: View {
     let monitor: Monitor
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         let u = monitor.usage
         HStack(alignment: .top, spacing: 14) {
             QuotaCard(title: String(localized: "5-hour limit"), window: u?.limits?.fiveHour, local: u?.fiveHour, range: u?.windows?.fiveHour,
-                      buckets: u?.buckets5h ?? [], now: monitor.minute)
+                      buckets: u?.buckets5h ?? [], now: monitor.minute, onOpen: { open("5h") })
             QuotaCard(title: String(localized: "Weekly limit"), window: u?.limits?.sevenDay, local: u?.sevenDay, range: u?.windows?.sevenDay,
-                      buckets: u?.buckets7d ?? [], now: monitor.minute, withDay: true)
+                      buckets: u?.buckets7d ?? [], now: monitor.minute, withDay: true, onOpen: { open("7d") })
             TopSessionsCard(rows: u?.top ?? [], weekly: u?.limits?.sevenDay?.utilization, note: monitor.limitsNote,
                             onTap: { monitor.focus($0) }, onRefresh: { monitor.refreshLimits() })
         }
         .frame(height: 176)
+    }
+
+    private func open(_ window: String) {
+        QuotaDetailModel.shared.window = window
+        openWindow(id: "quota")
     }
 }
 

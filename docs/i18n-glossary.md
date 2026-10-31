@@ -48,6 +48,12 @@ number, e.g. "Running 2", "2 running", "Waiting: 3".
 | 周（紧凑标签，如「5h 6% · 周 46%」） | wk ("5h 6% · wk 46%") |
 | 重置（额度） | Resets |
 | 消耗速度 / 预计用完 | Burn rate / Runs out |
+| 额度详情 / 详情 › | Limit details / Details › |
+| 额度用量（详情里额度百分比的曲线） | Limit used |
+| 本机用量 | Usage on this Mac |
+| 粒度（每根柱子代表的时长）：10 分钟 / 30 分钟 / 1 小时 / 6 小时 / 1 天 | Size of each bar: 10 min / 30 min / 1 hour / 6 hours / 1 day |
+| 输入 / 输出 / 缓存写入 / 缓存读取 | Input / Output / Cache write / Cache read |
+| 模型 / 项目 | Models / Projects |
 | 平时隐藏，有任务需要你或完成时再出现（灵动岛） | Hide until a task needs you or finishes |
 | 子 agent | subagent |
 | 会话 | session |

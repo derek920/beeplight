@@ -134,6 +134,10 @@
     </main>
 
     <footer class="foot"><span id="foot"></span><span class="cpu" id="cpu"></span></footer>
+    <!-- Limit details, opened from a limit card; filled by renderDetail() in app.js. -->
+    <div class="qd-backdrop" id="qd" hidden>
+      <div class="qd" role="dialog" aria-modal="true" aria-label="Limit details" data-i18n-aria-label></div>
+    </div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <!-- public/themes.json and presets.json, inlined by the service (src/transports/web.js). -->
     <script id="packs" type="application/json"></script>

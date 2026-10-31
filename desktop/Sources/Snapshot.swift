@@ -46,6 +46,12 @@ enum DebugSnapshot {
         advanced.title = "advanced"
         advanced.contentView = NSHostingView(rootView: AdvancedSettingsView())
         advanced.orderFront(nil)
+        // `--quota-week` opens it on the weekly limit.
+        QuotaDetailModel.shared.window = args.contains("--quota-week") ? "7d" : "5h"
+        let quota = NSWindow(contentRect: NSRect(x: 300, y: 60, width: 860, height: 960), styleMask: [.titled], backing: .buffered, defer: false)
+        quota.title = "quota"
+        quota.contentView = NSHostingView(rootView: QuotaDetailView(monitor: monitor))
+        quota.orderFront(nil)
         // The menu bar panel cannot be opened programmatically; host it in a plain window.
         let panel = NSWindow(contentRect: NSRect(x: 60, y: 60, width: 400, height: 640), styleMask: [.titled], backing: .buffered, defer: false)
         panel.title = "panel"
@@ -53,7 +59,7 @@ enum DebugSnapshot {
         panel.orderFront(nil)
         DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
             for w in NSApp.windows where w.isVisible && w.frame.width > 200 {
-                let name = ["panel", "settings", "island", "phone", "general", "devices", "advanced"].contains(w.title) ? w.title : "board"
+                let name = ["panel", "settings", "island", "phone", "general", "devices", "advanced", "quota"].contains(w.title) ? w.title : "board"
                 save(w, to: dir.appending(path: name + ".png"))
             }
             if let tiff = monitor.menuBarImage.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff) {

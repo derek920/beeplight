@@ -434,6 +434,409 @@ button {
   }
 }
 
+/* ---------- limit details (opened from a limit card) ---------- */
+
+.q-open {
+  cursor: pointer;
+}
+
+.q-open:focus-visible {
+  outline: 2px solid var(--doing);
+  outline-offset: 2px;
+}
+
+.q-open .q-title {
+  display: flex;
+  align-items: baseline;
+}
+
+.q-more {
+  margin-left: auto;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--faint);
+}
+
+.q-open:hover .q-more {
+  color: var(--doing);
+}
+
+.qd-open,
+.qd-open body {
+  overflow: hidden;
+}
+
+.qd-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 16px;
+  overflow-y: auto;
+  background: rgb(0 0 0 / 0.45);
+}
+
+.qd-backdrop[hidden] {
+  display: none;
+}
+
+.qd {
+  width: min(880px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgb(0 0 0 / 0.35);
+}
+
+.qd-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.qd-seg {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--chip);
+}
+
+.qd-head > .qd-seg + .qd-seg {
+  margin-left: auto;
+}
+
+.qd-seg button {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.qd-seg button.on {
+  background: var(--card);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+.qd-close {
+  margin-left: auto;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+
+.qd-seg + .qd-close {
+  margin-left: 4px;
+}
+
+.qd-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.qd-summary .q-pct {
+  font-size: 30px;
+}
+
+.qd-local {
+  margin-left: auto;
+  text-align: right;
+  font-size: 11.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.qd-card {
+  background: var(--card);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: 12px 14px;
+  min-width: 0;
+}
+
+.qd-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.qd-title .muted {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--faint);
+}
+
+/* A chart: % or $ labels in a left gutter, the stretched SVG beside them, the time axis below. */
+.qd-plot {
+  display: flex;
+  height: 140px;
+}
+
+.qd-y {
+  position: relative;
+  width: 44px;
+  flex: none;
+  font-size: 10px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.qd-y span {
+  position: absolute;
+  right: 6px;
+  transform: translateY(-50%);
+}
+
+.qd-area {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.qd-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  color: var(--success);
+}
+
+.qd-svg.warm {
+  color: var(--waiting);
+}
+
+.qd-svg.hot {
+  color: var(--failed);
+}
+
+.qd-svg * {
+  vector-effect: non-scaling-stroke;
+}
+
+.qd-svg .grid {
+  stroke: var(--line);
+}
+
+.qd-svg .now {
+  stroke: var(--faint);
+  stroke-dasharray: 2 2;
+}
+
+.qd-svg .limit {
+  stroke: var(--failed);
+  stroke-dasharray: 4 3;
+  opacity: 0.6;
+}
+
+.qd-svg .line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.qd-svg .area {
+  fill: currentColor;
+  opacity: 0.16;
+}
+
+.qd-svg .trend {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+  opacity: 0.75;
+}
+
+.qd-svg rect {
+  fill: color-mix(in srgb, var(--doing) 72%, transparent);
+}
+
+.qd-svg rect.on {
+  fill: var(--doing);
+}
+
+.qd-empty {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  color: var(--faint);
+}
+
+.qd-x {
+  margin-left: 44px;
+}
+
+.qd-hover {
+  min-height: 32px;
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.qd-hover b {
+  color: var(--text);
+}
+
+.qd-hover .muted {
+  color: var(--faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qd-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.qd-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.qd-list li.muted {
+  font-size: 12px;
+  color: var(--faint);
+}
+
+.qd-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.qd-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qd-name em {
+  font-style: normal;
+  font-size: 10.5px;
+  color: var(--success);
+  margin-left: 6px;
+}
+
+.qd-note {
+  flex: none;
+  max-width: 30%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10.5px;
+  color: var(--faint);
+}
+
+.qd-val {
+  margin-left: auto;
+  flex: none;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.qd-bar {
+  display: block;
+  height: 3px;
+  margin-top: 3px;
+  border-radius: 99px;
+  background: var(--chip);
+  overflow: hidden;
+}
+
+.qd-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--doing);
+}
+
+.k-out .qd-bar i {
+  background: var(--success);
+}
+
+.k-cw .qd-bar i {
+  background: var(--waiting);
+}
+
+.k-cr .qd-bar i {
+  background: color-mix(in srgb, var(--doing) 50%, transparent);
+}
+
+.qd-link {
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.qd-link:hover .qd-name {
+  color: var(--doing);
+}
+
+@media (max-width: 640px) {
+  .qd-backdrop {
+    padding: 0;
+  }
+
+  .qd {
+    min-height: 100%;
+    border-radius: 0;
+    padding: max(14px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom));
+  }
+
+  .qd-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Window tabs and × on the first line, bar sizes on their own below. */
+  .qd-close,
+  .qd-seg + .qd-close {
+    order: 1;
+    margin-left: auto;
+  }
+
+  .qd-head > .qd-seg + .qd-seg {
+    order: 2;
+    margin-left: 0;
+  }
+
+  .qd-summary {
+    flex-wrap: wrap;
+  }
+
+  .qd-local {
+    margin-left: 0;
+    text-align: left;
+  }
+}
+
 /* ---------- board ---------- */
 
 .board {
@@ -1350,10 +1753,11 @@ button {
     font-size: 22px;
   }
 
-  .q-proj,
-  .q-local,
-  .q-bars,
-  .q-axis {
+  /* The board's cards only; the limit details reuse these classes. */
+  .quota .q-proj,
+  .quota .q-local,
+  .quota .q-bars,
+  .quota .q-axis {
     display: none;
   }
 
@@ -1548,11 +1952,11 @@ button {
     margin: 0;
   }
 
-  .q-reset,
-  .q-proj,
-  .q-local,
-  .q-bars,
-  .q-axis,
+  .quota .q-reset,
+  .quota .q-proj,
+  .quota .q-local,
+  .quota .q-bars,
+  .quota .q-axis,
   .q-top {
     display: none !important;
   }

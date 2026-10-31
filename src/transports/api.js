@@ -31,6 +31,15 @@ export function apiRoutes({ collector, store, config, lan, relay, limits, stream
       },
     },
     {
+      // The limit details view: ?window=5h|7d&step=<one of the window's bucket sizes, optional>.
+      method: 'GET', path: '/api/usage/detail', access: 'paired',
+      handle: ({ res, url }) => {
+        const detail = collector.usageDetail(url.searchParams.get('window'), url.searchParams.get('step'), Date.now());
+        if (!detail) return json(res, 400, { error: 'unknown window or step' });
+        json(res, 200, detail);
+      },
+    },
+    {
       method: 'POST', path: '/api/limits/refresh', access: 'paired',
       handle: async ({ res }) => {
         await limits.probe();

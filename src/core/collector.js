@@ -11,6 +11,7 @@ import { Subagents } from '../sources/claude-code/subagents.js';
 import { buildSummaryInput } from '../services/summarizer.js';
 import { stateKey, Timeline } from './timeline.js';
 import { Transcript } from '../sources/claude-code/transcript.js';
+import { buildDetail, DEFAULT_STEP, STEPS } from './usage-detail.js';
 import { FIVE_HOURS, SEVEN_DAYS } from '../services/limits.js';
 import { cleanTitle, oneLine, pidAlive, projectSlug } from '../lib/util.js';
 
@@ -501,8 +502,7 @@ export class Collector extends EventEmitter {
         sevenDay: { tokens: s7.tokens, cost: s7.cost, share: share(s7.cost, acct7, lim.sevenDay) },
       });
     }
-    const titleOf = (row) =>
-      this.store.getSummary(row.sid)?.title || cleanTitle(row.title) || path.basename(row.cwd || '') || row.sid.slice(0, 8);
+    const titleOf = (row) => this.usageTitle(row);
     c.account = {
       ready: this.usage.ready,
       index: this.usage.stats,
@@ -532,6 +532,23 @@ export class Collector extends EventEmitter {
     c.key = key;
     c.at = now;
     return c;
+  }
+
+  /** A title for a usage row ({sid, cwd, title}): the summary's, the transcript's, else the folder. */
+  usageTitle(row) {
+    return this.store.getSummary(row.sid)?.title || cleanTitle(row.title) || path.basename(row.cwd || '') || row.sid.slice(0, 8);
+  }
+
+  /** The limit details view (src/core/usage-detail.js); null for an unknown window or step. */
+  usageDetail(window, step, now) {
+    if (!Object.hasOwn(STEPS, window)) return null;
+    step ||= DEFAULT_STEP[window];
+    if (!Object.hasOwn(STEPS[window], step)) return null;
+    const live = (sid) => {
+      const s = this.sessions.get(sid);
+      return !!s && !s.ended;
+    };
+    return buildDetail({ usage: this.usage, limits: this.limits, titleOf: (row) => this.usageTitle(row), live }, { window, step, now });
   }
 
   sessionUsage(sid, now) {

@@ -82,6 +82,14 @@ export class Limits {
     return { ratePerHour, etaMs, beforeReset: now + etaMs < w.resetsAt };
   }
 
+  // Measured utilization through the current window, oldest first, for the details chart.
+  history(key, now) {
+    const w = this.latest?.[key];
+    if (!w || w.resetsAt <= now) return [];
+    const [uk, rk] = key === 'fiveHour' ? ['u5', 'r5'] : ['u7', 'r7'];
+    return this.samples.filter((s) => s[rk] === w.resetsAt && typeof s[uk] === 'number').map((s) => ({ t: s.t, u: s[uk] }));
+  }
+
   // Window boundaries, aligned to the server's reset times (falls back to rolling windows).
   windows(now) {
     const fh = this.latest?.fiveHour;

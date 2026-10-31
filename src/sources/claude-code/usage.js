@@ -283,6 +283,42 @@ export class UsageIndex {
     return out.map((c) => Math.round(c * 1e4) / 1e4);
   }
 
+  // Usage between the first and the last of `edges` (bucket boundaries, ascending): per bucket with
+  // each session's cost in it, per model and per session. For the limit details view.
+  detail(edges) {
+    const n = edges.length - 1;
+    const [from, to] = [edges[0], edges[n]];
+    const buckets = Array.from({ length: n }, () => ({ ...emptyTotals(), bySid: new Map() }));
+    const byModel = new Map();
+    const bySid = new Map();
+    const count = (t, r) => {
+      addTo(t, r);
+      t.requests++;
+    };
+    for (const s of this.sessions.values()) {
+      if (s.lastAt < from) continue;
+      for (const r of s.records) {
+        if (r.t < from || r.t >= to) continue;
+        // The last edge at or before r.t.
+        let lo = 0;
+        let hi = n - 1;
+        while (lo < hi) {
+          const mid = (lo + hi + 1) >> 1;
+          if (edges[mid] <= r.t) lo = mid;
+          else hi = mid - 1;
+        }
+        const b = buckets[lo];
+        count(b, r);
+        b.bySid.set(s.sid, (b.bySid.get(s.sid) || 0) + r.cost);
+        if (!byModel.has(r.model)) byModel.set(r.model, emptyTotals());
+        count(byModel.get(r.model), r);
+        if (!bySid.has(s.sid)) bySid.set(s.sid, { sid: s.sid, cwd: s.cwd, title: s.customTitle || s.aiTitle, ...emptyTotals() });
+        count(bySid.get(s.sid), r);
+      }
+    }
+    return { buckets, byModel, bySid };
+  }
+
   // Sessions ranked by cost-weighted usage since `from`.
   top(from, limit = 12) {
     const rows = [];

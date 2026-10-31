@@ -23,6 +23,12 @@ struct BeeplightApp: App {
         }
         .defaultSize(width: 1240, height: 880)
 
+        // Opened from a limit card on the board.
+        Window("Limit details", id: "quota") {
+            QuotaDetailView(monitor: monitor)
+        }
+        .defaultSize(width: 860, height: 760)
+
         MenuBarExtra {
             PanelView(monitor: monitor)
         } label: {
