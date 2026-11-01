@@ -32,7 +32,7 @@ It has a SwiftUI menu bar app and a web board. Both show the same live data, in 
 - **Your other Macs**: their tasks on your board too, through a relay you run yourself, end-to-end encrypted.
 - **Subagents and background sessions**: subagents show under their parent session, and `claude --bg` sessions are tracked too.
 - **CPU use**: how busy the Mac is, and how much of that is Claude Code and how much is Beeplight itself.
-- **Codex too**: Codex tasks from the ChatGPT app and the `codex` CLI show on the same board with a Codex badge, and open in the app or their terminal. Other agents can be added the same way.
+- **Codex too**: Codex tasks from the ChatGPT app and the `codex` CLI show on the same board, each title marked with its agent (an orange C for Claude Code, a blue >_ for Codex), and open in the app or their terminal. Other agents can be added the same way.
 
 ## Requirements
 

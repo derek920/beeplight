@@ -1,0 +1,27 @@
+{
+  "_about": "Marks drawn before task titles, one per coding agent, so tasks from different agents tell apart at a glance. They are original marks, not the agents' logos (those are their makers' trademarks). \"id\" is the agent id the service puts on each task (view.agent, the source's id in src/sources/<agent>/). Coordinates are in a box of [width, height]; \"paths\" are SVG path strings (M L H V C Q Z, absolute or relative; no arcs), filled with \"color\" (#RRGGBB, system:<name> or primary). Add a mark by adding an entry.",
+  "format": 1,
+  "id": "beeplight.agents",
+  "kind": "agents",
+  "agents": [
+    {
+      "id": "claude-code",
+      "name": { "en": "Claude Code", "zh-Hans": "Claude Code" },
+      "color": "#E07A4F",
+      "box": [16, 16],
+      "paths": [
+        "M12.75 12.58 C10.88 14.52 8.02 15.13 5.53 14.12 C3.03 13.11 1.4 10.69 1.4 8 C1.4 5.31 3.03 2.89 5.53 1.88 C8.02 0.87 10.88 1.48 12.75 3.42 C13.32 4.01 13.31 4.96 12.71 5.54 C12.11 6.11 11.17 6.1 10.59 5.5 C9.57 4.44 8.01 4.11 6.65 4.66 C5.29 5.21 4.4 6.53 4.4 8 C4.4 9.47 5.29 10.79 6.65 11.34 C8.01 11.89 9.57 11.56 10.59 10.5 C11.17 9.9 12.11 9.89 12.71 10.46 C13.31 11.04 13.32 11.99 12.75 12.58 Z"
+      ]
+    },
+    {
+      "id": "codex",
+      "name": { "en": "Codex", "zh-Hans": "Codex" },
+      "color": "#5B8DEF",
+      "box": [16, 16],
+      "paths": [
+        "M1.6 4.3 L3.3 2.8 L8.9 8 L3.3 13.2 L1.6 11.7 L5.6 8 Z",
+        "M9.6 11.3 L14.6 11.3 L14.6 13.3 L9.6 13.3 Z"
+      ]
+    }
+  ]
+}

@@ -134,7 +134,7 @@ Mac 应用：
 
 - 插件是只含数据的包（JSON 加图片或 SVG），不含可执行代码。原因：iOS 不允许下载并执行代码；Beeplight 能控制终端，加载外部代码风险太大；纯数据的包，Mac、网页、iPhone 三端可以共用同一份。
 - 只有官方包。不提供让用户或第三方安装包的目录；app 包以外来源的包，必须带官方签名。
-- 包分三类：主题（色板、发光、圆角、字体风格、深浅外观、`effects` 里的扫描线、网格、角标等装饰）、预设（主题、菜单栏样式、灵动岛、动效的组合）、形象（`characters.json` 里的条目）。动效属于预设，不属于主题。
+- 包分四类：agent 标记（`agents.json`，每个 agent 一个，画在任务标题前；是原创图形，不用各家官方 logo，那是商标）、主题（色板、发光、圆角、字体风格、深浅外观、`effects` 里的扫描线、网格、角标等装饰）、预设（主题、菜单栏样式、灵动岛、动效的组合）、形象（`characters.json` 里的条目）。动效属于预设，不属于主题。
 - 加主题、预设或形象只改包文件，不改代码，改完跑 `npm test`：`test/packs.test.js` 会按 app 的解码规则检查内置包，允许的取值（菜单栏样式、系统色名、字体、效果等）直接从 Swift 源码里读，两边不会对不上。
 - 菜单栏样式和灵动岛布局是绘制代码，不做成数据，包只能选用它们并调参数。
 - 包格式带版本号（`format`），只有旧 app 读不懂的改动才升版本。解码要容错：不认识的字段忽略，新字段一律可选，条目逐个解码，坏一条只跳过这一条。选中的主题或形象不存在时，只让那一项回退到默认（`native`、机器人眼睛），不能重置整套外观设置（`Appearance` 启动时修正）。
@@ -165,7 +165,7 @@ Mac 应用：
 
 总结开关和引擎是两个参数：`summarizer.titles`（`ai` / `original`）决定要不要 AI 总结；`summarizer.engine`（`auto` / `claude` / `codex`）决定由谁写，`auto` 装了 claude 就用 Haiku，没有就用 `codex exec --ephemeral`（不落盘，不会出现在用户的 Codex 任务里）。原文标题、或选中的引擎没装时，`deriveStatus()` 收到 `verdicts: false`，一轮正常结束直接算成功，不挂"正在核对结果"。
 
-接入新 agent：在 `src/sources/<agent>/` 写一个实现 `collector.js` 开头那套接口的类（带 `<agent>.monitor` 开关和 `enabled()`）（id 用 `<agent>:` 前缀，解析成统一的对话分析和 registry 形状的实时信号）→ `server.js` 里加进 `sources` → 跳转需要新的 URL 或命令时加进 `focus.js` 的 `URLS`/`CLIS` → 用合成的 fixture 写测试（不放真实对话）→ README 的隐私说明写清楚读哪些文件 → 客户端徽标显示 `agentName`。
+接入新 agent：在 `src/sources/<agent>/` 写一个实现 `collector.js` 开头那套接口的类（带 `<agent>.monitor` 开关和 `enabled()`）（id 用 `<agent>:` 前缀，解析成统一的对话分析和 registry 形状的实时信号）→ `server.js` 里加进 `sources` → 跳转需要新的 URL 或命令时加进 `focus.js` 的 `URLS`/`CLIS` → 用合成的 fixture 写测试（不放真实对话）→ README 的隐私说明写清楚读哪些文件 → 在 `public/agents.json` 加它的标记（测试会检查每个数据源都有）。
 
 三态规则只在 `deriveStatus()` 一处定义，优先级：registry 的 waiting/busy → 不在线的后台 job 用 daemon 判定 → 硬失败信号（中途退出、API 错误、中断）→ 本轮结束时的 LLM 判定（`blocked` 映射成 Waiting，`working` 映射成 Doing）→ 还没判定时临时显示为成功，并带 `pending`。改规则时同步改 `test/status.test.js`。
 

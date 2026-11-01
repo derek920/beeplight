@@ -16,7 +16,6 @@ export const ZH_UI = LANG === 'zh-Hans';
 const ZH = {
   // Header
   'Every coding agent session on this Mac · Click a card to jump to its window': '本机所有编程 agent 的会话 · 点击卡片跳到对应窗口',
-  'The coding agent this task runs in': '这个任务所在的编程 agent',
   'Connecting…': '连接中…',
   'Live · {hz}/s': '实时 · {hz} 次/秒',
   'Disconnected, reconnecting…': '已断开，重连中…',

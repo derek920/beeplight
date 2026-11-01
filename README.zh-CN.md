@@ -30,7 +30,7 @@
 - **你的其他 Mac**：通过你自己部署的中转服务，其他 Mac 上的任务也显示在看板上，端到端加密。
 - **子 agent 和后台会话**：子 agent 显示在所属会话下面，`claude --bg` 后台会话也能看到。
 - **CPU 占用**：整台 Mac 有多忙，其中 Claude Code 和 Beeplight 自己各占多少。
-- **也能看 Codex**：ChatGPT app 和 `codex` 命令行里的 Codex 任务显示在同一个看板上，带 Codex 标记，点开回到 app 或它所在的终端。以后别的 agent 也按同样的方式接入。
+- **也能看 Codex**：ChatGPT app 和 `codex` 命令行里的 Codex 任务显示在同一个看板上，标题前有各自 agent 的标记（Claude Code 是橙色的 C，Codex 是蓝色的 >_），点开回到 app 或它所在的终端。以后别的 agent 也按同样的方式接入。
 
 ## 系统要求
 

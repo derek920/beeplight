@@ -92,9 +92,33 @@ function elapsedText(mode, at, now) {
   return ms < 10_000 ? t('Just now') : t('{t} ago', { t: dur(ms) });
 }
 
-/** The agent a task runs in, for tasks that aren't Claude Code's ('Codex'), else ''. */
+/** The agent a task runs in, for tasks that aren't Claude Code's ('Codex'), else ''. Text-only places
+ *  (notifications) use it; lists show the agent's mark instead. */
 function agentBadge(v) {
   return v.agent && v.agent !== 'claude-code' ? v.agentName || v.agent : '';
+}
+
+// Agent marks (agents.json, shared with the Mac app): one per coding agent, before task titles.
+const AGENTS = {};
+fetch('/agents.json')
+  .then((r) => r.json())
+  .then((d) => {
+    for (const a of d.agents || []) AGENTS[a.id] = a;
+    if (snapshot) render();
+  })
+  .catch(() => {});
+
+/** The mark of a task's agent as inline SVG ('' until agents.json is in). Older services send no
+ *  agent: those tasks are Claude Code's. */
+function agentMark(v) {
+  const a = AGENTS[v.agent || 'claude-code'];
+  if (!a) return '';
+  const [w, h] = a.box || [16, 16];
+  // #RRGGBB as is; system colors and primary follow the text.
+  const color = /^#[0-9a-fA-F]{6}$/.test(a.color) ? a.color : 'currentColor';
+  const name = a.name?.[LANG] || a.name?.en || a.id;
+  const paths = (a.paths || []).map((d) => `<path d="${esc(d)}"/>`).join('');
+  return `<svg class="agent-mark" viewBox="0 0 ${w} ${h}" fill="${color}" role="img" aria-label="${esc(name)}"><title>${esc(name)}</title>${paths}</svg>`;
 }
 
 function hostText(v) {
@@ -208,8 +232,6 @@ function cardHTML(v) {
   const agentMore = agents.length > 5 ? `<li><span class="a-desc">${t('… {n} more', { n: agents.length - 5 })}</span></li>` : '';
 
   const chips = [`<span class="chip" title="${esc(v.cwd)}">${esc(v.project || '—')}</span>`];
-  const agent = agentBadge(v);
-  if (agent) chips.unshift(`<span class="chip agent" title="${esc(t('The coding agent this task runs in'))}">${esc(agent)}</span>`);
   if (v.remote) chips.unshift(deviceChip(v.remote));
   const host = hostText(v);
   if (host) chips.push(`<span class="chip">${esc(host)}</span>`);
@@ -230,7 +252,7 @@ function cardHTML(v) {
 
   return `<article class="card ${stateClass(v)}${v.ended ? ' is-ended' : ''}${v.unread ? ' unread' : ''}${v.remote ? ' remote' : ''}" data-id="${esc(v.id)}" data-kind="${esc(v.kind || '')}" tabindex="0" title="${esc(v.lastPrompt ? t('Last request: {prompt}', { prompt: v.lastPrompt }) : '')}">
   <div class="row1">${v.unread ? `<span class="dot-new" title="${esc(t('Finished, not viewed yet. Open the task, stay on its terminal tab for a moment, or send it a new message to mark it read'))}"></span>` : ''}<span class="pill"><span class="ic"></span>${esc(v.label)}</span><span class="elapsed" data-mode="${mode}" data-t="${t0 || ''}"></span></div>
-  <h3 class="title">${esc(v.title)}${v.summarizing ? `<span class="spark">${t('Summarizing…')}</span>` : ''}</h3>
+  <h3 class="title">${agentMark(v)}${esc(v.title)}${v.summarizing ? `<span class="spark">${t('Summarizing…')}</span>` : ''}</h3>
   ${v.goal ? `<p class="goal">${esc(v.goal)}</p>` : ''}
   ${v.detail ? `<div class="${detailCls}">${esc(v.detail)}</div>` : ''}
   ${agentItems ? `<ul class="agents">${agentItems}${agentMore}</ul>` : ''}
@@ -785,12 +807,11 @@ function deviceChip(r) {
 function ambRowHTML(v, past) {
   const mode = v.state === 'waiting' ? 's-wait' : v.state === 'doing' ? 's-run' : 's-ago';
   const t0 = v.state === 'doing' ? v.turnStartedAt || v.since : v.since;
-  const shown = v.state === 'doing' ? v.detail || t('Thinking…') : v.detail || v.label;
-  const detail = [agentBadge(v), shown].filter(Boolean).join(' · ');
+  const detail = v.state === 'doing' ? v.detail || t('Thinking…') : v.detail || v.label;
   const open = ambOpen.has(v.id);
   return `<li class="amb-row ${stateClass(v)}${v.unread ? ' unread' : ''}${open ? ' open' : ''}${past ? ' past' : ''}${v.remote ? ' remote' : ''}" data-id="${esc(v.id)}">
   <span class="amb-glyph"></span>
-  <div class="amb-text"><b>${esc(v.title)}</b><small>${esc(detail)}</small></div>
+  <div class="amb-text"><b>${agentMark(v)}${esc(v.title)}</b><small>${esc(detail)}</small></div>
   <span class="amb-time elapsed" data-mode="${mode}" data-t="${t0 || ''}"></span>
   <div class="amb-more">${v.goal ? `<p>${esc(v.goal)}</p>` : ''}${v.remote ? deviceChip(v.remote) : `<button data-act="focus">${t('Open on Mac')}</button>`}</div>
 </li>`;

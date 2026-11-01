@@ -36,7 +36,7 @@ function validColor(text) {
   return /^#[0-9A-Fa-f]{6}$/.test(spec);
 }
 
-for (const kind of ['themes', 'presets', 'characters']) {
+for (const kind of ['themes', 'presets', 'characters', 'agents']) {
   test(`${kind}.json is a pack whose items have ids, both languages, and need no purchase`, () => {
     const p = pack(kind);
     assert.equal(p.format, 1);
@@ -88,6 +88,26 @@ test('every character is drawable (Figure.isValid)', () => {
     assert.ok(Array.isArray(c.box) && c.box.length === 2, `${c.id}: box`);
     assert.ok(Array.isArray(c.eyes) && c.eyes.every((e) => e.length === 2), `${c.id}: eyes`);
     assert.ok(!c.spin || c.spin.base.length === 2, `${c.id}: spin base`);
+  }
+});
+
+test('every agent source has a mark, and every mark is drawable (AgentMark in Packs.swift)', () => {
+  const marks = pack('agents').agents;
+  for (const m of marks) {
+    assert.ok(validColor(m.color), `${m.id}: color ${m.color}`);
+    assert.ok(Array.isArray(m.box) && m.box.length === 2 && m.box.every((n) => n > 0), `${m.id}: box`);
+    assert.ok(Array.isArray(m.paths) && m.paths.length > 0, `${m.id}: paths`);
+    // The SVG subset SVGPath.parse reads (Figure.swift): no arcs.
+    for (const d of m.paths) assert.match(d, /^[MLHVCQZmlhvcqz0-9.,\s-]+$/, `${m.id}: path uses only M L H V C Q Z`);
+  }
+  // Agent ids come from the sources (src/sources/<agent>/index.js: id = '...').
+  const ids = new Set(marks.map((m) => m.id));
+  const dir = path.join(ROOT, 'src', 'sources');
+  for (const agent of fs.readdirSync(dir)) {
+    const file = path.join(dir, agent, 'index.js');
+    if (!fs.existsSync(file)) continue;
+    const id = /^\s+id = '([^']+)';/m.exec(fs.readFileSync(file, 'utf8'))?.[1];
+    if (id) assert.ok(ids.has(id), `agents.json has no mark for the ${id} source`);
   }
 });
 
