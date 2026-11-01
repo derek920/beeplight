@@ -15,7 +15,8 @@ export const ZH_UI = LANG === 'zh-Hans';
 
 const ZH = {
   // Header
-  'All Claude Code sessions and agents on this Mac · Click a card to jump to its window': '本机所有 Claude Code 会话与 agent · 点击卡片跳到对应窗口',
+  'Every coding agent session on this Mac · Click a card to jump to its window': '本机所有编程 agent 的会话 · 点击卡片跳到对应窗口',
+  'The coding agent this task runs in': '这个任务所在的编程 agent',
   'Connecting…': '连接中…',
   'Live · {hz}/s': '实时 · {hz} 次/秒',
   'Disconnected, reconnecting…': '已断开，重连中…',
@@ -38,7 +39,7 @@ const ZH = {
   Today: '今天',
   '✓ {n} done': '✓ 完成 {n} 轮',
   '✕ {n} failed': '✕ 失败 {n} 轮',
-  'Claude worked {t}': 'Claude 工作 {t}',
+  'Agents worked {t}': 'agent 工作 {t}',
   'Waited for you {t}': '等你 {t}',
   'Waited for you {t} (longest {max})': '等你 {t}（最长 {max}）',
 
@@ -50,7 +51,7 @@ const ZH = {
   // Columns
   Lists: '切换列表',
   'Needs your attention': '需要你处理',
-  'Claude is working': 'Claude 正在执行',
+  'An agent is working': 'agent 正在执行',
   'Turn ended': '本轮已结束',
   'Nothing is waiting for you': '没有在等你的任务',
   'Nothing is running': '当前没有在跑的任务',
@@ -67,6 +68,9 @@ const ZH = {
   'Running {t}': '已运行 {t}',
   'Background session': '后台会话',
   'Claude Desktop': 'Claude 桌面端',
+  'ChatGPT app': 'ChatGPT app',
+  'Open this task in the ChatGPT app': '在 ChatGPT app 里打开这个任务',
+  'Run codex resume in a new terminal tab': '在新终端标签页运行 codex resume',
   CLI: '终端',
   'Jump to task': '跳转',
   "Switch to this session's window": '切到这个会话所在的窗口',
@@ -115,8 +119,9 @@ const ZH = {
   ', {failed} failed': '，失败 {failed}',
   'Haiku calls by Beeplight today: {n}, ≈{cost}': '监控自身今天调用 Haiku {n} 次 ≈{cost}',
   'CPU · This Mac {total} · Claude {claude} · Beeplight {beeplight}': 'CPU · 本机 {total} · Claude {claude} · Beeplight {beeplight}',
-  'Average over the last {sec} sec, as a share of the whole Mac ({cores} cores). Claude: every session and the commands it runs. Beeplight: the app, its service and its Haiku calls.':
-    '最近 {sec} 秒的平均值，按整台 Mac（{cores} 核）计算。Claude：所有会话，以及它们运行的命令。Beeplight：app、监控服务，以及它发起的 Haiku 调用。',
+  'CPU · This Mac {total} · Claude {claude} · Codex {codex} · Beeplight {beeplight}': 'CPU · 本机 {total} · Claude {claude} · Codex {codex} · Beeplight {beeplight}',
+  "Average over the last {sec} sec, as a share of the whole Mac ({cores} cores). Claude: every session and the commands it runs. Codex: the processes of the ChatGPT app's Codex and the codex CLI. Beeplight: the app, its service and its summary calls.":
+    '最近 {sec} 秒的平均值，按整台 Mac（{cores} 核）计算。Claude：所有会话，以及它们运行的命令。Codex：ChatGPT app 里的 Codex 和 codex 命令行的进程。Beeplight：app、监控服务，以及它发起的总结调用。',
   'Done keeps tasks from the last 12 hours': 'Done 只保留 12 小时内的任务',
 
   // Limits and usage
@@ -176,7 +181,7 @@ const ZH = {
   Close: '关闭',
 
   // Status screen. The lowercase words are the caption under the big number.
-  'Claude is idle': 'Claude 空闲',
+  Idle: '空闲',
   'Nothing running or waiting for you': '没有在跑或等你的任务',
   '1 task needs you': '1 个任务等你处理',
   '{n} tasks need you': '{n} 个任务等你处理',

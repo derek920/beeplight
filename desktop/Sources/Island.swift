@@ -454,7 +454,7 @@ struct IslandView: View {
         } else {
             HStack(spacing: 8) {
                 leadGlyph
-                Text(rows.first?.title ?? String(localized: "Claude is idle"))
+                Text(rows.first?.title ?? String(localized: "Nothing is running"))
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.92))
                     .lineLimit(1)
@@ -517,7 +517,7 @@ struct IslandView: View {
                         StatusGlyph(phase: item.phase, urgent: monitor.isUrgent(item), size: 15)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(item.title).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
-                            Text(item.detail?.isEmpty == false ? item.detail! : item.label)
+                            Text(([item.agentBadge] + [item.detail?.isEmpty == false ? item.detail! : item.label]).compactMap { $0 }.joined(separator: " · "))
                                 .font(.system(size: 10.5))
                                 .foregroundStyle(.white.opacity(0.55))
                                 .lineLimit(1)

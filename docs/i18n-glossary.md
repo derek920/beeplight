@@ -56,6 +56,9 @@ number, e.g. "Running 2", "2 running", "Waiting: 3".
 | 模型 / 项目 | Models / Projects |
 | 平时隐藏，有任务需要你或完成时再出现（灵动岛） | Hide until a task needs you or finishes |
 | 子 agent | subagent |
+| 编程 agent / agent（Claude Code、Codex 这类工具的统称；任务卡片上的标记） | Coding agent / agent |
+| Codex（OpenAI 的编程 agent，不译） | Codex |
+| ChatGPT app（Codex 桌面端所在的 app，不译） | ChatGPT app |
 | 会话 | session |
 | 任务 | task |
 | 今天 | Today |

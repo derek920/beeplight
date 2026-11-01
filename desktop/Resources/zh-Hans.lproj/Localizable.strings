@@ -4,6 +4,7 @@
 /* Models.swift */
 "Background session" = "后台会话";
 "Claude Desktop" = "Claude 桌面端";
+"ChatGPT app" = "ChatGPT app";
 "CLI" = "终端";
 "Jump to task" = "跳转"; /* also Notifier.swift */
 "Open" = "打开";
@@ -61,7 +62,7 @@
 /* Board.swift */
 "Needs your attention" = "需要你处理";
 "Nothing is waiting for you" = "没有在等你的任务";
-"Claude is working" = "Claude 正在执行";
+"An agent is working" = "agent 正在执行";
 "Nothing is running" = "当前没有在跑的任务";
 "Turn ended" = "本轮已结束";
 "Nothing finished yet" = "还没有完成的任务";
@@ -70,7 +71,8 @@
 "All" = "全部";
 "Succeeded" = "成功";
 "Failed" = "失败"; /* also Panel.swift */
-"Every Claude Code session and agent on this Mac · Click a card to jump to its window" = "本机所有 Claude Code 会话与 agent · 点击卡片跳到对应窗口";
+"Every coding agent session on this Mac · Click a card to jump to its window" = "本机所有编程 agent 的会话 · 点击卡片跳到对应窗口";
+"The coding agent this task runs in" = "这个任务所在的编程 agent";
 "Waiting" = "需要你"; /* also Panel.swift */
 "Done" = "完成"; /* also Panel.swift */
 "%lld new" = "%lld 新"; /* also Panel.swift */
@@ -106,7 +108,6 @@
 "Waiting for you" = "需要你处理"; /* also Panel.swift */
 "Task failed" = "任务失败";
 "Task done" = "任务完成";
-"Claude is idle" = "Claude 空闲中";
 "View" = "查看";
 "5h %@ · wk %@" = "5h %@ · 周 %@";
 "Nothing running or waiting for you" = "现在没有在跑或等你的任务";
@@ -145,15 +146,15 @@
 "Remove from board" = "从看板移除";
 "Copy session ID" = "复制会话 ID";
 "Show project in Finder" = "在 Finder 中显示项目";
-"No Claude tasks right now" = "现在没有 Claude 任务";
+"No tasks right now" = "现在没有任务";
 "Connecting to the local Beeplight service…" = "正在连接本地监控服务…";
 "Today" = "今天";
 "This Mac" = "本机";
-"Average over the last %lld sec, as a share of the whole Mac (%lld cores). Claude: every session and the commands it runs. Beeplight: the app, its service and its Haiku calls." = "最近 %lld 秒的平均值，按整台 Mac（%lld 核）计算。Claude：所有会话，以及它们运行的命令。Beeplight：app、监控服务，以及它发起的 Haiku 调用。";
+"Average over the last %lld sec, as a share of the whole Mac (%lld cores). Claude: every session and the commands it runs. Codex: the processes of the ChatGPT app's Codex and the codex CLI. Beeplight: the app, its service and its summary calls." = "最近 %lld 秒的平均值，按整台 Mac（%lld 核）计算。Claude：所有会话，以及它们运行的命令。Codex：ChatGPT app 里的 Codex 和 codex 命令行的进程。Beeplight：app、监控服务，以及它发起的总结调用。";
 "%lld done" = "完成 %lld 轮";
 "%lld failed" = "失败 %lld 轮";
-"Claude worked %@" = "Claude 工作 %@";
-"Worked %@" = "Claude 工作 %@";
+"Agents worked %@" = "agent 工作 %@";
+"Worked %@" = "工作 %@";
 "Waited for you %@" = "等你 %@";
 "Waited %@" = "等你 %@";
 "Waited for you %@ (longest %@)" = "等你 %@（最长 %@）";
@@ -227,8 +228,8 @@
 
 /* App.swift: shown once, the first time the board is closed. "Quit Beeplight" is under Panel.swift. */
 "Beeplight is still running" = "Beeplight 仍在运行";
-"It stays in the menu bar to tell you when Claude needs you. Click the menu bar icon to open the board again. To quit, choose Quit Beeplight from the ⚙ menu." = "它会留在菜单栏，Claude 需要你时照样提醒。点菜单栏图标可以再次打开看板。要退出，在 ⚙ 菜单里选「退出 Beeplight」。";
-"It stays in the menu bar to tell you when Claude needs you. Click the menu bar icon to open the board again. To quit, choose Quit Beeplight from the ⚙ menu, or right-click the island." = "它会留在菜单栏，Claude 需要你时照样提醒。点菜单栏图标可以再次打开看板。要退出，在 ⚙ 菜单里选「退出 Beeplight」，或者右键点灵动岛。";
+"It stays in the menu bar to tell you when a task needs you. Click the menu bar icon to open the board again. To quit, choose Quit Beeplight from the ⚙ menu." = "它会留在菜单栏，有任务需要你时照样提醒。点菜单栏图标可以再次打开看板。要退出，在 ⚙ 菜单里选「退出 Beeplight」。";
+"It stays in the menu bar to tell you when a task needs you. Click the menu bar icon to open the board again. To quit, choose Quit Beeplight from the ⚙ menu, or right-click the island." = "它会留在菜单栏，有任务需要你时照样提醒。点菜单栏图标可以再次打开看板。要退出，在 ⚙ 菜单里选「退出 Beeplight」，或者右键点灵动岛。";
 "OK" = "好";
 
 /* Face.swift, Appearance.swift, Island.swift: idle face */

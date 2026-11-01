@@ -92,12 +92,18 @@ function elapsedText(mode, at, now) {
   return ms < 10_000 ? t('Just now') : t('{t} ago', { t: dur(ms) });
 }
 
+/** The agent a task runs in, for tasks that aren't Claude Code's ('Codex'), else ''. */
+function agentBadge(v) {
+  return v.agent && v.agent !== 'claude-code' ? v.agentName || v.agent : '';
+}
+
 function hostText(v) {
   if (v.entrypoint === 'background') return t('Background session');
   if (v.entrypoint === 'claude-desktop') return t('Claude Desktop');
+  if (v.entrypoint === 'codex-desktop') return t('ChatGPT app');
   if (v.sdk) return 'SDK';
   const h = v.host;
-  if (!h) return v.entrypoint === 'cli' ? t('CLI') : v.entrypoint || '';
+  if (!h) return v.entrypoint === 'cli' || v.entrypoint === 'codex-cli' ? t('CLI') : v.entrypoint || '';
   const tty = h.tty ? ` · ${h.tty.replace('/dev/', '')}` : '';
   if (h.kind === 'iterm') return `iTerm2${tty}`;
   if (h.kind === 'terminal') return `Terminal${tty}`;
@@ -111,7 +117,9 @@ function primaryAction(v) {
       ? [t('Jump to task'), t("Switch to this session's window")]
       : [t('Open on Mac'), t("Switch to this session's window on the Mac")];
   if (v.entrypoint === 'claude-desktop') return [t('Open'), t('Open this session in Claude Desktop')];
+  if (v.entrypoint === 'codex-desktop') return [t('Open'), t('Open this task in the ChatGPT app')];
   if (v.jobShort) return [t('Attach'), t('Run claude attach {id} in a new terminal tab', { id: v.jobShort })];
+  if (v.agent === 'codex') return [t('Resume'), t('Run codex resume in a new terminal tab')];
   return [t('Resume'), t('Run claude --resume in a new terminal tab')];
 }
 
@@ -200,6 +208,8 @@ function cardHTML(v) {
   const agentMore = agents.length > 5 ? `<li><span class="a-desc">${t('… {n} more', { n: agents.length - 5 })}</span></li>` : '';
 
   const chips = [`<span class="chip" title="${esc(v.cwd)}">${esc(v.project || '—')}</span>`];
+  const agent = agentBadge(v);
+  if (agent) chips.unshift(`<span class="chip agent" title="${esc(t('The coding agent this task runs in'))}">${esc(agent)}</span>`);
   if (v.remote) chips.unshift(deviceChip(v.remote));
   const host = hostText(v);
   if (host) chips.push(`<span class="chip">${esc(host)}</span>`);
@@ -373,12 +383,16 @@ function renderFoot() {
   $('#foot').textContent = parts.join(' · ');
 }
 
-// CPU use of the Mac, Claude and Beeplight, as shares of the whole Mac (meta.cpu, src/core/cpu.js).
+// CPU use of the Mac, Claude, Codex and Beeplight, as shares of the whole Mac (meta.cpu, src/core/cpu.js).
+// Codex is listed only while Codex tasks are on the board.
 function renderCpu() {
   const c = meta?.cpu;
   const el = $('#cpu');
-  const text = c ? t('CPU · This Mac {total} · Claude {claude} · Beeplight {beeplight}', { total: pct(c.total), claude: pct(c.claude), beeplight: pct(c.beeplight) }) : '';
-  const title = c ? t('Average over the last {sec} sec, as a share of the whole Mac ({cores} cores). Claude: every session and the commands it runs. Beeplight: the app, its service and its Haiku calls.', { sec: c.sec, cores: c.cores }) : '';
+  const codex = c?.codex != null && snapshot.sessions.some((v) => v.agent === 'codex');
+  const text = !c ? ''
+    : codex ? t('CPU · This Mac {total} · Claude {claude} · Codex {codex} · Beeplight {beeplight}', { total: pct(c.total), claude: pct(c.claude), codex: pct(c.codex), beeplight: pct(c.beeplight) })
+    : t('CPU · This Mac {total} · Claude {claude} · Beeplight {beeplight}', { total: pct(c.total), claude: pct(c.claude), beeplight: pct(c.beeplight) });
+  const title = c ? t("Average over the last {sec} sec, as a share of the whole Mac ({cores} cores). Claude: every session and the commands it runs. Codex: the processes of the ChatGPT app's Codex and the codex CLI. Beeplight: the app, its service and its summary calls.", { sec: c.sec, cores: c.cores }) : '';
   if (el.textContent !== text) el.textContent = text;
   if (el.title !== title) el.title = title;
 }
@@ -771,7 +785,8 @@ function deviceChip(r) {
 function ambRowHTML(v, past) {
   const mode = v.state === 'waiting' ? 's-wait' : v.state === 'doing' ? 's-run' : 's-ago';
   const t0 = v.state === 'doing' ? v.turnStartedAt || v.since : v.since;
-  const detail = v.state === 'doing' ? v.detail || t('Thinking…') : v.detail || v.label;
+  const shown = v.state === 'doing' ? v.detail || t('Thinking…') : v.detail || v.label;
+  const detail = [agentBadge(v), shown].filter(Boolean).join(' · ');
   const open = ambOpen.has(v.id);
   return `<li class="amb-row ${stateClass(v)}${v.unread ? ' unread' : ''}${open ? ' open' : ''}${past ? ' past' : ''}${v.remote ? ' remote' : ''}" data-id="${esc(v.id)}">
   <span class="amb-glyph"></span>
@@ -786,7 +801,7 @@ function renderAmbient(waiting, doing, doneAll) {
   if (currentView() !== 'ambient') return;
   const fresh = doneAll.filter((v) => v.unread);
   let tone = 'idle';
-  let state = t('Claude is idle');
+  let state = t('Idle');
   let sub = t('Nothing running or waiting for you');
   const nw = waiting.length;
   const nf = fresh.length;
@@ -1276,7 +1291,7 @@ function renderToday() {
   if (!day) return;
   const items = [`<b>${t('Today')}</b>`, `<span class="t-ok">${t('✓ {n} done', { n: day.done })}</span>`];
   if (day.failed) items.push(`<span class="t-fail">${t('✕ {n} failed', { n: day.failed })}</span>`);
-  items.push(`<span class="t-work">${t('Claude worked {t}', { t: dur(day.workMs) })}</span>`);
+  items.push(`<span class="t-work">${t('Agents worked {t}', { t: dur(day.workMs) })}</span>`);
   const wait =
     day.longestWaitMs >= 1000
       ? t('Waited for you {t} (longest {max})', { t: dur(day.waitMs), max: dur(day.longestWaitMs) })
@@ -1322,7 +1337,7 @@ function notify(v) {
   if (!prefs.notify || Notification.permission !== 'granted') return;
   const head = v.state === 'waiting' ? t('Needs you: {title}', { title: v.title }) : v.outcome === 'failed' ? t('Failed: {title}', { title: v.title }) : t('Done: {title}', { title: v.title });
   const n = new Notification(head, {
-    body: [v.label, v.detail].filter(Boolean).join(' · '),
+    body: [agentBadge(v), v.label, v.detail].filter(Boolean).join(' · '),
     tag: v.id,
   });
   n.onclick = () => {

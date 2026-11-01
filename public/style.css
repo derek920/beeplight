@@ -1176,6 +1176,13 @@ button {
   background: var(--waiting-soft);
 }
 
+/* The coding agent of a task that isn't Claude Code's (view.agentName, e.g. Codex). */
+.chip.agent {
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--muted) 45%, transparent);
+}
+
 /* A task synced from another device (src/relay.js). */
 .chip.device {
   color: var(--doing);
