@@ -1,19 +1,15 @@
 import { EventEmitter } from 'node:events';
-import fs from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
-import { config as defaultConfig, PROJECTS_DIR } from '../config/index.js';
-import { Jobs } from '../sources/claude-code/jobs.js';
+import { config as defaultConfig } from '../config/index.js';
+import { ClaudeCodeSource } from '../sources/claude-code/index.js';
 import { detectHost, machineCpu, psSnapshot } from '../sources/system/proc.js';
-import { Registry } from '../sources/claude-code/registry.js';
 import { deriveStatus, endKey, matchingEndSummary } from './status.js';
-import { Subagents } from '../sources/claude-code/subagents.js';
 import { buildSummaryInput } from '../services/summarizer.js';
 import { stateKey, Timeline } from './timeline.js';
-import { Transcript } from '../sources/claude-code/transcript.js';
 import { buildDetail, DEFAULT_STEP, STEPS } from './usage-detail.js';
 import { FIVE_HOURS, SEVEN_DAYS } from '../services/limits.js';
-import { cleanTitle, oneLine, pidAlive, projectSlug } from '../lib/util.js';
+import { cleanTitle, oneLine, pidAlive, shortId } from '../lib/util.js';
 
 // Per-session and account usage are recomputed at most this often (or when new data lands).
 const USAGE_CACHE_MS = 10_000;
@@ -21,8 +17,27 @@ const USAGE_CACHE_MS = 10_000;
 const ENDED_GRACE_MS = 5000;
 const TRANSCRIPT_PROBE_MS = 2000;
 
+/**
+ * Turns what coding agents leave on this Mac into board views. Each agent is a source
+ * (src/sources/<agent>/index.js) with this interface:
+ *   id, name, speaker      'claude-code', 'Claude Code', 'Claude' (the summarizer's "Claude:" lines)
+ *   caps                   { limits, cpu }: whether its activity drives Claude limit probes, and
+ *                          which share of the CPU meter its processes count toward ('claude' | 'codex')
+ *   owns(sid)              whether a task id is one of its own
+ *   poll(now, ps)          every tick, cheap: Map<sid, live entry> in the registry-entry shape
+ *                          { pid, cwd, status: busy|waiting|idle, waitingFor, needs, statusUpdatedAt,
+ *                          startedAt, entrypoint, hostSessionId, name, nameSource, sharedHost }
+ *   background?()          tasks without a process: Map<sid, job>
+ *   open(s)                { tx: { poll(), a, ino }, subs? } once the conversation can be read, else null;
+ *                          tx.a is the shared analysis (src/sources/common/analysis.js)
+ *   names(s, job)          title candidates, best first
+ *   restore(sid, view)     live-entry seed for a task that ended before a restart, or null to drop it
+ *   focus(target)          steps for src/actions/focus.js to bring the task to the front
+ *   cpuRoots?(ps)          processes whose trees count as its CPU, when not simply its live tasks' pids
+ * Everything after that (status, summaries, timeline, unread, relay) never asks which agent it was.
+ */
 export class Collector extends EventEmitter {
-  constructor({ store, summarizer, runner, usage, limits, relay, cpu, config = defaultConfig }) {
+  constructor({ store, summarizer, runner, usage, limits, relay, cpu, sources, config = defaultConfig }) {
     super();
     this.config = config;
     this.store = store;
@@ -38,8 +53,7 @@ export class Collector extends EventEmitter {
     relay?.on('change', () => this.remoteVersion++);
     this.localSig = '';
     this.usageCache = { key: '', at: 0, bySid: new Map(), account: null };
-    this.registry = new Registry();
-    this.jobsReader = new Jobs();
+    this.sources = sources ?? [new ClaudeCodeSource({ isOwnPid: (pid) => runner.isOwnPid(pid), config })];
     this.sessions = new Map(); // sid -> session state (live, or ended while we watched)
     this.jobs = new Map();
     this.ps = new Map();
@@ -59,16 +73,29 @@ export class Collector extends EventEmitter {
     const now = Date.now();
     for (const [sid, v] of Object.entries(this.store.ended)) {
       if (now - (v.endedAt || 0) > this.retainMs() || this.sessions.has(sid)) continue;
-      const s = this.createSession(sid, {
-        pid: v.pid,
-        cwd: v.cwd,
-        status: v.lastRegStatus,
-        entrypoint: v.entrypoint,
-        hostSessionId: v.hostSessionId,
-      });
+      const source = this.sourceFor(sid);
+      const seed = source?.restore(sid, v);
+      if (!seed) continue;
+      const s = this.createSession(sid, seed, source);
       Object.assign(s, { host: v.host, ended: true, endedAt: v.endedAt, endReason: v.endReason });
       this.sessions.set(sid, s);
     }
+  }
+
+  /** The processes counted toward one share of the CPU meter: each source's own roots, or its live tasks. */
+  cpuRoots(share, ps) {
+    const pids = [];
+    for (const source of this.sources) {
+      if (source.caps?.cpu !== share) continue;
+      if (source.cpuRoots) pids.push(...source.cpuRoots(ps));
+      else for (const s of this.sessions.values()) if (s.source === source && !s.ended && s.pid != null) pids.push(s.pid);
+    }
+    return pids;
+  }
+
+  /** The source a task id belongs to. */
+  sourceFor(sid) {
+    return this.sources.find((src) => src.owns(sid)) ?? null;
   }
 
   /** How long ended and quiet tasks stay (collector.retainHours). */
@@ -100,8 +127,7 @@ export class Collector extends EventEmitter {
       const ps = await psSnapshot();
       if (ps.size) {
         this.ps = ps;
-        const claudePids = [...this.sessions.values()].filter((s) => !s.ended).map((s) => s.pid);
-        this.cpu?.record({ ps, machine: machineCpu(), claudePids });
+        this.cpu?.record({ ps, machine: machineCpu(), claudePids: this.cpuRoots('claude', ps), codexPids: this.cpuRoots('codex', ps) });
       }
       for (const s of this.sessions.values()) {
         if (s.ended) continue;
@@ -113,13 +139,6 @@ export class Collector extends EventEmitter {
     }
   }
 
-  // Alive, and not a recycled pid left behind in a stale registry file.
-  isGenuine(reg) {
-    if (!pidAlive(reg.pid)) return false;
-    const p = this.ps.get(reg.pid);
-    return !(p && reg.startedAt && p.start > reg.startedAt + 5000);
-  }
-
   tick() {
     const t0 = performance.now();
     const now = Date.now();
@@ -127,29 +146,30 @@ export class Collector extends EventEmitter {
     this.tickTimes.push(now);
     while (now - this.tickTimes[0] > 3000) this.tickTimes.shift();
     try {
-      const regs = this.registry.poll();
-      if (this.tickCount % 6 === 1) this.jobs = this.jobsReader.poll();
+      if (this.tickCount % 6 === 1) this.pollBackground();
 
       const live = new Set();
       const livePids = new Set();
-      for (const [sid, reg] of regs) {
-        if (this.runner.isOwnPid(reg.pid) || !this.isGenuine(reg)) continue;
-        let s = this.sessions.get(sid);
-        if (!s) {
-          s = this.createSession(sid, reg);
-          this.sessions.set(sid, s);
-        } else if (s.ended) {
-          s.ended = false;
-          s.endedAt = null;
-          s.endReason = null;
+      for (const source of this.sources) {
+        for (const [sid, reg] of source.poll(now, this.ps)) {
+          let s = this.sessions.get(sid);
+          if (!s) {
+            s = this.createSession(sid, reg, source);
+            this.sessions.set(sid, s);
+          } else if (s.ended) {
+            s.ended = false;
+            s.endedAt = null;
+            s.endReason = null;
+          }
+          if (s.pid !== reg.pid) s.host = detectHost(reg.pid, this.ps);
+          s.reg = reg;
+          s.pid = reg.pid;
+          s.cwd = reg.cwd || s.cwd;
+          s.lastRegStatus = reg.status;
+          live.add(sid);
+          // One process hosting many tasks says nothing about which of them is still open.
+          if (reg.pid != null && !reg.sharedHost) livePids.add(reg.pid);
         }
-        if (s.pid !== reg.pid) s.host = detectHost(reg.pid, this.ps);
-        s.reg = reg;
-        s.pid = reg.pid;
-        s.cwd = reg.cwd || s.cwd;
-        s.lastRegStatus = reg.status;
-        live.add(sid);
-        livePids.add(reg.pid);
       }
       for (const s of this.sessions.values()) {
         if (s.ended || live.has(s.sid)) continue;
@@ -182,9 +202,19 @@ export class Collector extends EventEmitter {
     this.lastTickMs = performance.now() - t0;
   }
 
-  createSession(sid, reg) {
+  // Tasks without a process (Claude's `--bg` jobs), from every source that has them.
+  pollBackground() {
+    const jobs = new Map();
+    for (const source of this.sources) {
+      for (const [sid, job] of source.background?.() ?? []) jobs.set(sid, Object.assign(job, { agent: source.id, agentName: source.name }));
+    }
+    this.jobs = jobs;
+  }
+
+  createSession(sid, reg, source) {
     return {
       sid,
+      source,
       reg,
       pid: reg.pid,
       cwd: reg.cwd,
@@ -207,11 +237,11 @@ export class Collector extends EventEmitter {
     if (now - s.txProbeAt < TRANSCRIPT_PROBE_MS) return;
     s.txProbeAt = now;
     s.txProbes++;
-    const file = findTranscript(s.sid, s.cwd);
-    if (!file) return;
-    s.tx = new Transcript(file, this.config);
-    s.subs = new Subagents(path.join(path.dirname(file), s.sid, 'subagents'), this.config);
-    s.subs.poll();
+    const opened = s.source.open(s);
+    if (!opened) return;
+    s.tx = opened.tx;
+    s.subs = opened.subs ?? null;
+    s.subs?.poll();
   }
 
   maybeSummarize(s, now) {
@@ -223,7 +253,7 @@ export class Collector extends EventEmitter {
     if (status !== 'busy' && status !== 'waiting' && now - a.lastTs > this.retainMs()) return;
     const sum = this.store.getSummary(s.sid);
     const request = (kind, key, delayMs) =>
-      this.summarizer.request({ sid: s.sid, key, kind, turnId, delayMs, buildInput: () => this.summaryInput(s) });
+      this.summarizer.request({ sid: s.sid, key, kind, turnId, delayMs, agent: agentOf(s), buildInput: () => this.summaryInput(s) });
 
     // A failed summary is re-requested; Summarizer holds it back until its backoff passes.
     if (status === 'idle' || status === 'ended') {
@@ -257,9 +287,10 @@ export class Collector extends EventEmitter {
     return buildSummaryInput({
       cwd: s.cwd,
       a,
-      names: [cleanTitle(a.customTitle), this.jobs.get(s.sid)?.name, a.aiTitle, registryName(s.reg)],
+      names: s.source.names(s, this.jobs.get(s.sid)),
       state: s.ended ? 'ended' : s.reg?.status,
       waitingFor: s.reg?.waitingFor,
+      speaker: s.source.speaker,
     });
   }
 
@@ -273,6 +304,7 @@ export class Collector extends EventEmitter {
       kind: idle ? 'end' : 'run',
       key: idle ? endKey(a) : `${a.turn.key}@manual-${Date.now()}`,
       turnId: a.turn.key,
+      agent: agentOf(s),
       buildInput: () => this.summaryInput(s),
     });
     return true;
@@ -290,21 +322,22 @@ export class Collector extends EventEmitter {
       job: s.ended ? job : null,
       a,
       summary,
-      verdicts: this.aiTitles(),
+      // No verdict comes with original titles, or without a summary model (no claude, no codex):
+      // don't show "checking the result" forever.
+      verdicts: this.aiTitles() && this.summarizer.available !== false,
       runningAgents: subagents.filter((x) => x.running).length,
     });
     const reg = s.reg || {};
     return {
       id: s.sid,
+      agent: s.source.id,
+      agentName: s.source.name,
       title:
         summary?.title ||
-        cleanTitle(a?.customTitle) ||
-        job?.name ||
-        a?.aiTitle ||
-        registryName(reg) ||
+        s.source.names(s, job).find(Boolean) ||
         oneLine(a?.lastPrompt?.text, 30) ||
         path.basename(s.cwd || '') ||
-        s.sid.slice(0, 8),
+        shortId(s.sid),
       titleFromAi: !!summary?.title,
       goal: summary?.goal || '',
       state: st.state,
@@ -341,6 +374,8 @@ export class Collector extends EventEmitter {
     const st = deriveStatus({ live: false, job });
     return {
       id: job.sessionId,
+      agent: job.agent,
+      agentName: job.agentName,
       title: job.name || path.basename(job.cwd || '') || job.short,
       titleFromAi: false,
       goal: '',
@@ -446,12 +481,12 @@ export class Collector extends EventEmitter {
       // Only finishes we saw happen: a session first seen already done is old news.
       if (prevKey && last.k.startsWith('done:') && !last.p && (prevKey !== last.k || prevPending)) {
         this.store.markUnread(s.sid, last.t, last.k.slice(5));
-        console.log(`[unread] ${s.sid.slice(0, 8)} ${last.k} → unread`);
+        console.log(`[unread] ${shortId(s.sid)} ${last.k} → unread`);
       }
     }
     // Back to work (new prompt, or Claude resumed): the old result is no longer the news.
     if (v.state !== 'done' && v.state !== 'idle' && this.store.markRead(s.sid)) {
-      console.log(`[unread] ${s.sid.slice(0, 8)} read (back to ${v.state})`);
+      console.log(`[unread] ${shortId(s.sid)} read (back to ${v.state})`);
     }
   }
 
@@ -468,7 +503,7 @@ export class Collector extends EventEmitter {
 
   markRead(sid, reason) {
     if (!this.store.markRead(sid)) return;
-    console.log(`[unread] ${sid.slice(0, 8)} read (${reason})`);
+    console.log(`[unread] ${shortId(sid)} read (${reason})`);
     this.sig = '';
   }
 
@@ -482,8 +517,10 @@ export class Collector extends EventEmitter {
     this.sig = '';
   }
 
+  // Whether Claude is in use, which sets how often its limits are probed. Other agents don't count.
   recentlyActive(now) {
     for (const s of this.sessions.values()) {
+      if (!s.source?.caps?.limits) continue;
       if (!s.ended && (s.reg?.status === 'busy' || s.reg?.status === 'waiting')) return true;
       if (s.tx && now - s.tx.a.lastTs < 30 * 60_000) return true;
     }
@@ -588,7 +625,14 @@ export class Collector extends EventEmitter {
     };
   }
 
-  // Everything focus.js needs to bring a session's window to the front.
+  /** What src/actions/focus.js runs to bring a task to the front: the target plus its source's steps. */
+  focusPlan(sid) {
+    const target = this.focusTarget(sid);
+    const source = target && this.sourceFor(sid);
+    return source ? { ...target, steps: source.focus(target) } : null;
+  }
+
+  // What is known about where a task runs, or ran.
   focusTarget(sid) {
     const s = this.sessions.get(sid);
     if (s) {
@@ -613,27 +657,7 @@ export class Collector extends EventEmitter {
   }
 }
 
-function findTranscript(sid, cwd) {
-  const name = `${sid}.jsonl`;
-  if (cwd) {
-    const direct = path.join(PROJECTS_DIR, projectSlug(cwd), name);
-    if (fs.existsSync(direct)) return direct;
-  }
-  let dirs;
-  try {
-    dirs = fs.readdirSync(PROJECTS_DIR);
-  } catch {
-    return null;
-  }
-  for (const d of dirs) {
-    const f = path.join(PROJECTS_DIR, d, name);
-    if (fs.existsSync(f)) return f;
-  }
-  return null;
-}
-
-// The registry name is auto-derived (e.g. "monitor-8f") unless the user or the desktop app set it.
-function registryName(reg) {
-  if (!reg?.name || reg.nameSource === 'derived') return null;
-  return cleanTitle(reg.name);
+/** Who a session's summary is about, for the summarizer's prompt. */
+function agentOf(s) {
+  return { name: s.source.name, speaker: s.source.speaker };
 }

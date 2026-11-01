@@ -59,7 +59,24 @@ test('Claude counts its sessions and what they started; Beeplight counts itself,
   );
   // 2 s on 4 cores is 8 CPU-seconds; 4 of them busy.
   m.record({ ps: after, machine: mac(2, 4), claudePids: [20], at: START + 12_000 });
-  assert.deepEqual(m.view(), { cores: 4, sec: 2, total: 0.5, claude: 2 / 8, beeplight: 0.6 / 8 });
+  assert.deepEqual(m.view(), { cores: 4, sec: 2, total: 0.5, claude: 2 / 8, codex: 0, beeplight: 0.6 / 8 });
+});
+
+test('Codex counts the processes that run its threads, after Claude', () => {
+  const m = meter();
+  const app = '/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex';
+  const scan = (cpu) => ps(
+    proc(1, 0, 0),
+    proc(20, 1, cpu.claude, 'claude'),
+    proc(30, 1, cpu.app, app), // the ChatGPT app's app-server
+    proc(31, 30, cpu.shell, '/bin/zsh'), // a command it runs
+    proc(32, 20, cpu.both, '/bin/zsh'), // under Claude, and listed for Codex too: Claude's
+  );
+  m.record({ ps: scan({ claude: 0, app: 0, shell: 0, both: 0 }), machine: mac(0, 0), claudePids: [20], codexPids: [30, 32], at: START + 10_000 });
+  m.record({ ps: scan({ claude: 1, app: 0.5, shell: 1, both: 0.5 }), machine: mac(2, 4), claudePids: [20], codexPids: [30, 32], at: START + 12_000 });
+  const v = m.view();
+  assert.equal(v.claude, 1.5 / 8);
+  assert.equal(v.codex, 1.5 / 8);
 });
 
 test('a pid now held by a newer process counts as new; a part never exceeds the whole', () => {
@@ -81,7 +98,7 @@ test('the shares are averaged over collector.cpuAverageSec', () => {
     busy += add;
     m.record({ ps: ps(proc(50, 1, 0)), machine: mac(i * 2, busy), claudePids: [], at: START + i * 2000 });
   }
-  assert.deepEqual(m.view(), { cores: 4, sec: 4, total: 0, claude: 0, beeplight: 0 }, 'only the last 4 seconds');
+  assert.deepEqual(m.view(), { cores: 4, sec: 4, total: 0, claude: 0, codex: 0, beeplight: 0 }, 'only the last 4 seconds');
   m.config.set({ 'collector.cpuAverageSec': 120 });
   m.record({ ps: ps(proc(50, 1, 0)), machine: mac(8, busy), claudePids: [], at: START + 8000 });
   assert.equal(m.view().sec, 6, 'a longer window keeps what is left, then grows');

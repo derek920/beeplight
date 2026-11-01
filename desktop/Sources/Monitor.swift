@@ -237,9 +237,9 @@ final class Monitor {
             if v.phase != .doing { onTransition?(v) }
             switch v.phase {
             case .waiting where notifyWaiting:
-                Notifier.shared.post(id: v.id, title: String(localized: "Waiting for you · \(v.title)"), body: [v.remote?.name, v.label, v.detail].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "))
+                Notifier.shared.post(id: v.id, title: String(localized: "Waiting for you · \(v.title)"), body: [v.remote?.name, v.agentBadge, v.label, v.detail].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "))
             case .success where notifyDone, .failed where notifyDone:
-                Notifier.shared.post(id: v.id, title: v.phase == .failed ? String(localized: "Task failed · \(v.title)") : String(localized: "Task done · \(v.title)"), body: [v.remote?.name, v.label, v.detail].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "))
+                Notifier.shared.post(id: v.id, title: v.phase == .failed ? String(localized: "Task failed · \(v.title)") : String(localized: "Task done · \(v.title)"), body: [v.remote?.name, v.agentBadge, v.label, v.detail].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "))
             default:
                 break
             }

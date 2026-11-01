@@ -6,9 +6,11 @@ import { config as defaultConfig } from '../config/index.js';
 // process used in between. Every share is of the whole Mac (all cores), so the three numbers
 // compare directly; top and Activity Monitor measure a process against one core instead.
 //
-// Claude: each live session's process and everything it started (tools, MCP servers). Beeplight:
-// this service and its children (Haiku calls, ps, osascript) and the Mac app. Each process counts
-// once, Beeplight's first, so a service started from a Claude session's shell is not Claude's.
+// Claude: each live session's process and everything it started (tools, MCP servers). Codex: the
+// processes that run Codex threads (the ChatGPT app's app-server, the CLI and its daemon) and their
+// children. Beeplight: this service and its children (Haiku calls, ps, osascript) and the Mac app.
+// Each process counts once, Beeplight's first, then Claude's, then Codex's, so a service started
+// from a Claude session's shell is not Claude's.
 // A process that ends between two scans loses what it used since the last one.
 
 const MAC_APP = /\/Beeplight\.app\/Contents\/MacOS\/Beeplight$/;
@@ -22,8 +24,8 @@ export class CpuMeter {
     this.cores = 0;
   }
 
-  /** One scan: `ps` from psSnapshot(), `machine` from machineCpu(), the live sessions' pids. */
-  record({ ps, machine, claudePids, at = Date.now() }) {
+  /** One scan: `ps` from psSnapshot(), `machine` from machineCpu(), each agent's process roots. */
+  record({ ps, machine, claudePids, codexPids = [], at = Date.now() }) {
     const last = this.last;
     this.last = { ps, machine, at };
     this.cores = machine.cores;
@@ -37,8 +39,9 @@ export class CpuMeter {
     const apps = [...ps.values()].filter((p) => MAC_APP.test(p.comm)).map((p) => p.pid);
     const beeplight = used(claim([this.selfPid, ...apps], ps, children, counted), ps, last);
     const claude = used(claim(claudePids, ps, children, counted), ps, last);
+    const codex = used(claim(codexPids, ps, children, counted), ps, last);
     const busy = machine.busy - last.machine.busy;
-    this.spans.push({ from: last.at, at, total: machine.total - last.machine.total, busy, claude, beeplight });
+    this.spans.push({ from: last.at, at, total: machine.total - last.machine.total, busy, claude, codex, beeplight });
     const since = at - this.config.get('collector.cpuAverageSec') * 1000;
     while (this.spans.length > 1 && this.spans[0].from < since) this.spans.shift();
   }
@@ -56,6 +59,7 @@ export class CpuMeter {
       sec: Math.round((this.spans.at(-1).at - this.spans[0].from) / 1000),
       total: share(busy),
       claude: share(sum('claude')),
+      codex: share(sum('codex')),
       beeplight: share(sum('beeplight')),
     };
   }

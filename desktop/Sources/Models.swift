@@ -29,6 +29,8 @@ struct CpuMeta: Decodable, Equatable {
     var sec: Double?
     var total: Double
     var claude: Double
+    /// Codex's processes (the ChatGPT app's and the CLI's); missing from older services.
+    var codex: Double?
     var beeplight: Double
 }
 
@@ -201,6 +203,9 @@ struct TaskItem: Decodable, Identifiable, Equatable {
     var unread: Bool?
     /// Set for a task synced from another device (the service's relay); read-only here.
     var remote: RemoteInfo?
+    /// The coding agent the task belongs to ("claude-code", "codex", …) and its display name.
+    var agent: String?
+    var agentName: String?
 }
 
 enum Phase: String {
@@ -247,9 +252,16 @@ extension TaskItem {
 
     var isLive: Bool { live ?? false }
 
+    /// A badge naming the agent, shown on tasks that aren't Claude Code's.
+    var agentBadge: String? {
+        guard let agent, agent != "claude-code" else { return nil }
+        return agentName ?? agent
+    }
+
     var hostText: String {
         if entrypoint == "background" { return String(localized: "Background session") }
         if entrypoint == "claude-desktop" { return String(localized: "Claude Desktop") }
+        if entrypoint == "codex-desktop" { return String(localized: "ChatGPT app") }
         if sdk == true { return "SDK" }
         guard let h = host else { return String(localized: "CLI") }
         let tty = h.tty.map { " · " + $0.replacingOccurrences(of: "/dev/", with: "") } ?? ""
@@ -263,7 +275,7 @@ extension TaskItem {
 
     var primaryAction: String {
         if isLive { return String(localized: "Jump to task") }
-        if entrypoint == "claude-desktop" { return String(localized: "Open") }
+        if entrypoint == "claude-desktop" || entrypoint == "codex-desktop" { return String(localized: "Open") }
         if jobShort != nil { return String(localized: "Attach") }
         return String(localized: "Resume")
     }

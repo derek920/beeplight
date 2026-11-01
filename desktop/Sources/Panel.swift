@@ -196,7 +196,7 @@ private struct PanelRow: View {
     private var subtitle: String {
         let detail = item.detail ?? ""
         let text = item.phase == .doing ? (detail.isEmpty ? item.label : detail) : (detail.isEmpty ? item.label : "\(item.label) · \(detail)")
-        return item.remote.map { "\($0.label) · \(text)" } ?? text
+        return ([item.remote?.label, item.agentBadge].compactMap { $0 } + [text]).joined(separator: " · ")
     }
 }
 
@@ -230,7 +230,7 @@ struct EmptyState: View {
         VStack(spacing: 8) {
             if connected {
                 Image(systemName: "moon.zzz").font(.system(size: 26)).foregroundStyle(.tertiary)
-                Text("No Claude tasks right now").font(.system(size: 12.5)).foregroundStyle(.secondary)
+                Text("No tasks right now").font(.system(size: 12.5)).foregroundStyle(.secondary)
             } else {
                 ProgressView().controlSize(.small)
                 Text(ServerManager.shared.lastError ?? String(localized: "Connecting to the local Beeplight service…"))
@@ -280,15 +280,18 @@ struct CpuLine: View {
 
     var body: some View {
         if let c = monitor.cpu {
-            HStack(spacing: compact ? 10 : 14) {
+            // Tighter in the panel, where four parts (with Codex) must fit its width.
+            HStack(spacing: compact ? 8 : 14) {
                 Text("CPU").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
                 part(String(localized: "This Mac"), c.total)
                 part("Claude", c.claude)
+                // Only with Codex tasks around, so the line keeps its width otherwise.
+                if let codex = c.codex, monitor.visible.contains(where: { $0.agent == "codex" }) { part("Codex", codex) }
                 part("Beeplight", c.beeplight)
             }
             .lineLimit(1)
             .layoutPriority(1)
-            .help(String(localized: "Average over the last \(Int(c.sec ?? 0)) sec, as a share of the whole Mac (\(c.cores ?? 0) cores). Claude: every session and the commands it runs. Beeplight: the app, its service and its Haiku calls."))
+            .help(String(localized: "Average over the last \(Int(c.sec ?? 0)) sec, as a share of the whole Mac (\(c.cores ?? 0) cores). Claude: every session and the commands it runs. Codex: the processes of the ChatGPT app's Codex and the codex CLI. Beeplight: the app, its service and its summary calls."))
         }
     }
 
@@ -297,7 +300,7 @@ struct CpuLine: View {
     private func part(_ label: String, _ value: Double) -> some View {
         HStack(spacing: 4) {
             Text(label).foregroundStyle(.tertiary)
-            Text(Fmt.pct(value)).foregroundStyle(.secondary).frame(width: 34, alignment: .trailing)
+            Text(Fmt.pct(value)).foregroundStyle(.secondary).frame(width: compact ? 30 : 34, alignment: .trailing)
         }
         .font(.system(size: 11).monospacedDigit())
     }
@@ -315,7 +318,7 @@ struct TodayLine: View {
             // Shorter wording in the compact (menu bar panel) line.
             stat("bolt.fill", Theme.doing, compact
                  ? String(localized: "Worked \(Fmt.dur(today.workMs / 1000))")
-                 : String(localized: "Claude worked \(Fmt.dur(today.workMs / 1000))"))
+                 : String(localized: "Agents worked \(Fmt.dur(today.workMs / 1000))"))
             stat("hand.raised.fill", Theme.waiting, compact
                  ? String(localized: "Waited \(Fmt.dur(today.waitMs / 1000))")
                  : today.longestWaitMs < 1000

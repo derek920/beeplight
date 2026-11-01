@@ -1,0 +1,19 @@
+Project directory: /repo
+
+Session name: Login work / Auth feature
+
+## Summary of the earlier conversation
+Earlier: set up the repo and CI.
+
+## Progress recap written by Claude
+Login form done; tests failing on the auth route.
+
+## Recent conversation, oldest first
+User: Add login with email and password
+Claude: I will add a login form and an auth route.
+  [tool] Write: login.tsx
+  [tool] Bash: npm test (failed)
+User: Use bcrypt for the hashes
+Claude: Switched to bcrypt. Should I also add rate limiting to the login route?
+
+Current state: Claude is stopped at a screen that needs the user's permission or input. (permission prompt)

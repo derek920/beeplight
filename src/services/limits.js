@@ -133,7 +133,8 @@ export class Limits {
 
   // One minimal request; the rate_limit_event it produces updates `latest` via the runner hook.
   async probe() {
-    if (this.probing) return;
+    // Without claude there is no Claude account to read limits from.
+    if (this.probing || this.runner.available?.() === false) return;
     this.probing = true;
     this.lastProbeAt = Date.now();
     this.version++;

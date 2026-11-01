@@ -44,6 +44,8 @@ test('with original titles no verdict is coming, so the success is final', () =>
   a.lastReply = { text: 'All **tests** pass', ts: 90 };
   const s = deriveStatus({ live: true, reg: reg('idle'), a, verdicts: false });
   assert.deepEqual([s.state, s.outcome, s.pending, s.detail], ['done', 'success', false, 'All tests pass']);
+  // Hard failures still count without a verdict.
+  assert.equal(deriveStatus({ live: true, reg: reg('idle'), a: analysis({ interrupted: true }), verdicts: false }).outcome, 'failed');
 });
 
 test('LLM verdicts map onto the board states', () => {

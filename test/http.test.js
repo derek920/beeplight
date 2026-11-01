@@ -109,6 +109,12 @@ test('path parameters, wrong methods, and a failing route', async () => {
   assert.equal((await call(h, { url: '/api/thing' })).status, 200, 'still serving after a failure');
 });
 
+test('path parameters arrive decoded; a malformed escape is a 400', async () => {
+  const handler = createHandler({ port: PORT, lan: fakeLan(), routes });
+  assert.deepEqual((await call(handler, { url: '/api/items/codex%3A01a1960a-b257' })).json, { id: 'codex:01a1960a-b257' });
+  assert.equal((await call(handler, { url: '/api/items/%E0%A4%A' })).status, 400);
+});
+
 test('cleaning up stored data is for this Mac only and reports what it did', async () => {
   const lan = fakeLan();
   const store = { prune: () => 3, flush: () => 64 * 1024 };

@@ -21,7 +21,7 @@ struct BoardView: View {
                 HStack(alignment: .top, spacing: 14) {
                     BoardColumn(title: "Waiting", hint: String(localized: "Needs your attention"), color: Theme.waiting, items: monitor.waiting,
                                 empty: String(localized: "Nothing is waiting for you"), ns: ns, monitor: monitor)
-                    BoardColumn(title: "Doing", hint: String(localized: "Claude is working"), color: Theme.doing, items: monitor.doing,
+                    BoardColumn(title: "Doing", hint: String(localized: "An agent is working"), color: Theme.doing, items: monitor.doing,
                                 empty: String(localized: "Nothing is running"), ns: ns, monitor: monitor)
                     BoardColumn(title: "Done", hint: String(localized: "Turn ended"), color: Theme.success, items: filteredDone,
                                 empty: String(localized: "Nothing finished yet"), ns: ns, monitor: monitor, unread: monitor.unreadDone.count) {
@@ -86,7 +86,7 @@ private struct BoardHeader: View {
                 AppMark(size: 30)
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Beeplight").font(.system(size: 18, weight: .bold))
-                    Text("Every Claude Code session and agent on this Mac · Click a card to jump to its window")
+                    Text("Every coding agent session on this Mac · Click a card to jump to its window")
                         .font(.system(size: 11.5)).foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 20)
@@ -341,6 +341,7 @@ struct TaskCard: View {
 
             HStack(spacing: 5) {
                 if let r = item.remote { Chip(text: r.label, tint: r.online ? Theme.doing : nil).help("Runs on another device; synced through your relay") }
+                if let a = item.agentBadge { Chip(text: a).help("The coding agent this task runs in") }
                 Chip(text: item.project ?? "—").help(item.cwd ?? "")
                 Chip(text: item.hostText)
                 if item.stopped == true { Chip(text: String(localized: "Suspended"), tint: Theme.waiting).help("The process is suspended (Ctrl+Z); type fg in its terminal to resume") }

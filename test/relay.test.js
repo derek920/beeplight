@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import test from 'node:test';
-import { makeJoinCode, open, parseJoinCode, Relay, seal, spaceOf } from '../src/transports/relay.js';
+import { makeJoinCode, open, parseJoinCode, Relay, seal, shareView, spaceOf } from '../src/transports/relay.js';
 
 const fakeStore = () => ({
   flags: {},
@@ -28,6 +28,17 @@ test('sealed summaries open only with the same key and device', () => {
   assert.equal(open(key, 'space:dev1', p).sessions[0].title, 'secret title');
   assert.throws(() => open(key, 'space:dev2', p));
   assert.throws(() => open(Buffer.alloc(32, 8).toString('base64url'), 'space:dev1', p));
+});
+
+test('other devices get a task summary: which agent, what state, nothing about files or the conversation', () => {
+  const v = shareView({
+    id: 'codex:01a1960a-b257-7b52-a492-d663a7b1051c', agent: 'codex', agentName: 'Codex', title: 'Port the cart', state: 'doing',
+    cwd: '/Users/me/secret', lastPrompt: 'the whole prompt', usage: { total: 1 }, host: { kind: 'iterm', app: 'iTerm', tty: '/dev/ttys001' },
+  });
+  assert.equal(v.agent, 'codex');
+  assert.equal(v.agentName, 'Codex');
+  assert.deepEqual(v.host, { kind: 'iterm', app: 'iTerm' });
+  for (const k of ['cwd', 'lastPrompt', 'usage']) assert.equal(k in v, false, k);
 });
 
 test('join codes carry the relay, token and key', () => {

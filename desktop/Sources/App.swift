@@ -112,8 +112,8 @@ enum StillRunningNotice {
         let alert = NSAlert()
         alert.messageText = String(localized: "Beeplight is still running")
         alert.informativeText = Appearance.shared.config.island == .off
-            ? String(localized: "It stays in the menu bar to tell you when Claude needs you. Click the menu bar icon to open the board again. To quit, choose Quit Beeplight from the ⚙ menu.")
-            : String(localized: "It stays in the menu bar to tell you when Claude needs you. Click the menu bar icon to open the board again. To quit, choose Quit Beeplight from the ⚙ menu, or right-click the island.")
+            ? String(localized: "It stays in the menu bar to tell you when a task needs you. Click the menu bar icon to open the board again. To quit, choose Quit Beeplight from the ⚙ menu.")
+            : String(localized: "It stays in the menu bar to tell you when a task needs you. Click the menu bar icon to open the board again. To quit, choose Quit Beeplight from the ⚙ menu, or right-click the island.")
         alert.addButton(withTitle: String(localized: "OK"))
         alert.addButton(withTitle: String(localized: "Quit Beeplight"))
         NSApp.activate(ignoringOtherApps: true)

@@ -1,4 +1,5 @@
 import { t } from '../lib/i18n.js';
+import { shortId } from '../lib/util.js';
 import { json } from './http.js';
 
 // Every /api/ route. Who may call each one is its `access`, checked in http.js before it runs; the
@@ -118,13 +119,13 @@ export function apiRoutes({ collector, store, config, lan, relay, limits, stream
     const remote = collector.snapshot.sessions.find((v) => v.id === sid)?.remote;
     if (remote) return json(res, 200, { ok: false, error: t('This task runs on {device}', { device: remote.name }) });
     if (action === 'focus') {
-      const target = collector.focusTarget(sid);
+      const target = collector.focusPlan(sid);
       if (!target) return json(res, 404, { ok: false, error: t('Session not found') });
       const r = await focus(target);
       const via = local
         ? url.searchParams.get('via') || (String(req.headers['user-agent']).includes('Mozilla') ? 'web' : 'app')
         : 'phone';
-      console.log(`[focus] ${new Date().toISOString()} ${sid.slice(0, 8)} from ${via} → ${r.ok ? r.how : r.error}`);
+      console.log(`[focus] ${new Date().toISOString()} ${shortId(sid)} from ${via} → ${r.ok ? r.how : r.error}`);
       // Opening a task is reading it.
       if (r.ok) collector.markRead(sid, `opened from ${via} via ${r.how}`);
       if (r.appleEvents) store.setFlag('appleEventsOk', true);

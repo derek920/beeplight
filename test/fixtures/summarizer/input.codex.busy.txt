@@ -1,0 +1,19 @@
+Project directory: /repo
+
+Session name: Login work
+
+## Summary of the earlier conversation
+Earlier: set up the repo and CI.
+
+## Progress recap written by Codex
+Login form done; tests failing on the auth route.
+
+## Recent conversation, oldest first
+User: Add login with email and password
+Codex: I will add a login form and an auth route.
+  [tool] Write: login.tsx
+  [tool] Bash: npm test (failed)
+User: Use bcrypt for the hashes
+Codex: Switched to bcrypt. Should I also add rate limiting to the login route?
+
+Current state: Codex is working on this turn; it has not ended.

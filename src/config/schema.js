@@ -32,6 +32,7 @@ export const GROUPS = [
   { id: 'lan', label: 'Phone access' },
   { id: 'relay', label: 'Devices' },
   { id: 'claude', label: 'Claude Code' },
+  { id: 'codex', label: 'Codex' },
   { id: 'server', label: 'Service' },
 ];
 
@@ -73,6 +74,17 @@ export const PARAMS = [
     key: 'summarizer.model', type: 'string', default: 'haiku', pattern: /^[\w.:[\]-]{1,64}$/, aliases: ['BEEPLIGHT_MODEL'],
     label: 'Summary model',
     help: 'Model that writes task titles and judges results, passed to claude --model.',
+  },
+  {
+    key: 'summarizer.engine', type: 'choice', default: 'auto',
+    choices: [{ value: 'auto', label: 'Automatic' }, { value: 'claude', label: 'Claude' }, { value: 'codex', label: 'Codex' }],
+    label: 'Summaries by',
+    help: 'Who writes AI titles and verdicts. Automatic: Claude (the summary model) when claude is installed, else Codex. Claude or Codex: only that one. When the chosen one is not installed, titles stay original.',
+  },
+  {
+    key: 'summarizer.codexModel', type: 'string', default: '', pattern: /^[\w.:[\]-]{0,64}$/,
+    label: 'Codex summary model',
+    help: 'Model for summaries written by Codex, passed to codex exec -m. Empty uses your Codex default.',
   },
   {
     key: 'summarizer.concurrency', type: 'int', default: 2, min: 1, max: 8,
@@ -161,6 +173,22 @@ export const PARAMS = [
     key: 'claude.bin', type: 'string', default: '', maxLength: 1024, aliases: ['CLAUDE_BIN'],
     label: 'claude command',
     help: 'Full path to the claude executable. Empty finds it on PATH, in nvm and in the usual install folders.',
+  },
+
+  {
+    key: 'codex.scanSec', type: 'number', default: 2, min: 0, max: 60,
+    label: 'Codex check interval (s)',
+    help: 'How often to look for the Codex threads that are open in the ChatGPT app or a terminal. 0 turns off Codex monitoring.',
+  },
+  {
+    key: 'codex.maxThreads', type: 'int', default: 40, min: 1, max: 500,
+    label: 'Codex threads followed',
+    help: 'At most this many open Codex threads are followed, the newest first.',
+  },
+  {
+    key: 'codex.bin', type: 'string', default: '', maxLength: 1024,
+    label: 'codex command',
+    help: 'Full path to the codex executable, used to resume a closed terminal session. Empty finds it on PATH and in the usual install folders.',
   },
 
   {

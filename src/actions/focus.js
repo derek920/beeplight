@@ -1,13 +1,17 @@
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
-import { claudeBin } from '../config/index.js';
+import { claudeBin, codexBin } from '../config/index.js';
 // `tr`, not `t`: this file names its focus targets `t`.
 import { t as tr } from '../lib/i18n.js';
-import { appleScriptString, HOST_SESSION_RE, JOB_SHORT_RE, SESSION_ID_RE, shellQuote } from '../lib/util.js';
+import { appleScriptString, HOST_SESSION_RE, SESSION_ID_RE, shellQuote } from '../lib/util.js';
+
+// Brings a task's window to the front by running the steps its agent source planned
+// (source.focus(), e.g. src/sources/claude-code/index.js). Sources only describe what to do; the
+// commands, URLs and every check on their arguments live here.
 
 const HAS_ITERM = fs.existsSync('/Applications/iTerm.app');
 
-function run(cmd, args, timeout = 8000) {
+function exec(cmd, args, timeout = 8000) {
   return new Promise((resolve) => {
     execFile(cmd, args, { timeout }, (err, stdout, stderr) => {
       resolve({ ok: !err, out: String(stdout).trim(), err: err ? String(stderr).trim() || err.message : null });
@@ -15,7 +19,6 @@ function run(cmd, args, timeout = 8000) {
   });
 }
 
-const osa = (script) => run('osascript', ['-e', script]);
 
 function itermFocusScript(tty) {
   return `tell application id "com.googlecode.iterm2"
@@ -52,7 +55,8 @@ function terminalFocusScript(tty) {
 end tell`;
 }
 
-async function runInNewTab(command) {
+async function runInNewTab(run, command) {
+  const osa = (script) => run('osascript', ['-e', script]);
   if (HAS_ITERM) {
     const r = await osa(`tell application id "com.googlecode.iterm2"
   activate
@@ -73,8 +77,8 @@ end tell`);
   return r.ok ? { ok: true, how: tr('new Terminal window') } : { ok: false, error: r.err };
 }
 
-async function focusTty(kind, tty) {
-  const r = await osa(kind === 'iterm' ? itermFocusScript(tty) : terminalFocusScript(tty));
+async function focusTty(run, kind, tty) {
+  const r = await run('osascript', ['-e', kind === 'iterm' ? itermFocusScript(tty) : terminalFocusScript(tty)]);
   if (r.ok && r.out === 'ok') return { ok: true, how: `${kind === 'iterm' ? 'iTerm2' : 'Terminal'} ${tty.replace('/dev/', '')}`, appleEvents: true };
   if (r.ok) return { ok: false, error: tr("Couldn't find {tty} in the terminal", { tty }) };
   return { ok: false, error: r.err };
@@ -97,49 +101,76 @@ end if`);
   end tell
 end if`);
   const script = ['try', ...parts, 'end try', 'return ""'].join('\n');
-  const r = await run('osascript', ['-e', script], 3000);
+  const r = await exec('osascript', ['-e', script], 3000);
   return r.ok ? r.out : '';
 }
 
-const claudeCmd = () => {
-  const bin = claudeBin();
-  return bin.includes('/') ? shellQuote(bin) : 'claude';
+// The URLs a plan may open: [id check, URL, what to report].
+const URLS = {
+  'claude-desktop': [HOST_SESSION_RE, (id) => `claude://code/continue?session=${id}`, () => tr('Claude desktop app')],
+  // ChatGPT.app registers codex:// and opens a thread at codex://threads/<id>.
+  'codex-thread': [SESSION_ID_RE, (id) => `codex://threads/${id}`, () => tr('Codex app')],
 };
 
+const bare = (bin, name) => (bin.includes('/') ? shellQuote(bin) : name);
+
+// The commands a plan may run in a new terminal tab.
+const CLIS = {
+  claude: () => bare(claudeBin(), 'claude'),
+  codex: () => bare(codexBin(), 'codex'),
+};
+
+// Arguments go into a shell command line unquoted, so they must be plain words.
+const SAFE_ARG = /^[A-Za-z0-9._-]{1,64}$/;
+
 /**
- * Brings the place where a session runs to the front, or reopens it when it has ended.
- * @param {object} t target from Collector.focusTarget()
+ * Brings the place where a task runs to the front, or reopens it when it has ended.
+ * @param {object} plan from Collector.focusPlan(): { id, live, host, cwd, steps }
+ * @param {Function} [run] runs a command (tests replace it)
  */
-export async function focusTarget(t) {
-  if (t.entrypoint === 'claude-desktop' && HOST_SESSION_RE.test(t.hostSessionId || '')) {
-    const r = await run('open', [`claude://code/continue?session=${t.hostSessionId}`]);
-    return r.ok ? { ok: true, how: tr('Claude desktop app') } : { ok: false, error: r.err };
+export async function focusTarget(plan, run = exec) {
+  for (const step of plan.steps || []) {
+    const r = await runStep(run, step, plan);
+    if (r) return r;
+  }
+  return { ok: false, error: tr("Couldn't find this session's window") };
+}
+
+// A result ends the plan; null moves on to the next step.
+async function runStep(run, step, p) {
+  if (step.do === 'url') {
+    const u = URLS[step.kind];
+    if (!u || !u[0].test(step.id || '')) return null;
+    const r = await run('open', [u[1](step.id)]);
+    return r.ok ? { ok: true, how: u[2]() } : { ok: false, error: r.err };
   }
 
-  if (t.live && t.host) {
-    const { kind, tty, appPath } = t.host;
+  if (step.do === 'host') {
+    if (!p.live || !p.host) return null;
+    const { kind, tty, appPath } = p.host;
     if ((kind === 'iterm' || kind === 'terminal') && tty) {
-      const r = await focusTty(kind, tty);
+      const r = await focusTty(run, kind, tty);
       if (r.ok) return r;
     }
-    if (kind === 'ide' && appPath && t.cwd) {
-      const r = await run('open', ['-a', appPath, t.cwd]);
-      if (r.ok) return { ok: true, how: t.host.app };
+    if (kind === 'ide' && appPath && p.cwd) {
+      const r = await run('open', ['-a', appPath, p.cwd]);
+      if (r.ok) return { ok: true, how: p.host.app };
     }
     if (appPath) {
       const r = await run('open', ['-a', appPath]);
-      if (r.ok) return { ok: true, how: tr("{app} (couldn't select the exact tab)", { app: t.host.app }) };
+      if (r.ok) return { ok: true, how: tr("{app} (couldn't select the exact tab)", { app: p.host.app }) };
     }
     if (kind === 'tmux') return { ok: false, error: tr("The session runs in tmux, which can't be located yet") };
+    return null;
   }
 
-  if (t.jobShort && JOB_SHORT_RE.test(t.jobShort)) {
-    return runInNewTab(`${claudeCmd()} attach ${t.jobShort}`);
+  if (step.do === 'newTab') {
+    const cli = CLIS[step.cli];
+    const args = step.args || [];
+    if (!cli || !args.every((a) => SAFE_ARG.test(a))) return null;
+    const command = [cli(), ...args].join(' ');
+    return runInNewTab(run, step.cwd ? `cd ${shellQuote(step.cwd)} && ${command}` : command);
   }
 
-  if (!t.live && SESSION_ID_RE.test(t.id) && t.cwd) {
-    return runInNewTab(`cd ${shellQuote(t.cwd)} && ${claudeCmd()} --resume ${t.id}`);
-  }
-
-  return { ok: false, error: tr("Couldn't find this session's window") };
+  return null;
 }

@@ -30,11 +30,12 @@
 - **你的其他 Mac**：通过你自己部署的中转服务，其他 Mac 上的任务也显示在看板上，端到端加密。
 - **子 agent 和后台会话**：子 agent 显示在所属会话下面，`claude --bg` 后台会话也能看到。
 - **CPU 占用**：整台 Mac 有多忙，其中 Claude Code 和 Beeplight 自己各占多少。
+- **也能看 Codex**：ChatGPT app 和 `codex` 命令行里的 Codex 任务显示在同一个看板上，带 Codex 标记，点开回到 app 或它所在的终端。以后别的 agent 也按同样的方式接入。
 
 ## 系统要求
 
 - macOS 14 Sonoma 及以上，Apple 芯片或 Intel 均可
-- 已安装并登录的 [Claude Code](https://code.claude.com/docs)
+- 已安装并登录的 [Claude Code](https://code.claude.com/docs)，或 Codex（ChatGPT app 里的，或 `codex` 命令行）
 - 从源码构建还需要 Node.js 20.11 及以上和 Xcode Command Line Tools（`xcode-select --install`）。构建出的 app 自带 Node。
 
 ## 安装
@@ -188,7 +189,11 @@ npm run service:status    # 查看状态；service:restart / service:uninstall
 
 「结果判定」和卡片标题由 Haiku 根据最近的对话总结，走 Claude Code 的无界面模式（`claude -p --model haiku`），用你的 Claude Code 登录。用 Claude 订阅登录时计入套餐额度，不单独收费；用 Anthropic Console 账号或 API key 时按 API 价格计费，每次约 $0.001。标题描述会话**当前**在做的核心任务，不是会话开头的那句话。每一轮开始和结束各总结一次，长时间运行的轮次每 5 分钟刷新一次。不想调用总结时，把「设置 → 高级 → 标题」改成「原文」：卡片显示会话本身的名字（没有名字时用你最近一条消息），一轮结束就算完成，不做判定。
 
+没装 Claude Code 时，改由 Codex 写标题和判定（`codex exec --ephemeral`，不保存会话），用你的 Codex 登录；两个都没有时，和「标题」选「原文」一样，标题保持原文。在「设置 → 高级 → 由谁总结」（`summarizer.engine`）里选择：自动（默认）、Claude 或 Codex。Codex 每次总结会带上它自己约 15k token 的指令，在意的话把 `summarizer.codexModel` 设成小模型。
+
 从没收到过请求的空会话、以及超过 12 小时没有动静的会话不显示（执行中和等待授权的除外）。
+
+**Codex。** Beeplight 读取 Codex 在 `~/.codex` 里的任务记录。ChatGPT app 或某个 `codex` 命令行打开着这个任务时，它就算打开着。一轮开始了还没结束是 **Doing**；完成、被中断或出错是 **Done**，结果判定同上。Codex 停下来等你批准时不留记录，所以只能推断：一条要求跳出沙箱、还没有结果的命令显示为 **Waiting**，并附上 Codex 给出的理由。
 
 ## 点击跳转
 
@@ -231,8 +236,8 @@ relay.example.com {
 
 Beeplight 完全在本机运行，没有账号、遥测、统计或更新检查。
 
-- **读取什么**：`~/.claude` 下 Claude Code 自己的文件（`sessions/`、`projects/` 里的 transcript、`jobs/`），以及进程列表。只读，不装 hook，也不改 Claude Code 的设置。
-- **什么会离开本机**：为了生成标题和结果判定，Beeplight 会把每个会话最近对话的摘录，通过你自己的 `claude` CLI 登录发给 Claude Haiku。它和你平时用 Claude Code 一样发到 Anthropic，也会计入你的用量。额度探测是同一登录下的极小请求。把「标题」改成「原文」（「设置 → 高级」，或 `BEEPLIGHT_SUMMARIZER_TITLES=original`）就不再总结，也就不会为此发送任何内容。
+- **读取什么**：`~/.claude` 下 Claude Code 自己的文件（`sessions/`、`projects/` 里的 transcript、`jobs/`），`~/.codex` 下 Codex 的文件（`sessions/` 里的任务记录、`thread-writer-locks/`、`session_index.jsonl`、`app-server-daemon/daemon.pid`），以及进程列表。只读，不装 hook，也不改它们的设置。
+- **什么会离开本机**：为了生成标题和结果判定，Beeplight 会把每个会话（包括 Codex 任务）最近对话的摘录，通过你自己的 `claude` CLI 登录发给 Claude Haiku。它和你平时用 Claude Code 一样发到 Anthropic，也会计入你的用量。没装 claude（或「由谁总结」选了 Codex）时，摘录改为通过你自己的 `codex` 登录发给 OpenAI，计入你的 Codex 用量。额度探测是 claude 登录下的极小请求。把「标题」改成「原文」（「设置 → 高级」，或 `BEEPLIGHT_SUMMARIZER_TITLES=original`）就不再总结，也就不会为此发送任何内容。
 - **存了什么**：标题、判定、状态轨迹和设置，在 `~/Library/Application Support/Beeplight`（`npm start` 时在 `./data`）。历史数据最长保留 30 天，可以在设置 → 高级里调短，或立即清理。
 - **网络**：服务只监听 `127.0.0.1`，并校验每个请求的 `Host` 头。手机访问默认关闭，见上面的「手机访问」。
 
@@ -268,6 +273,7 @@ Beeplight 完全在本机运行，没有账号、遥测、统计或更新检查�
 |---|---|---|
 | `BEEPLIGHT_DATA_DIR` | `./data` | 运行参数、总结缓存、轨迹和日志目录（app 用 `~/Library/Application Support/Beeplight`） |
 | `CLAUDE_CONFIG_DIR` | `~/.claude` | Claude Code 的配置目录 |
+| `CODEX_HOME` | `~/.codex` | Codex 的目录 |
 | `BEEPLIGHT_LANG` | 系统语言 | 状态标签和任务标题的语言，`en` 或 `zh-Hans`（app 会设成自己的语言） |
 
 ## 常见问题
@@ -294,6 +300,7 @@ Beeplight 完全在本机运行，没有账号、遥测、统计或更新检查�
 
 - 正在执行的工具（「Bash · npm test」这类进度）会晚 3～4 秒出现，因为 Claude Code 写 transcript 有缓冲。
 - 状态来源 `~/.claude/sessions/*.json` 和 transcript 格式都是 Claude Code 的内部实现（基于 2.1.312 观察），升级后可能需要适配。
+- Codex 也一样，读的是 `~/.codex` 里的内部文件（基于 0.166 观察）。等你批准是推断出来的（见「状态怎么判定」），有几种会显示成 Doing：MCP 的询问、网络授权、改项目外文件的补丁。
 
 ## 开发
 

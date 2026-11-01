@@ -1,5 +1,5 @@
 import { t } from '../lib/i18n.js';
-import { lastPendingTool, toolLine } from '../sources/claude-code/transcript.js';
+import { lastPendingTool, toolLine } from '../sources/common/analysis.js';
 import { oneLine, plainText } from '../lib/util.js';
 
 // Board states: doing | waiting | done (outcome success | failed). `idle` = a session
@@ -44,7 +44,8 @@ export function matchingEndSummary(summary, a, live) {
  * @param {object}  [s.job]      background job state
  * @param {object}  [s.a]        transcript analysis
  * @param {object}  [s.summary]  latest LLM summary for the session
- * @param {boolean} [s.verdicts] false when no LLM verdict will come (summarizer.titles = original)
+ * @param {boolean} [s.verdicts] false when no LLM verdict will come (summarizer.titles = original, or
+ *                               no summary model installed)
  * @param {number}  [s.runningAgents]
  */
 export function deriveStatus({ live, reg, lastRegStatus, job, a, summary, verdicts = true, runningAgents = 0 }) {
@@ -113,7 +114,8 @@ export function deriveStatus({ live, reg, lastRegStatus, job, a, summary, verdic
         return { state: 'done', outcome: 'success', label: t('Done'), detail, since };
     }
   }
-  // No verdict yet (summary in flight, or the summarizer failed), or none coming (original titles).
+  // No verdict yet (summary in flight, or the summarizer failed), or none coming (original titles,
+  // or no summary model).
   const waiting = !verdict && verdicts;
   return {
     state: 'done',
