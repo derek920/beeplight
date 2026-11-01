@@ -160,11 +160,12 @@ Mac 应用：
   - `sessions/YYYY/MM/DD/rollout-*-<threadId>.jsonl`：追加写的记录，`rollout.js` 解析成统一的对话分析。用户请求只认 `item_completed/UserMessage`（`response_item` 里 role=user 的有注入的上下文）；`task_started`/`task_complete` 是一轮的起止，`turn_aborted`（`reason: interrupted`）是中断；子 agent 发起的轮次（`parent_turn_id`）跳过。大行按行首前缀跳过不解析；首次只读尾部时另读开头一行拿 `session_meta`（cwd、`originator`：`Codex Desktop` 或 `codex-tui`）。
   - `thread-writer-locks/<threadId>.lock`：被 app 或命令行打开着的任务才有锁，只 stat 不加锁。桌面端任务由 ChatGPT.app 的 `codex app-server` 托管（`sharedHost`，app 活着就算打开着）；命令行任务经共享 daemon（`app-server-daemon/daemon.pid`，按 ps 启动时间核对）写，锁连续 2 次扫描不在才算结束，tty 上的 `codex` 进程按启动时间和锁的创建时间配对（只有唯一候选才配）。
   - **等你批准不落盘**，只能推断：本轮未结束、最后一个要求跳出沙箱的调用（`sandbox_permissions: require_escalated` 或 `request_permissions`）还没有输出、当前 `approval_policy` 会问人 → `waiting`。调用的输出要等用户回答后才写；别用"宿主下有没有新起的 shell"判断，Codex 在问人之前就会起 shell（实测），`needs` 是调用里的 `justification`。
+  - 开关是 `codex.monitor`（on / off）：关掉后 `CodexSource` 不读 `~/.codex`、丢掉跟踪的线程，collector 看到 `enabled()` 为假就把它的任务直接从看板拿掉（不变成「已关闭」）。以后别的 agent 也用 `<agent>.monitor` 加 `enabled()` 这一套。
   - `session_index.jsonl` 是 Codex 自己的任务名，作标题候选。跳转：桌面端打开 `codex://threads/<id>`；命令行活着跳 tty，结束了新标签里 `codex resume <id>`。
 
 总结开关和引擎是两个参数：`summarizer.titles`（`ai` / `original`）决定要不要 AI 总结；`summarizer.engine`（`auto` / `claude` / `codex`）决定由谁写，`auto` 装了 claude 就用 Haiku，没有就用 `codex exec --ephemeral`（不落盘，不会出现在用户的 Codex 任务里）。原文标题、或选中的引擎没装时，`deriveStatus()` 收到 `verdicts: false`，一轮正常结束直接算成功，不挂"正在核对结果"。
 
-接入新 agent：在 `src/sources/<agent>/` 写一个实现 `collector.js` 开头那套接口的类（id 用 `<agent>:` 前缀，解析成统一的对话分析和 registry 形状的实时信号）→ `server.js` 里加进 `sources` → 跳转需要新的 URL 或命令时加进 `focus.js` 的 `URLS`/`CLIS` → 用合成的 fixture 写测试（不放真实对话）→ README 的隐私说明写清楚读哪些文件 → 客户端徽标显示 `agentName`。
+接入新 agent：在 `src/sources/<agent>/` 写一个实现 `collector.js` 开头那套接口的类（带 `<agent>.monitor` 开关和 `enabled()`）（id 用 `<agent>:` 前缀，解析成统一的对话分析和 registry 形状的实时信号）→ `server.js` 里加进 `sources` → 跳转需要新的 URL 或命令时加进 `focus.js` 的 `URLS`/`CLIS` → 用合成的 fixture 写测试（不放真实对话）→ README 的隐私说明写清楚读哪些文件 → 客户端徽标显示 `agentName`。
 
 三态规则只在 `deriveStatus()` 一处定义，优先级：registry 的 waiting/busy → 不在线的后台 job 用 daemon 判定 → 硬失败信号（中途退出、API 错误、中断）→ 本轮结束时的 LLM 判定（`blocked` 映射成 Waiting，`working` 映射成 Doing）→ 还没判定时临时显示为成功，并带 `pending`。改规则时同步改 `test/status.test.js`。
 

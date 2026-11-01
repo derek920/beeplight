@@ -193,7 +193,7 @@ npm run service:status    # 查看状态；service:restart / service:uninstall
 
 从没收到过请求的空会话、以及超过 12 小时没有动静的会话不显示（执行中和等待授权的除外）。
 
-**Codex。** Beeplight 读取 Codex 在 `~/.codex` 里的任务记录。ChatGPT app 或某个 `codex` 命令行打开着这个任务时，它就算打开着。一轮开始了还没结束是 **Doing**；完成、被中断或出错是 **Done**，结果判定同上。Codex 停下来等你批准时不留记录，所以只能推断：一条要求跳出沙箱、还没有结果的命令显示为 **Waiting**，并附上 Codex 给出的理由。
+**Codex。** Beeplight 读取 Codex 在 `~/.codex` 里的任务记录。ChatGPT app 或某个 `codex` 命令行打开着这个任务时，它就算打开着。一轮开始了还没结束是 **Doing**；完成、被中断或出错是 **Done**，结果判定同上。Codex 停下来等你批准时不留记录，所以只能推断：一条要求跳出沙箱、还没有结果的命令显示为 **Waiting**，并附上 Codex 给出的理由。不想看 Codex 的任务，把「设置 → 高级 → 监控 Codex」设为「关」（`codex.monitor`），之后不再读取 `~/.codex` 里的任何内容。
 
 ## 点击跳转
 

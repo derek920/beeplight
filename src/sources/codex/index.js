@@ -43,7 +43,10 @@ export class CodexSource {
 
   /** Every tick: the open threads' rollouts, and their status from them. */
   poll(now, ps) {
-    if (!this.enabled()) return new Map();
+    if (!this.enabled()) {
+      this.forget();
+      return new Map();
+    }
     if (now - this.lastScan >= this.config.get('codex.scanSec') * 1000) this.scan(now, ps);
     const out = new Map();
     for (const [tid, th] of this.threads) {
@@ -58,8 +61,19 @@ export class CodexSource {
     return out;
   }
 
+  /** Whether the user monitors Codex (codex.monitor). Off, nothing in ~/.codex is read. */
   enabled() {
-    return this.config.get('codex.scanSec') > 0;
+    return this.config.get('codex.monitor') === 'on';
+  }
+
+  // Switched off: let go of every thread, so turning it back on starts from what is open then.
+  forget() {
+    if (!this.threads.size && !this.lastScan) return;
+    this.threads.clear();
+    this.desktop = null;
+    this.daemon = null;
+    this.clis = [];
+    this.lastScan = 0;
   }
 
   // Which threads are open (lock files) and who could be writing them (ps). A handful of stat calls.
@@ -191,7 +205,7 @@ export class CodexSource {
 
   /** Codex's CPU: the processes that run its threads, while any thread is open. */
   cpuRoots(ps) {
-    if (![...this.threads.values()].some((th) => th.locked)) return [];
+    if (!this.enabled() || ![...this.threads.values()].some((th) => th.locked)) return [];
     return [this.desktop?.pid, this.daemon?.pid, ...this.clis.map((c) => c.pid)].filter((pid) => pid != null && ps.has(pid));
   }
 
