@@ -308,3 +308,7 @@
 "Sessions: %lld" = "%lld 个会话";
 "Click to jump to one" = "点击跳到对应会话";
 "No usage in this window yet" = "这个窗口里还没有用量";
+
+/* Phone settings: Bluetooth */
+"Also over Bluetooth, for the iPhone app" = "也通过蓝牙连接（iPhone app）";
+"Over Bluetooth, the paired Beeplight iPhone app gets the same task list when it can't reach this Mac on the network, and keeps it current in the background while the phone is nearby. It's encrypted with the pairing code; the first time, macOS asks to allow Bluetooth." = "配对过的 Beeplight iPhone app 在局域网连不上这台 Mac 时，经蓝牙收到同样的任务列表；手机在附近时，退到后台也保持最新。内容用配对码加密。第一次使用时，macOS 会询问是否允许使用蓝牙。";

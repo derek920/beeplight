@@ -127,8 +127,9 @@ A companion iPhone app, sold separately on the App Store and not part of this op
 - **Widgets**: home screen (small and medium) and lock screen. They read the Mac's state themselves when the system refreshes them (roughly every 15 minutes or more) and whenever the app is open; away from the Mac's network they show the last state and its time.
 - **Live Activity**: running and waiting tasks on the lock screen and in the Dynamic Island, with timers that keep counting.
 - **Pairing**: scan the QR code in the app, paste the link copied with "Copy link" on the Mac, or type the Mac's address and the 6-digit code.
+- **Bluetooth**: when the network can't reach the Mac, the app gets the same board over Bluetooth while the Mac is nearby (about 10 m), and keeps getting it in the background, so the Live Activity stays current. It uses the same pairing; on the Mac, Phone Access → "Also over Bluetooth" (on by default once phone access is on).
 
-Limits for now: same network only, like the phone page. There are no push updates yet (they need an Apple Developer Program membership), so the Live Activity follows the Mac only while the app is open; in the background it keeps the last state and says how old it is after two minutes.
+There are no push updates yet (they need an Apple Developer Program membership). Away from the Mac's network and out of Bluetooth range, the Live Activity ends about 30 seconds after you leave the app, and the lock screen keeps its last state, with the time, for 30 minutes.
 
 ## Web board without the app
 
@@ -242,6 +243,7 @@ Beeplight runs entirely on your Mac. It has no accounts, telemetry, analytics or
 - **What leaves your Mac**: to write titles and verdicts, Beeplight sends an excerpt of each session's recent conversation, Codex tasks included, to Claude Haiku through your own `claude` CLI login. It goes to Anthropic the same way your Claude Code sessions do, and it counts toward your usage. When claude isn't installed (or **Summaries by** is set to Codex), the excerpts go to OpenAI through your own `codex` login instead, and count toward your Codex usage. The limit probes are tiny requests through your claude login. Setting **Titles** to **Original** (Settings → Advanced, or `BEEPLIGHT_SUMMARIZER_TITLES=original`) stops summaries, so nothing is sent for them.
 - **What it stores**: titles, verdicts, timelines and settings, in `~/Library/Application Support/Beeplight` (or `./data` when you run `npm start`). History is kept for 30 days at most; Settings → Advanced can shorten that or clean up right away.
 - **Network**: the service listens only on `127.0.0.1` and checks every request's `Host` header. Phone access is off until you turn it on; see [Phone access](#phone-access-lan).
+- **Bluetooth**: with phone access on (and "Also over Bluetooth", on by default), the Mac app advertises a Bluetooth LE service so the paired iPhone app can get the same board as over the network. Everything on it is encrypted (AES-256-GCM) with a key derived from the pairing code, the Mac acts only on fresh requests sealed with that key, and resetting the pairing code changes the key. Others nearby can see that a Mac offers the service, not what it sends.
 
 ## Configuration
 
