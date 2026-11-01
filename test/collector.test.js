@@ -17,6 +17,8 @@ const { Config } = await import('../src/config/index.js');
 const { Store } = await import('../src/core/store.js');
 const { setLang } = await import('../src/lib/i18n.js');
 const { projectSlug } = await import('../src/lib/util.js');
+const { ClaudeCodeSource } = await import('../src/sources/claude-code/index.js');
+const { CodexSource } = await import('../src/sources/codex/index.js');
 
 setLang('en');
 
@@ -133,14 +135,15 @@ const fakeLimits = () => ({
 const OWN_PID = 424242;
 let storeN = 0;
 
-function makeCollector({ answers = {}, seed } = {}) {
+function makeCollector({ answers = {}, seed, sources, available } = {}) {
   const config = new Config({ file: null, env: {} });
   const file = path.join(TMP, `state-${storeN++}.json`);
   if (seed) fs.writeFileSync(file, JSON.stringify(seed));
   const store = new Store(file, config);
   const summarizer = new FakeSummarizer(store, answers);
+  if (available !== undefined) summarizer.available = available;
   const runner = { isOwnPid: (pid) => pid === OWN_PID };
-  const collector = new Collector({ store, summarizer, runner, usage: fakeUsage(), limits: fakeLimits(), config });
+  const collector = new Collector({ store, summarizer, runner, usage: fakeUsage(), limits: fakeLimits(), config, sources: sources?.(config, runner) });
   return { collector, store, summarizer };
 }
 
@@ -440,4 +443,68 @@ test('unread finishes in a terminal tab are offered to the "looked at it" check'
   assert.deepEqual(views(collector)[SID.busy].host, { kind: 'iterm', app: 'iTerm', tty: '/dev/ttys009' });
   store.markUnread(SID.busy, NOW, 'success');
   assert.deepEqual(collector.unreadTerminalTargets(), [{ sid: SID.busy, tty: '/dev/ttys009' }]);
+});
+
+// --- other agents ------------------------------------------------------------------------------
+
+test('without a summary model, a finished turn is Done at once, with its last reply', () => {
+  reset();
+  writeRegistry(process.pid, { sessionId: SID.done, status: 'idle' });
+  writeTranscript(SID.done, [human('u10', 'Rename the config file', 60), reply('Renamed it to beeplight.json.', 50), turnEnd(49)]);
+  const { collector } = makeCollector({ available: false });
+  collector.tick();
+  const v = views(collector)[SID.done];
+  assert.equal(v.state, 'done');
+  assert.equal(v.outcome, 'success');
+  assert.equal(v.pending, false);
+  assert.equal(v.detail, 'Renamed it to beeplight.json.');
+});
+
+test('a Codex thread joins the board as its own agent, next to Claude', () => {
+  reset();
+  const codex = path.join(TMP, 'codex');
+  fs.rmSync(codex, { recursive: true, force: true });
+  fs.mkdirSync(path.join(codex, 'thread-writer-locks'), { recursive: true });
+  // A UUIDv7 thread id made a minute ago; its rollout lives in that day's folder.
+  const made = NOW - 60_000;
+  const h = made.toString(16).padStart(12, '0');
+  const tid = `${h.slice(0, 8)}-${h.slice(8, 12)}-7abc-8def-0123456789ab`;
+  const d = new Date(made);
+  const folder = path.join(codex, 'sessions', String(d.getFullYear()), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0'));
+  fs.mkdirSync(folder, { recursive: true });
+  const row = (secAgo, type, payload) => JSON.stringify({ timestamp: iso(secAgo), ordinal: 0, type, payload });
+  fs.writeFileSync(path.join(folder, `rollout-x-${tid}.jsonl`), [
+    row(60, 'session_meta', { id: tid, cwd: CWD, originator: 'codex-tui', thread_source: 'user' }),
+    row(50, 'event_msg', { type: 'task_started', turn_id: 't1', turn_attribution: {} }),
+    row(49, 'event_msg', { type: 'item_completed', turn_id: 't1', item: { type: 'UserMessage', id: 'u1', content: [{ type: 'text', text: 'Port the cart to Rust' }] } }),
+    row(45, 'event_msg', { type: 'item_completed', turn_id: 't1', item: { type: 'AgentMessage', id: 'm1', phase: 'commentary', content: [{ type: 'Text', text: 'Starting with the models.' }] } }),
+    '',
+  ].join('\n'));
+  fs.writeFileSync(path.join(codex, 'thread-writer-locks', `${tid}.lock`), '');
+  fs.mkdirSync(path.join(codex, 'app-server-daemon'), { recursive: true });
+  fs.writeFileSync(path.join(codex, 'app-server-daemon', 'daemon.pid'), JSON.stringify({ pid: 900 }));
+
+  const { collector, summarizer } = makeCollector({
+    sources: (config, runner) => [new ClaudeCodeSource({ isOwnPid: (pid) => runner.isOwnPid(pid), config }), new CodexSource({ dir: codex, config })],
+  });
+  collector.ps = new Map([[900, { pid: 900, ppid: 1, stat: 'S', tty: '??', comm: '/x/bin/codex', start: NOW - 600_000 }]]);
+  collector.tick();
+
+  const id = `codex:${tid}`;
+  const v = collector.snapshot.sessions.find((x) => x.id === id);
+  assert.equal(v.agent, 'codex');
+  assert.equal(v.agentName, 'Codex');
+  assert.equal(v.state, 'doing');
+  assert.equal(v.entrypoint, 'codex-cli');
+  assert.equal(v.title, 'Port the cart to Rust');
+  assert.equal(v.usage, null);
+
+  const job = summarizer.requests.find((j) => j.sid === id);
+  assert.deepEqual(job.agent, { name: 'Codex', speaker: 'Codex' });
+  assert.match(job.buildInput(), /\nCodex: Starting with the models\.\n/);
+  assert.match(job.buildInput(), /Current state: Codex is working on this turn/);
+
+  assert.deepEqual(collector.focusPlan(id).steps, [{ do: 'host' }]);
+  // Codex activity doesn't spend Claude limit probes.
+  assert.equal(collector.recentlyActive(Date.now()), false);
 });

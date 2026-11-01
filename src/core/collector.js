@@ -9,7 +9,7 @@ import { buildSummaryInput } from '../services/summarizer.js';
 import { stateKey, Timeline } from './timeline.js';
 import { buildDetail, DEFAULT_STEP, STEPS } from './usage-detail.js';
 import { FIVE_HOURS, SEVEN_DAYS } from '../services/limits.js';
-import { cleanTitle, oneLine, pidAlive } from '../lib/util.js';
+import { cleanTitle, oneLine, pidAlive, shortId } from '../lib/util.js';
 
 // Per-session and account usage are recomputed at most this often (or when new data lands).
 const USAGE_CACHE_MS = 10_000;
@@ -21,7 +21,8 @@ const TRANSCRIPT_PROBE_MS = 2000;
  * Turns what coding agents leave on this Mac into board views. Each agent is a source
  * (src/sources/<agent>/index.js) with this interface:
  *   id, name, speaker      'claude-code', 'Claude Code', 'Claude' (the summarizer's "Claude:" lines)
- *   caps                   { limits }: whether its activity drives Claude limit probes
+ *   caps                   { limits, cpu }: whether its activity drives Claude limit probes, and
+ *                          which share of the CPU meter its processes count toward ('claude' | 'codex')
  *   owns(sid)              whether a task id is one of its own
  *   poll(now, ps)          every tick, cheap: Map<sid, live entry> in the registry-entry shape
  *                          { pid, cwd, status: busy|waiting|idle, waitingFor, needs, statusUpdatedAt,
@@ -32,6 +33,7 @@ const TRANSCRIPT_PROBE_MS = 2000;
  *   names(s, job)          title candidates, best first
  *   restore(sid, view)     live-entry seed for a task that ended before a restart, or null to drop it
  *   focus(target)          steps for src/actions/focus.js to bring the task to the front
+ *   cpuRoots?(ps)          processes whose trees count as its CPU, when not simply its live tasks' pids
  * Everything after that (status, summaries, timeline, unread, relay) never asks which agent it was.
  */
 export class Collector extends EventEmitter {
@@ -80,6 +82,17 @@ export class Collector extends EventEmitter {
     }
   }
 
+  /** The processes counted toward one share of the CPU meter: each source's own roots, or its live tasks. */
+  cpuRoots(share, ps) {
+    const pids = [];
+    for (const source of this.sources) {
+      if (source.caps?.cpu !== share) continue;
+      if (source.cpuRoots) pids.push(...source.cpuRoots(ps));
+      else for (const s of this.sessions.values()) if (s.source === source && !s.ended && s.pid != null) pids.push(s.pid);
+    }
+    return pids;
+  }
+
   /** The source a task id belongs to. */
   sourceFor(sid) {
     return this.sources.find((src) => src.owns(sid)) ?? null;
@@ -114,8 +127,7 @@ export class Collector extends EventEmitter {
       const ps = await psSnapshot();
       if (ps.size) {
         this.ps = ps;
-        const claudePids = [...this.sessions.values()].filter((s) => !s.ended).map((s) => s.pid);
-        this.cpu?.record({ ps, machine: machineCpu(), claudePids });
+        this.cpu?.record({ ps, machine: machineCpu(), claudePids: this.cpuRoots('claude', ps), codexPids: this.cpuRoots('codex', ps) });
       }
       for (const s of this.sessions.values()) {
         if (s.ended) continue;
@@ -194,7 +206,7 @@ export class Collector extends EventEmitter {
   pollBackground() {
     const jobs = new Map();
     for (const source of this.sources) {
-      for (const [sid, job] of source.background?.() ?? []) jobs.set(sid, job);
+      for (const [sid, job] of source.background?.() ?? []) jobs.set(sid, Object.assign(job, { agent: source.id, agentName: source.name }));
     }
     this.jobs = jobs;
   }
@@ -241,7 +253,7 @@ export class Collector extends EventEmitter {
     if (status !== 'busy' && status !== 'waiting' && now - a.lastTs > this.retainMs()) return;
     const sum = this.store.getSummary(s.sid);
     const request = (kind, key, delayMs) =>
-      this.summarizer.request({ sid: s.sid, key, kind, turnId, delayMs, buildInput: () => this.summaryInput(s) });
+      this.summarizer.request({ sid: s.sid, key, kind, turnId, delayMs, agent: agentOf(s), buildInput: () => this.summaryInput(s) });
 
     // A failed summary is re-requested; Summarizer holds it back until its backoff passes.
     if (status === 'idle' || status === 'ended') {
@@ -268,6 +280,7 @@ export class Collector extends EventEmitter {
       names: s.source.names(s, this.jobs.get(s.sid)),
       state: s.ended ? 'ended' : s.reg?.status,
       waitingFor: s.reg?.waitingFor,
+      speaker: s.source.speaker,
     });
   }
 
@@ -281,6 +294,7 @@ export class Collector extends EventEmitter {
       kind: idle ? 'end' : 'run',
       key: idle ? endKey(a) : `${a.turn.key}@manual-${Date.now()}`,
       turnId: a.turn.key,
+      agent: agentOf(s),
       buildInput: () => this.summaryInput(s),
     });
     return true;
@@ -299,16 +313,20 @@ export class Collector extends EventEmitter {
       a,
       summary,
       runningAgents: subagents.filter((x) => x.running).length,
+      // Without a summary model no verdict will come: don't show "checking the result" forever.
+      judging: this.summarizer.available !== false,
     });
     const reg = s.reg || {};
     return {
       id: s.sid,
+      agent: s.source.id,
+      agentName: s.source.name,
       title:
         summary?.title ||
         s.source.names(s, job).find(Boolean) ||
         oneLine(a?.lastPrompt?.text, 30) ||
         path.basename(s.cwd || '') ||
-        s.sid.slice(0, 8),
+        shortId(s.sid),
       titleFromAi: !!summary?.title,
       goal: summary?.goal || '',
       state: st.state,
@@ -345,6 +363,8 @@ export class Collector extends EventEmitter {
     const st = deriveStatus({ live: false, job });
     return {
       id: job.sessionId,
+      agent: job.agent,
+      agentName: job.agentName,
       title: job.name || path.basename(job.cwd || '') || job.short,
       titleFromAi: false,
       goal: '',
@@ -450,12 +470,12 @@ export class Collector extends EventEmitter {
       // Only finishes we saw happen: a session first seen already done is old news.
       if (prevKey && last.k.startsWith('done:') && !last.p && (prevKey !== last.k || prevPending)) {
         this.store.markUnread(s.sid, last.t, last.k.slice(5));
-        console.log(`[unread] ${s.sid.slice(0, 8)} ${last.k} → unread`);
+        console.log(`[unread] ${shortId(s.sid)} ${last.k} → unread`);
       }
     }
     // Back to work (new prompt, or Claude resumed): the old result is no longer the news.
     if (v.state !== 'done' && v.state !== 'idle' && this.store.markRead(s.sid)) {
-      console.log(`[unread] ${s.sid.slice(0, 8)} read (back to ${v.state})`);
+      console.log(`[unread] ${shortId(s.sid)} read (back to ${v.state})`);
     }
   }
 
@@ -472,7 +492,7 @@ export class Collector extends EventEmitter {
 
   markRead(sid, reason) {
     if (!this.store.markRead(sid)) return;
-    console.log(`[unread] ${sid.slice(0, 8)} read (${reason})`);
+    console.log(`[unread] ${shortId(sid)} read (${reason})`);
     this.sig = '';
   }
 
@@ -486,8 +506,10 @@ export class Collector extends EventEmitter {
     this.sig = '';
   }
 
+  // Whether Claude is in use, which sets how often its limits are probed. Other agents don't count.
   recentlyActive(now) {
     for (const s of this.sessions.values()) {
+      if (!s.source?.caps?.limits) continue;
       if (!s.ended && (s.reg?.status === 'busy' || s.reg?.status === 'waiting')) return true;
       if (s.tx && now - s.tx.a.lastTs < 30 * 60_000) return true;
     }
@@ -621,4 +643,9 @@ export class Collector extends EventEmitter {
     }
     return { id: sid, live: false, entrypoint: v.entrypoint, hostSessionId: v.hostSessionId, host: null, cwd: v.cwd, jobShort: v.jobShort };
   }
+}
+
+/** Who a session's summary is about, for the summarizer's prompt. */
+function agentOf(s) {
+  return { name: s.source.name, speaker: s.source.speaker };
 }

@@ -32,11 +32,12 @@ It has a SwiftUI menu bar app and a web board. Both show the same live data, in 
 - **Your other Macs**: their tasks on your board too, through a relay you run yourself, end-to-end encrypted.
 - **Subagents and background sessions**: subagents show under their parent session, and `claude --bg` sessions are tracked too.
 - **CPU use**: how busy the Mac is, and how much of that is Claude Code and how much is Beeplight itself.
+- **Codex too**: Codex tasks from the ChatGPT app and the `codex` CLI show on the same board with a Codex badge, and open in the app or their terminal. Other agents can be added the same way.
 
 ## Requirements
 
 - macOS 14 Sonoma or later, on Apple silicon or Intel
-- [Claude Code](https://code.claude.com/docs), installed and logged in
+- [Claude Code](https://code.claude.com/docs), or Codex (in the ChatGPT app, or the `codex` CLI), installed and logged in
 - To build from source: Node.js 20.11 or later and Xcode Command Line Tools (`xcode-select --install`). The built app carries its own Node.js.
 
 ## Install
@@ -152,7 +153,11 @@ Beeplight reads Claude Code's own session files, so it does not install hooks or
 
 Titles and verdicts come from Claude Haiku. Beeplight sends it the recent conversation through Claude Code's headless mode (`claude -p --model haiku`), using your Claude Code login. On a Claude subscription this counts toward your plan's usage limits and is not billed separately; with an Anthropic Console login or API key it is billed at API prices, about $0.001 per call. It summarizes once when a turn starts and once when it ends, and every 5 minutes during long turns. See [Privacy](#privacy) for what this sends.
 
+Without Claude Code, Codex writes the titles and verdicts instead (`codex exec --ephemeral`, which saves no session), through your Codex login; with neither, titles come from the tasks themselves and only clear signals (finished, interrupted, error) decide the outcome. `summarizer.engine` picks: `auto` (default), `claude`, `codex` or `off`. A Codex summary call carries about 15k tokens of Codex's own instructions, so set `summarizer.codexModel` to a small model if that matters.
+
 Sessions that never received a request, and sessions that have been quiet for more than 12 hours, are hidden, unless they are running or waiting for a permission.
+
+**Codex.** Beeplight reads the thread records Codex keeps in `~/.codex`. A thread is open while the ChatGPT app or a `codex` CLI holds it. A turn that started and hasn't finished is **Doing**; one that finished, was interrupted or failed is **Done**, with the verdict as above. Codex does not record when it stops to ask for your approval, so Beeplight infers it: a command that asks to leave the sandbox and has no result yet shows as **Waiting**, with the reason Codex gave.
 
 ## Unread finishes
 
@@ -233,8 +238,8 @@ Pick where you host the relay with your data policies in mind: the contents are 
 
 Beeplight runs entirely on your Mac. It has no accounts, telemetry, analytics or update checks.
 
-- **What it reads**: Claude Code's files under `~/.claude` (`sessions/`, the transcripts in `projects/`, and `jobs/`), plus the process list. It only reads them.
-- **What leaves your Mac**: to write titles and verdicts, Beeplight sends an excerpt of each session's recent conversation to Claude Haiku through your own `claude` CLI login. It goes to Anthropic the same way your Claude Code sessions do, and it counts toward your usage. The limit probes are tiny requests through the same login. There is no switch for summaries yet; one is planned.
+- **What it reads**: Claude Code's files under `~/.claude` (`sessions/`, the transcripts in `projects/`, and `jobs/`), Codex's files under `~/.codex` (the thread records in `sessions/`, `thread-writer-locks/`, `session_index.jsonl` and `app-server-daemon/daemon.pid`), plus the process list. It only reads them.
+- **What leaves your Mac**: to write titles and verdicts, Beeplight sends an excerpt of each session's recent conversation, Codex tasks included, to Claude Haiku through your own `claude` CLI login. It goes to Anthropic the same way your Claude Code sessions do, and it counts toward your usage. When claude isn't installed (or `summarizer.engine` is `codex`), the excerpts go to OpenAI through your own `codex` login instead, and count toward your Codex usage. The limit probes are tiny requests through your claude login. Set `summarizer.engine` to `off` to send nothing.
 - **What it stores**: titles, verdicts, timelines and settings, in `~/Library/Application Support/Beeplight` (or `./data` when you run `npm start`). History is kept for 30 days at most; Settings → Advanced can shorten that or clean up right away.
 - **Network**: the service listens only on `127.0.0.1` and checks every request's `Host` header. Phone access is off until you turn it on; see [Phone access](#phone-access-lan).
 
@@ -270,6 +275,7 @@ These can only be set in the environment:
 |---|---|---|
 | `BEEPLIGHT_DATA_DIR` | `./data` | Where settings, summaries, history and logs are kept (the app uses `~/Library/Application Support/Beeplight`) |
 | `CLAUDE_CONFIG_DIR` | `~/.claude` | Claude Code's config directory |
+| `CODEX_HOME` | `~/.codex` | Codex's directory |
 | `BEEPLIGHT_LANG` | system language | `en` or `zh-Hans` for labels and task titles (the app sets it to its own language) |
 
 ## FAQ
@@ -296,6 +302,7 @@ More questions are answered on [beeplight.dev](https://beeplight.dev/#faq).
 
 - Tool progress such as "Bash · npm test" appears 3 to 4 seconds late, because Claude Code buffers transcript writes.
 - Beeplight relies on Claude Code's internal files (`~/.claude/sessions/*.json` and the transcript format), observed on version 2.1.312. A Claude Code update may need a Beeplight update.
+- Codex is read the same way, from its files in `~/.codex` observed on version 0.166. Approval prompts are inferred (see [How status is determined](#how-status-is-determined)), so some show as Doing: MCP questions, network approvals, and patches outside the project.
 
 ## Development
 

@@ -30,10 +30,10 @@ desktop/build/Beeplight.app/Contents/MacOS/Beeplight --snapshot /tmp/snap   # �
 ### 架构
 
 - 判断只在服务端做。Node 服务（`src/`）负责采集、判定状态、总结和统计用量；网页、Mac 应用、iPhone 应用都读同一个 `/api/stream`，只负责展示，不自己重新判定状态。
-- 只读，不侵入。只读 Claude Code 写下的文件和进程表：不装 hook，不改 Claude Code 的配置，不往 `~/.claude` 里写东西。
-- Claude Code 的内部格式是逆向得来的，随时会变，只在 `src/sources/claude-code/` 里解析，其他地方只用解析后的结果。Claude Code 升级后的适配只改这个目录。
+- 只读，不侵入。只读 agent 写下的文件和进程表：不装 hook，不改 agent 的配置，不往 `~/.claude`、`~/.codex` 里写东西。Codex 的 SQLite 也不打开（WAL 模式的读者也会写 `-shm`），锁文件只 stat 不加锁，不连它的 app-server。
+- 各 agent 的内部格式都是逆向得来的，随时会变，只在各自的 `src/sources/<agent>/` 里解析，其他地方只用解析后的统一结果（`src/sources/common/analysis.js` 的对话分析、registry 形状的实时信号）。某个 agent 升级后的适配只改它自己的目录。
 - 同一条规则只写在一处：状态判定只在 `deriveStatus()`；请求的安全检查只在 `src/transports/http.js`；Mac 和 iOS 画形象只用 `Figure.draw()`。
-- 离开这台 Mac 的数据只有两类：一是总结时经用户自己的 `claude` 登录发给 Anthropic 的对话摘录，二是跨设备同步时经 `shareView()` 白名单裁剪并加密的任务摘要。新增任何对外发送，都要先在 README 的隐私说明里写清楚。
+- 离开这台 Mac 的数据只有两类：一是总结时发出的对话摘录（默认经用户自己的 `claude` 登录发给 Anthropic；没装 claude 或 `summarizer.engine` 设为 `codex` 时，经用户自己的 `codex` 登录发给 OpenAI；设为 `off` 时不发），二是跨设备同步时经 `shareView()` 白名单裁剪并加密的任务摘要。新增任何对外发送，都要先在 README 的隐私说明里写清楚。
 - 开源边界：本仓库按 Apache-2.0 开源。收费功能（iOS 上的抽卡形象）的逻辑和美术素材不进本仓库，本仓库只放格式定义和接口。
 - 零依赖：Node 服务和 `relay/server.js` 不引入 npm 包；Mac 应用只用系统框架。
 
@@ -46,9 +46,10 @@ desktop/build/Beeplight.app/Contents/MacOS/Beeplight --snapshot /tmp/snap   # �
 | `lib/` | `util.js`、`i18n.js` | 无 |
 | `config/` | 运行参数（`index.js`、`schema.js`）和路径 | lib |
 | `sources/claude-code/` | Claude Code 写的文件：registry、transcript、subagents、jobs、usage；`index.js` 的 `ClaudeCodeSource` 把它们包成一个 agent 数据源。全是逆向得来的格式，Claude Code 升级后先查这里 | lib、config |
+| `sources/codex/` | Codex（ChatGPT app 里的和 `codex` 命令行）写在 `~/.codex` 的文件：rollout（`rollout.js`）、线程锁、任务名、daemon pid；`index.js` 的 `CodexSource`。逆向自 0.166，Codex 升级后先查这里 | lib、config |
 | `sources/common/` | 各 agent 数据源共用：对话分析的统一形状（`analysis.js`）、JSONL 增量读取（`jsonl-tail.js`） | lib、config |
 | `sources/system/` | 进程表、各进程和整机的 CPU 时间（`proc.js`） | lib、config |
-| `services/` | `claude -p` 调用（`claude-cli.js`）、总结、额度 | lib、config |
+| `services/` | 模型调用：`claude -p`（`claude-cli.js`）、没有 Claude 时的 `codex exec`（`codex-cli.js`）；总结、额度 | lib、config |
 | `core/` | collector、status、timeline、store、cpu | lib、config、sources、services |
 | `actions/` | 在 Mac 上动手：跳转窗口（`focus.js`）、检测看过的标签页（`seen.js`） | lib、config |
 | `transports/` | 对外：`http.js`（统一的请求检查）、`api.js`（全部接口）、`web.js`（页面外壳）、`stream.js`（SSE）、`lan.js`、`relay.js` | lib、config |
@@ -78,7 +79,7 @@ desktop/build/Beeplight.app/Contents/MacOS/Beeplight --snapshot /tmp/snap   # �
 - 文件只增量读：记住读到的位置，只读新写入的部分。首次读取和每次读取都有上限（`transcript.initialTailMB`、`transcript.maxReadMB`）。
 - 只在变化时推送：state 按签名去重；每秒都在变的数据（今日统计、用量）放在 meta 里，不进 state 签名。SSE 每个事件只序列化一次。
 - 外部命令按固定节奏调用，并且只在需要时调用：`ps` 每 2 秒一次，CPU 占用也从这次扫描里算，不另起命令；`osascript` 只在跳转时调用，另外在有未读任务时由 `seen.js` 每 1.5 秒调用一次。
-- LLM 调用一律经过 `Summarizer` 的队列，由它负责去重、并发、每小时上限和失败退避；额度探测也有固定间隔。不要在别处直接调 `claude -p`。
+- LLM 调用一律经过 `Summarizer` 的队列，由它负责去重、并发、每小时上限和失败退避；额度探测也有固定间隔，找不到 claude 时不探测。不要在别处直接调 `claude -p` 或 `codex exec`。
 - 常驻内存和存盘的数据都要有上限或过期时间：解析结果只保留最近若干条，用量记录和额度样本只保留 8 天，store 里的历史最长保留 `store.keepDays` 天（见「LLM 总结」的持久化）。
 
 Mac 应用：
@@ -153,6 +154,16 @@ Mac 应用：
 - **`~/.claude/projects/<slug>/<sessionId>.jsonl`**（`src/sources/claude-code/transcript.js`）：增量 tail 读取。首次只读最后 4MB（有的文件超过 100MB），按字节切行，避免截断多字节字符。只有 `origin.kind === 'human'`（或没有 origin 的老格式）的 user 消息算一轮新请求；task-notification、isMeta、peer 消息都不算。`system/turn_duration` 标记一轮结束，`isApiErrorMessage` 是 API 失败，`[Request interrupted by user` 是中断。**transcript 有 3～4 秒写入缓冲**，正在执行的 tool_use 要过几秒才出现。
 - **`<project>/<sessionId>/subagents/agent-*.jsonl` + `.meta.json`**（`src/sources/claude-code/subagents.js`）：子 agent。
 - **`~/.claude/jobs/<short>/state.json`**（`src/sources/claude-code/jobs.js`）：`claude --bg` 后台会话，daemon 自己维护 `state = working|blocked|done|failed`。
+
+- **Codex（`~/.codex`，`src/sources/codex/`，基于 0.166 逆向）**：任务 id 是 `codex:<threadId>`（threadId 是 UUIDv7，前 48 位是创建时间，由此算出 rollout 所在的日期目录）。
+  - `sessions/YYYY/MM/DD/rollout-*-<threadId>.jsonl`：追加写的记录，`rollout.js` 解析成统一的对话分析。用户请求只认 `item_completed/UserMessage`（`response_item` 里 role=user 的有注入的上下文）；`task_started`/`task_complete` 是一轮的起止，`turn_aborted`（`reason: interrupted`）是中断；子 agent 发起的轮次（`parent_turn_id`）跳过。大行按行首前缀跳过不解析；首次只读尾部时另读开头一行拿 `session_meta`（cwd、`originator`：`Codex Desktop` 或 `codex-tui`）。
+  - `thread-writer-locks/<threadId>.lock`：被 app 或命令行打开着的任务才有锁，只 stat 不加锁。桌面端任务由 ChatGPT.app 的 `codex app-server` 托管（`sharedHost`，app 活着就算打开着）；命令行任务经共享 daemon（`app-server-daemon/daemon.pid`，按 ps 启动时间核对）写，锁连续 2 次扫描不在才算结束，tty 上的 `codex` 进程按启动时间和锁的创建时间配对（只有唯一候选才配）。
+  - **等你批准不落盘**，只能推断：本轮未结束、最后一个要求跳出沙箱的调用（`sandbox_permissions: require_escalated` 或 `request_permissions`）还没有输出、当前 `approval_policy` 会问人 → `waiting`。调用的输出要等用户回答后才写；别用"宿主下有没有新起的 shell"判断，Codex 在问人之前就会起 shell（实测），`needs` 是调用里的 `justification`。
+  - `session_index.jsonl` 是 Codex 自己的任务名，作标题候选。跳转：桌面端打开 `codex://threads/<id>`；命令行活着跳 tty，结束了新标签里 `codex resume <id>`。
+
+总结引擎（`summarizer.engine`）：`auto` 装了 claude 就用 Haiku，没有就用 `codex exec --ephemeral`（不落盘，不会出现在用户的 Codex 任务里），都没有就不总结；不总结时 `deriveStatus()` 收到 `judging: false`，一轮正常结束直接算成功，不挂"正在核对结果"。
+
+接入新 agent：在 `src/sources/<agent>/` 写一个实现 `collector.js` 开头那套接口的类（id 用 `<agent>:` 前缀，解析成统一的对话分析和 registry 形状的实时信号）→ `server.js` 里加进 `sources` → 跳转需要新的 URL 或命令时加进 `focus.js` 的 `URLS`/`CLIS` → 用合成的 fixture 写测试（不放真实对话）→ README 的隐私说明写清楚读哪些文件 → 客户端徽标显示 `agentName`。
 
 三态规则只在 `deriveStatus()` 一处定义，优先级：registry 的 waiting/busy → 不在线的后台 job 用 daemon 判定 → 硬失败信号（中途退出、API 错误、中断）→ 本轮结束时的 LLM 判定（`blocked` 映射成 Waiting，`working` 映射成 Doing）→ 还没判定时临时显示为成功，并带 `pending`。改规则时同步改 `test/status.test.js`。
 

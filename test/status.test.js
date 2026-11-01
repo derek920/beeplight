@@ -39,6 +39,14 @@ test('idle without a verdict is a provisional success', () => {
   assert.deepEqual([s.state, s.outcome, s.pending], ['done', 'success', true]);
 });
 
+test('with no summary model there is no verdict to wait for; hard failures still count', () => {
+  const a = analysis();
+  a.lastReply = { text: 'Shipped **v2**.', ts: 90 };
+  const s = deriveStatus({ live: true, reg: reg('idle'), a, judging: false });
+  assert.deepEqual([s.state, s.outcome, s.pending, s.detail], ['done', 'success', undefined, 'Shipped v2.']);
+  assert.equal(deriveStatus({ live: true, reg: reg('idle'), a: analysis({ interrupted: true }), judging: false }).outcome, 'failed');
+});
+
 test('LLM verdicts map onto the board states', () => {
   const a = analysis();
   const cases = { blocked: ['waiting', null], working: ['doing', null], failed: ['done', 'failed'], done: ['done', 'success'] };

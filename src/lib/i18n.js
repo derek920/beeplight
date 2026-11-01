@@ -150,6 +150,22 @@ const ZH = {
   'Device name': '设备名称',
   "This Mac's name on your other devices. Empty uses the computer name.": '这台 Mac 在你其他设备上显示的名字。留空就用电脑名称。',
   'claude command': 'claude 命令',
+  'codex command': 'codex 命令',
+  'Summary engine': '总结用的模型',
+  'Who writes titles and verdicts. auto: Claude (the summary model) when claude is installed, else Codex, else nobody. claude or codex: only that one. off: nobody; titles come from the sessions and only clear signals (finished, interrupted, error) decide the result.':
+    '由谁写标题和判定。auto：装了 claude 就用 Claude（上面的总结模型），没有就用 Codex，都没有就不总结。claude 或 codex：只用这一个。off：都不用，标题取自会话本身，结果只看明确的信号（完成、中断、出错）。',
+  'Codex summary model': 'Codex 总结模型',
+  'Model for summaries written by Codex, passed to codex exec -m. Empty uses your Codex default.': '由 Codex 写总结时用的模型，传给 codex exec -m。留空用你的 Codex 默认模型。',
+  'Full path to the codex executable, used to resume a closed terminal session. Empty finds it on PATH and in the usual install folders.':
+    'codex 可执行文件的完整路径，用来恢复已关闭的终端会话。留空会从 PATH 和常见安装目录里查找。',
+  'Codex check interval (s)': 'Codex 检查间隔（秒）',
+  'How often to look for the Codex threads that are open in the ChatGPT app or a terminal. 0 turns off Codex monitoring.':
+    '多久查一次 ChatGPT app 或终端里打开着的 Codex 任务。设为 0 关闭 Codex 监控。',
+  'Codex threads followed': '最多跟踪的 Codex 任务数',
+  'At most this many open Codex threads are followed, the newest first.': '最多跟踪这么多个打开着的 Codex 任务，新的优先。',
+  'Web search': '网页搜索',
+  'Turn aborted': '本轮已中止',
+  'Codex app': 'Codex app',
   'Full path to the claude executable. Empty finds it on PATH, in nvm and in the usual install folders.': 'claude 可执行文件的完整路径。留空会从 PATH、nvm 和常见安装目录里查找。',
   Port: '端口',
   'The service listens on 127.0.0.1 at this port. The Mac app always uses 7333.': '服务在 127.0.0.1 的这个端口上监听。Mac 应用固定使用 7333。',

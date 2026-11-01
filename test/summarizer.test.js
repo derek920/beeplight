@@ -61,3 +61,9 @@ test('summary input for a session at each state', () => {
   }
   golden('input.waiting.txt', buildSummaryInput({ cwd: '/repo', a, names, state: 'waiting', waitingFor: 'permission prompt' }));
 });
+
+test('a Codex session is described as Codex, everything else the same', () => {
+  const codex = { name: 'Codex', speaker: 'Codex' };
+  golden('system-prompt.codex.en.txt', systemPrompt('en', codex));
+  golden('input.codex.busy.txt', buildSummaryInput({ cwd: '/repo', a: conversation(), names: ['Login work'], state: 'busy', speaker: 'Codex' }));
+});

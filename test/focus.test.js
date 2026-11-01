@@ -5,6 +5,7 @@ import test from 'node:test';
 import { focusTarget } from '../src/actions/focus.js';
 import { setLang } from '../src/lib/i18n.js';
 import { ClaudeCodeSource } from '../src/sources/claude-code/index.js';
+import { CodexSource } from '../src/sources/codex/index.js';
 
 setLang('en');
 
@@ -73,6 +74,20 @@ test('a background job is attached, an ended session resumed, in a new tab', asy
   // The folder is shell-quoted, then the whole line AppleScript-quoted.
   assert.ok(ended.calls[0][2].includes(`cd '/tmp/it'\\\\''s here' && `), ended.calls[0][2]);
   assert.ok(ended.calls[0][2].includes(`--resume ${SID}`));
+});
+
+test('Codex: desktop threads open in the ChatGPT app, ended terminal ones resume in a new tab', async () => {
+  const codex = new CodexSource({ dir: '/nonexistent' });
+  const tid = '01a1960a-b257-7b52-a492-d663a7b1051c';
+  const desktop = { id: `codex:${tid}`, live: true, entrypoint: 'codex-desktop', host: null, cwd: '/repo' };
+  const d = fakeRun();
+  assert.deepEqual(await focusTarget({ ...desktop, steps: codex.focus(desktop) }, d.run), { ok: true, how: 'Codex app' });
+  assert.deepEqual(d.calls, [['open', `codex://threads/${tid}`]]);
+
+  const ended = { id: `codex:${tid}`, live: false, entrypoint: 'codex-cli', host: null, cwd: '/repo' };
+  const e = fakeRun();
+  assert.equal((await focusTarget({ ...ended, steps: codex.focus(ended) }, e.run)).ok, true);
+  assert.match(e.calls[0][2], new RegExp(`cd '/repo' && \\S*codex\\S* resume ${tid}`));
 });
 
 test('nothing runs without a way in, and unsafe arguments are refused', async () => {

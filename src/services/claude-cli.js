@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import { claudeBin, LLM_CWD } from '../config/index.js';
-import { truncate } from '../lib/util.js';
+import { isExecutable, truncate } from '../lib/util.js';
 
 // Env that would make a child believe it runs inside the parent's Claude Code session
 // (it would then skip registering itself and saving its transcript).
@@ -42,6 +42,11 @@ export class ClaudeRunner {
 
   isOwnPid(pid) {
     return this.ownPids.has(pid);
+  }
+
+  /** Whether there is a claude to run. */
+  available() {
+    return isExecutable(claudeBin());
   }
 
   /** @returns {Promise<object>} the `result` line */

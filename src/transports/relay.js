@@ -82,6 +82,8 @@ function computerName() {
 export function shareView(v) {
   return {
     id: v.id,
+    agent: v.agent,
+    agentName: v.agentName,
     title: oneLine(v.title, 80),
     goal: v.goal ? oneLine(v.goal, 160) : undefined,
     state: v.state,

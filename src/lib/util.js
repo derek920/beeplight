@@ -58,6 +58,24 @@ export function pidAlive(pid) {
   }
 }
 
+/** Whether `file` is a path to an executable file. A bare name (the not-found fallback) is not. */
+export function isExecutable(file) {
+  if (!file || !String(file).includes('/')) return false;
+  try {
+    fs.accessSync(file, fs.constants.X_OK);
+    return fs.statSync(file).isFile();
+  } catch {
+    return false;
+  }
+}
+
+/** A task id short enough for logs and fallback titles: a Claude UUID's first 8 characters, a
+ *  namespaced id's last 8 (UUIDv7 ids share their leading timestamp digits). */
+export function shortId(id) {
+  const s = String(id);
+  return s.includes(':') ? s.slice(-8) : s.slice(0, 8);
+}
+
 // Same rule Claude Code uses for ~/.claude/projects/<slug>.
 export function projectSlug(cwd) {
   return String(cwd).replace(/[^a-zA-Z0-9]/g, '-');

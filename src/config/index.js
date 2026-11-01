@@ -11,6 +11,8 @@ export const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(
 export const SESSIONS_DIR = path.join(CLAUDE_DIR, 'sessions');
 export const PROJECTS_DIR = path.join(CLAUDE_DIR, 'projects');
 export const JOBS_DIR = path.join(CLAUDE_DIR, 'jobs');
+// OpenAI Codex (the ChatGPT app's Codex and the codex CLI) keeps its threads here.
+export const CODEX_DIR = process.env.CODEX_HOME || path.join(os.homedir(), '.codex');
 
 export const ROOT_DIR = path.resolve(import.meta.dirname, '..', '..');
 export const PUBLIC_DIR = path.join(ROOT_DIR, 'public');
@@ -279,6 +281,32 @@ function findClaudeBin() {
     } catch {}
   }
   return 'claude';
+}
+
+let foundCodex;
+
+/** The codex executable: the codex.bin parameter, else the first one found (looked up once). */
+export function codexBin(cfg = config) {
+  return cfg.get('codex.bin') || (foundCodex ??= findBin('codex', [
+    path.join(os.homedir(), '.local', 'bin', 'codex'),
+    ...nvmBins('codex'),
+    '/opt/homebrew/bin/codex',
+    '/usr/local/bin/codex',
+    // The ChatGPT app ships its own copy.
+    '/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex',
+  ]));
+}
+
+/** The first executable `name` on PATH or among `extra`, else the bare name. */
+function findBin(name, extra) {
+  const candidates = [...(process.env.PATH || '').split(':').filter(Boolean).map((d) => path.join(d, name)), ...extra];
+  for (const c of candidates) {
+    try {
+      fs.accessSync(c, fs.constants.X_OK);
+      return c;
+    } catch {}
+  }
+  return name;
 }
 
 /** `~/.nvm/versions/node/<v>/bin/<name>`, newest version first. */

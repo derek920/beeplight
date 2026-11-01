@@ -1,9 +1,9 @@
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
-import { claudeBin } from '../config/index.js';
+import { claudeBin, codexBin } from '../config/index.js';
 // `tr`, not `t`: this file names its focus targets `t`.
 import { t as tr } from '../lib/i18n.js';
-import { appleScriptString, HOST_SESSION_RE, shellQuote } from '../lib/util.js';
+import { appleScriptString, HOST_SESSION_RE, SESSION_ID_RE, shellQuote } from '../lib/util.js';
 
 // Brings a task's window to the front by running the steps its agent source planned
 // (source.focus(), e.g. src/sources/claude-code/index.js). Sources only describe what to do; the
@@ -108,14 +108,16 @@ end if`);
 // The URLs a plan may open: [id check, URL, what to report].
 const URLS = {
   'claude-desktop': [HOST_SESSION_RE, (id) => `claude://code/continue?session=${id}`, () => tr('Claude desktop app')],
+  // ChatGPT.app registers codex:// and opens a thread at codex://threads/<id>.
+  'codex-thread': [SESSION_ID_RE, (id) => `codex://threads/${id}`, () => tr('Codex app')],
 };
+
+const bare = (bin, name) => (bin.includes('/') ? shellQuote(bin) : name);
 
 // The commands a plan may run in a new terminal tab.
 const CLIS = {
-  claude: () => {
-    const bin = claudeBin();
-    return bin.includes('/') ? shellQuote(bin) : 'claude';
-  },
+  claude: () => bare(claudeBin(), 'claude'),
+  codex: () => bare(codexBin(), 'codex'),
 };
 
 // Arguments go into a shell command line unquoted, so they must be plain words.

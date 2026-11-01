@@ -58,8 +58,15 @@ export function createHandler({ routes, lan, port, log = console }) {
     if (route.access === 'pairing' && local) return json(res, 400, { error: t("This Mac doesn't need pairing") });
     if (req.method === 'POST' && req.headers['x-beeplight'] !== '1') return json(res, 403, { error: 'missing header' });
 
+    // Task ids such as codex:<uuid> arrive percent-encoded from the web page.
+    let params = [];
     try {
-      const params = route.path instanceof RegExp ? route.path.exec(url.pathname).slice(1) : [];
+      if (route.path instanceof RegExp) params = route.path.exec(url.pathname).slice(1).map((p) => (p == null ? p : decodeURIComponent(p)));
+    } catch {
+      return json(res, 400, { error: 'bad path' });
+    }
+
+    try {
       const body = req.method === 'POST' ? await readBody(req) : {};
       await route.handle({ req, res, url, local, paired, params, body });
     } catch (e) {
