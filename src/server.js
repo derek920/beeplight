@@ -8,6 +8,7 @@ import { Store } from './core/store.js';
 import { ClaudeRunner } from './services/claude-cli.js';
 import { Limits } from './services/limits.js';
 import { Summarizer } from './services/summarizer.js';
+import { ClaudeCodeSource } from './sources/claude-code/index.js';
 import { UsageIndex } from './sources/claude-code/usage.js';
 import { apiRoutes } from './transports/api.js';
 import { createHandler } from './transports/http.js';
@@ -21,10 +22,11 @@ import { pageVersion, webRoutes } from './transports/web.js';
 //
 //   lib         util, i18n
 //   config      runtime parameters and paths
-//   sources     what Claude Code writes (claude-code/: reverse-engineered, the first thing a
-//               Claude Code update breaks) and the process list (system/)
+//   sources     what coding agents write, one folder per agent (claude-code/: reverse-engineered,
+//               the first thing an agent update breaks), what they share (common/: the
+//               conversation analysis, following a JSONL file) and the process list (system/)
 //   services    claude -p calls: titles and verdicts, plan limits
-//   core        sessions, their state and the board; the persisted store; CPU use
+//   core        tasks from every agent source, their state and the board; the persisted store; CPU use
 //   actions     on this Mac: bring a task's window to the front, notice a tab was looked at
 //   transports  HTTP, the event stream, phone access, the relay to other devices
 //
@@ -37,7 +39,9 @@ const summarizer = new Summarizer(store, runner);
 const usage = new UsageIndex();
 const relay = new Relay(store);
 const cpu = new CpuMeter();
-const collector = new Collector({ store, summarizer, runner, usage, limits, relay, cpu });
+// Each coding agent on this Mac is a source (interface in src/core/collector.js).
+const sources = [new ClaudeCodeSource({ isOwnPid: (pid) => runner.isOwnPid(pid), config })];
+const collector = new Collector({ store, summarizer, runner, usage, limits, relay, cpu, sources });
 const seen = new SeenWatcher({ collector, store });
 
 const page = pageVersion(PUBLIC_DIR);

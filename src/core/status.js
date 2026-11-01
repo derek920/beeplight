@@ -1,5 +1,5 @@
 import { t } from '../lib/i18n.js';
-import { lastPendingTool, toolLine } from '../sources/claude-code/transcript.js';
+import { lastPendingTool, toolLine } from '../sources/common/analysis.js';
 import { oneLine, plainText } from '../lib/util.js';
 
 // Board states: doing | waiting | done (outcome success | failed). `idle` = a session

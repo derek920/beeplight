@@ -118,7 +118,7 @@ export function apiRoutes({ collector, store, config, lan, relay, limits, stream
     const remote = collector.snapshot.sessions.find((v) => v.id === sid)?.remote;
     if (remote) return json(res, 200, { ok: false, error: t('This task runs on {device}', { device: remote.name }) });
     if (action === 'focus') {
-      const target = collector.focusTarget(sid);
+      const target = collector.focusPlan(sid);
       if (!target) return json(res, 404, { ok: false, error: t('Session not found') });
       const r = await focus(target);
       const via = local

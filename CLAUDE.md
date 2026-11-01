@@ -45,7 +45,8 @@ desktop/build/Beeplight.app/Contents/MacOS/Beeplight --snapshot /tmp/snap   # �
 |---|---|---|
 | `lib/` | `util.js`、`i18n.js` | 无 |
 | `config/` | 运行参数（`index.js`、`schema.js`）和路径 | lib |
-| `sources/claude-code/` | Claude Code 写的文件：registry、transcript、subagents、jobs、usage。全是逆向得来的格式，Claude Code 升级后先查这里 | lib、config |
+| `sources/claude-code/` | Claude Code 写的文件：registry、transcript、subagents、jobs、usage；`index.js` 的 `ClaudeCodeSource` 把它们包成一个 agent 数据源。全是逆向得来的格式，Claude Code 升级后先查这里 | lib、config |
+| `sources/common/` | 各 agent 数据源共用：对话分析的统一形状（`analysis.js`）、JSONL 增量读取（`jsonl-tail.js`） | lib、config |
 | `sources/system/` | 进程表、各进程和整机的 CPU 时间（`proc.js`） | lib、config |
 | `services/` | `claude -p` 调用（`claude-cli.js`）、总结、额度 | lib、config |
 | `core/` | collector、status、timeline、store、cpu | lib、config、sources、services |
@@ -144,7 +145,7 @@ Mac 应用：
 
 目录分层和各层的依赖规则见「开发约束 → 分层」。
 
-数据流：`Collector.tick()`（`src/core/collector.js`）每 tick 读取下面的数据源 → `deriveStatus()`（`src/core/status.js`）判定状态 → 必要时让 `Summarizer` 排队调 LLM → 拼出视图，签名有变化才 `emit('update')` → `EventStream`（`src/transports/stream.js`）用 SSE 推送，每个事件只序列化一次。
+数据流：`Collector.tick()`（`src/core/collector.js`）每 tick 轮询每个 agent 数据源（接口写在 `collector.js` 开头的注释里，`server.js` 创建后传入；目前只有 `ClaudeCodeSource`）→ `deriveStatus()`（`src/core/status.js`）判定状态 → 必要时让 `Summarizer` 排队调 LLM → 拼出视图，签名有变化才 `emit('update')` → `EventStream`（`src/transports/stream.js`）用 SSE 推送，每个事件只序列化一次。
 
 数据源都是 Claude Code 的内部文件（基于 2.1.312 逆向观察，升级后最先坏的就是这里）：
 
@@ -192,7 +193,7 @@ Token 用量与额度：
 
 CPU 占用（`src/core/cpu.js` `CpuMeter`）：面板和看板底部、网页页脚显示整台 Mac、Claude、Beeplight 三个数，都是占整台 Mac 的比例（0～1），按 `collector.cpuAverageSec`（默认 10 秒）取平均，放在 meta 的 `cpu` 里下发，不进 state 签名，也不同步到其他设备。数据来自 `refreshPs()` 那次 `ps`：多读一列 `time`（进程累计 CPU 时间），两次扫描之差就是这段时间用的；整机用 `os.cpus()` 的累计时间（`machineCpu()`）。Claude 是每个在线会话的进程加上它启动的所有子进程（工具命令、MCP 服务）；Beeplight 是服务自己和它的子进程（Haiku 调用、ps、osascript），再加上 Mac 应用（可执行文件路径是 `…/Beeplight.app/Contents/MacOS/Beeplight` 的进程）。每个进程只算一次，先算 Beeplight，所以开发时从 Claude 会话的终端里 `npm start` 起的服务算 Beeplight。在两次扫描之间结束的进程，最后这段用量会丢掉；浏览器里打开的网页算在浏览器上。
 
-点击跳转（`src/actions/focus.js`）：`detectHost()`（`src/sources/system/proc.js`）沿父进程链找最外层的 `.app`。iTerm2/Terminal 用 AppleScript 按 TTY 选中标签页；桌面端用 `claude://code/continue?session=<hostSessionId>`（从 Claude.app 的 URL handler 逆向得到）；后台 job 用 `claude attach`；已关闭的会话用 `claude --resume`。外部命令一律走 `execFile`，拼进 AppleScript 的字符串用 `appleScriptString()` 转义，ID 先过 `util.js` 里的正则校验。
+点击跳转（`src/actions/focus.js`）：数据源只规划步骤（`source.focus(target)` 返回 `url` / `host` / `newTab` 组成的列表，`Collector.focusPlan()` 拼上目标），`focus.js` 按顺序执行，能打开的 URL、能运行的命令和对参数的校验都只在它这里。`detectHost()`（`src/sources/system/proc.js`）沿父进程链找最外层的 `.app`。iTerm2/Terminal 用 AppleScript 按 TTY 选中标签页；桌面端用 `claude://code/continue?session=<hostSessionId>`（从 Claude.app 的 URL handler 逆向得到）；后台 job 用 `claude attach`；已关闭的会话用 `claude --resume`。外部命令一律走 `execFile`，拼进 AppleScript 的字符串用 `appleScriptString()` 转义，ID 先过 `util.js` 里的正则校验。
 
 状态轨迹（`src/core/timeline.js`）：`Collector.publish()` 每次构建视图后调用 `Timeline.track()`。只在状态键变化时追加 `{k, t}`，状态键为 `doing | waiting | waiting:q | done:success | done:failed`。判定未出时的临时 Done（`p: true`）会被判定结果原地改写，不新增一段。同时累计今日统计：`waiting:q` 表示一轮以提问结尾，不计入等待时长。轨迹持久化在 `store.histories`；今日统计通过 meta 事件下发，没放进 state 签名，所以不会每个 tick 都触发推送。
 
