@@ -202,6 +202,7 @@ Mac 应用（`desktop/`）：
 - `Monitor.swift`：SSE 客户端（`URLSession.bytes.lines` 会丢掉空行，所以收到 `data:` 行就立刻处理）、通知触发、菜单栏徽章。它是 `@Observable`，写法上的约束见「开发约束 → 性能」。有任务执行时，菜单栏徽章每秒换 12 帧。
 - `LayerEffects.swift`：常驻动画（转圈、紧急卡片的呼吸发光、等待图标的脉冲）的 Core Animation 实现，由窗口服务器驱动，所有实例对齐到同一个相位。
 - `Board.swift` / `Panel.swift`：两套界面。
+- 关掉看板不退出 app：菜单栏图标、灵动岛和服务都还在，看起来像「点叉号退不出去」。所以第一次关看板时 `StillRunningNotice`（`App.swift`）弹一次说明，带「退出 Beeplight」按钮，看过的标记存在 UserDefaults 的 `stillRunningNoticeShown`。退出入口有三个：⚙ 菜单、看板打开时的 ⌘Q、右键灵动岛。弹窗用 `Timer` 排到下一轮再 `runModal`，不能放在 `DispatchQueue.main.async` 里：主队列的 block 里跑模态，弹窗开着的这段时间，其他主队列任务（SIGTERM 处理、`@MainActor` 任务）全部卡住。灵动岛的右键菜单由 `FirstMouseHostingView.rightMouseDown` 自己弹出：SwiftUI 的 `.contextMenu` 能用 `menu(for:)` 取到，但发到这块面板上的右键（用合成事件测的）不会把它弹出来。
 - `Glyphs.swift`：状态图标、时间轴和菜单栏渲染。
 - 菜单栏图标「看不见」有两种情况，先用 `CGWindowListCopyWindowInfo` 看 layer 25 的窗口：
   - 窗口不在屏幕上（`kCGWindowIsOnscreen` 为假）：带刘海的 Mac 上菜单栏挤满了，排在最左边的图标会被系统藏起来。用 ⌘ 拖动图标，或者设置 `defaults write dev.beeplight.mac "NSStatusItem Preferred Position Item-0" -float <离屏幕右边缘的距离>` 后重启 app。`BeeplightApp.init` 在这个键不存在时（首次启动）写入 400，让新用户的图标一开始就靠右。

@@ -59,7 +59,7 @@ On first use, macOS asks for a few permissions:
 ## Using the Mac app
 
 - **Menu bar**: click the icon for the task panel; click any row to jump to that task.
-- **Board window**: a three-column board. While it is open, Beeplight shows in the Dock and ⌘-Tab; close it and the app stays in the menu bar.
+- **Board window**: a three-column board. While it is open, Beeplight shows in the Dock and ⌘-Tab; close it and the app stays in the menu bar (the first time, it tells you so). To quit, choose **Quit Beeplight** from the ⚙ menu, press ⌘Q while the board is open, or right-click the island.
 - **Notifications**: posted when a task needs you, finishes or fails. The notification's jump button takes you to the window. Each kind can be turned off in the ⚙ menu.
 - **Launch at login**: turn it on in the ⚙ menu.
 - **CPU use**: the panel and the bottom of the board show the CPU use of the whole Mac, of Claude Code (every session and the commands it runs) and of Beeplight (the app, its service and its Haiku calls), averaged over the last 10 seconds. All three are shares of the whole Mac, so they add up; Activity Monitor and `top` show a process against one core, which is this number times the number of cores. The web board shows the same line at the bottom.

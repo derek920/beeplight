@@ -166,7 +166,7 @@
 "Launch at login" = "登录时启动";
 "Open board in browser" = "在浏览器中打开看板";
 "Open data and logs folder" = "打开数据与日志目录";
-"Quit Beeplight" = "退出 Beeplight";
+"Quit Beeplight" = "退出 Beeplight"; /* also App.swift, Island.swift */
 "Couldn't change the setting: %@" = "设置失败：%@";
 
 /* PhoneSettings.swift */
@@ -224,6 +224,12 @@
 "The app bundle is missing the Beeplight service; rebuild the app" = "应用包里缺少监控服务，请重新构建";
 "Can't find node; install Node.js ≥ 20.11 first" = "找不到 node，请先安装 Node.js ≥ 20.11";
 "Couldn't start the Beeplight service: %@" = "启动监控服务失败：%@";
+
+/* App.swift: shown once, the first time the board is closed. "Quit Beeplight" is under Panel.swift. */
+"Beeplight is still running" = "Beeplight 仍在运行";
+"It stays in the menu bar to tell you when Claude needs you. Click the menu bar icon to open the board again. To quit, choose Quit Beeplight from the ⚙ menu." = "它会留在菜单栏，Claude 需要你时照样提醒。点菜单栏图标可以再次打开看板。要退出，在 ⚙ 菜单里选「退出 Beeplight」。";
+"It stays in the menu bar to tell you when Claude needs you. Click the menu bar icon to open the board again. To quit, choose Quit Beeplight from the ⚙ menu, or right-click the island." = "它会留在菜单栏，Claude 需要你时照样提醒。点菜单栏图标可以再次打开看板。要退出，在 ⚙ 菜单里选「退出 Beeplight」，或者右键点灵动岛。";
+"OK" = "好";
 
 /* Face.swift, Appearance.swift, Island.swift: idle face */
 "Robot eyes" = "机器人眼睛";

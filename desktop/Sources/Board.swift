@@ -63,7 +63,9 @@ struct BoardView: View {
             NSApp.setActivationPolicy(.regular)
             NSApp.activate(ignoringOtherApps: true)
         }
-        .onDisappear { NSApp.setActivationPolicy(.accessory) }
+        // Back to menu bar only, after the one-time "still running" notice if it is due: while the
+        // app is still a regular app, the notice can take the focus.
+        .onDisappear { StillRunningNotice.showOnce { NSApp.setActivationPolicy(.accessory) } }
     }
 
     private var filteredDone: [TaskItem] {

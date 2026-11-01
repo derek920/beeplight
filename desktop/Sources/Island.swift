@@ -46,6 +46,16 @@ private final class IslandPanel: NSPanel {
 // swallows it and the island's buttons do nothing (hover still works, which hides the problem).
 private final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    // SwiftUI builds the island's `.contextMenu` (menu(for:) returns it), but a right-click sent to
+    // this panel did not open it (tested with synthesized events). Open it the plain AppKit way.
+    override func rightMouseDown(with event: NSEvent) {
+        if let menu = menu(for: event) {
+            NSMenu.popUpContextMenu(menu, with: event, for: self)
+        } else {
+            super.rightMouseDown(with: event)
+        }
+    }
 }
 
 /// Lets views outside a SwiftUI scene (the island) open the board window.
@@ -369,6 +379,15 @@ struct IslandView: View {
             .shadow(color: glowColor, radius: glowRadius, y: 2)
             .overlay { if showScanlines { Scanlines().clipShape(shape) } }
             .contentShape(shape)
+            // The board's close button leaves the app running; this is a quit that is easy to find.
+            .contextMenu {
+                Button("Open board") {
+                    WindowOpener.openBoard()
+                    IslandController.shared.collapse()
+                }
+                Divider()
+                Button("Quit Beeplight") { NSApp.terminate(nil) }
+            }
             .onHover(perform: hover)
             .onTapGesture(perform: toggle)
             // `.none` would disable every gesture below too, buttons included; `.subviews`
