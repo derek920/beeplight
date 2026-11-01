@@ -565,12 +565,16 @@ ${quotaCard('7d', t('Weekly limit'), L.sevenDay, u.sevenDay, u.windows.sevenDay,
 
 const STEP_NAMES = { '10m': '10 min', '30m': '30 min', '1h': '1 hour', '6h': '6 hours', '1d': '1 day' };
 // window: '5h' | '7d' while open; hover: the start of the bar under the pointer.
-const qd = { window: null, detail: null, error: null, hover: null, timer: 0 };
+// failures: failed reads in a row. The error shows only after a few (the service may be restarting);
+// meanwhile a retry follows in 2 s instead of the usual 15 s.
+const qd = { window: null, detail: null, error: null, hover: null, timer: 0, retry: 0, failures: 0 };
 
 function openDetail(window) {
   qd.window = window;
   qd.detail = null;
   qd.hover = null;
+  qd.failures = 0;
+  qd.error = null;
   $('#qd').hidden = false;
   document.documentElement.classList.add('qd-open');
   renderDetail();
@@ -582,6 +586,7 @@ function openDetail(window) {
 function closeDetail() {
   qd.window = null;
   clearInterval(qd.timer);
+  clearTimeout(qd.retry);
   $('#qd').hidden = true;
   document.documentElement.classList.remove('qd-open');
 }
@@ -601,8 +606,11 @@ async function loadDetail() {
   }
   const d = r.ok ? await r.json().catch(() => null) : null;
   if (qd.window !== w) return;
-  qd.error = d ? null : t("Couldn't load: {error}", { error: r.error?.message || r.status || '?' });
+  qd.failures = d ? 0 : qd.failures + 1;
+  qd.error = d || qd.failures < 3 ? null : t("Couldn't load: {error}", { error: r.error?.message || r.status || '?' });
   if (d) qd.detail = d;
+  clearTimeout(qd.retry);
+  if (!d) qd.retry = setTimeout(loadDetail, 2000);
   renderDetail();
 }
 

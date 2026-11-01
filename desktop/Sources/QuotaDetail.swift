@@ -104,7 +104,11 @@ final class QuotaDetailModel: ObservableObject {
         didSet { UserDefaults.standard.set(steps, forKey: "quotaDetailSteps") }
     }
     @Published private(set) var detail: UsageDetail?
+    /// Shown only after a few failed reads in a row: the service may just be starting (the app
+    /// restores this window at launch, before its service is up), and a retry follows in seconds.
     @Published private(set) var error: String?
+    /// Failed reads in a row; while there are some, the next read comes after 2 s instead of 15 s.
+    private(set) var failures = 0
 
     func load() async {
         let window = window
@@ -120,9 +124,11 @@ final class QuotaDetailModel: ObservableObject {
             let d = try JSONDecoder().decode(UsageDetail.self, from: data)
             guard d.window == self.window else { return }
             if detail != d { detail = d }
-            error = nil
+            failures = 0
+            if self.error != nil { self.error = nil }
         } catch {
-            self.error = String(localized: "Couldn't load: \(error.localizedDescription)")
+            failures += 1
+            if failures >= 3 { self.error = String(localized: "Couldn't load: \(error.localizedDescription)") }
         }
     }
 }
@@ -157,7 +163,7 @@ struct QuotaDetailView: View {
         .task(id: "\(model.window) \(model.steps[model.window] ?? "")") {
             while !Task.isCancelled {
                 await model.load()
-                try? await Task.sleep(for: .seconds(15))
+                try? await Task.sleep(for: .seconds(model.failures > 0 ? 2 : 15))
             }
         }
     }
