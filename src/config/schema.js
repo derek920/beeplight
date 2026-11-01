@@ -7,6 +7,7 @@
 // in src/lib/i18n.js).
 //
 // - The unit is part of the key (`…Ms`, `…Sec`, `…Minutes`, `…Hours`, `…MB`).
+// - Types: int, number, string, and choice (one of `choices`, shown as a segmented control).
 // - Each parameter can be set from the environment as BEEPLIGHT_<KEY IN UPPER SNAKE CASE>, e.g.
 //   BEEPLIGHT_COLLECTOR_TICK_MS; `aliases` are older names that keep working.
 // - `restart: true` is read once at startup; everything else applies within a second or so.
@@ -64,14 +65,21 @@ export const PARAMS = [
   },
 
   {
+    key: 'summarizer.titles', type: 'choice', default: 'ai',
+    choices: [{ value: 'ai', label: 'AI summary' }, { value: 'original', label: 'Original' }],
+    label: 'Titles',
+    help: "AI summary: the summary model names each task's goal and judges how each turn ended. Original: the session's own name, or your latest message; nothing is sent for summaries, and a finished turn counts as done without a verdict.",
+  },
+  {
     key: 'summarizer.model', type: 'string', default: 'haiku', pattern: /^[\w.:[\]-]{1,64}$/, aliases: ['BEEPLIGHT_MODEL'],
     label: 'Summary model',
     help: 'Model that writes task titles and judges results, passed to claude --model.',
   },
   {
-    key: 'summarizer.engine', type: 'string', default: 'auto', pattern: /^(auto|claude|codex|off)$/,
-    label: 'Summary engine',
-    help: 'Who writes titles and verdicts. auto: Claude (the summary model) when claude is installed, else Codex, else nobody. claude or codex: only that one. off: nobody; titles come from the sessions and only clear signals (finished, interrupted, error) decide the result.',
+    key: 'summarizer.engine', type: 'choice', default: 'auto',
+    choices: [{ value: 'auto', label: 'Automatic' }, { value: 'claude', label: 'Claude' }, { value: 'codex', label: 'Codex' }],
+    label: 'Summaries by',
+    help: 'Who writes AI titles and verdicts. Automatic: Claude (the summary model) when claude is installed, else Codex. Claude or Codex: only that one. When the chosen one is not installed, titles stay original.',
   },
   {
     key: 'summarizer.codexModel', type: 'string', default: '', pattern: /^[\w.:[\]-]{0,64}$/,

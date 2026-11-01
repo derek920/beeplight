@@ -187,9 +187,9 @@ npm run service:status    # 查看状态；service:restart / service:uninstall
 | **Done ✓** | 这一轮做完了 | 本轮结束，结果判定为已交付 |
 | **Done ✗** | 这一轮没成功 | API 报错、被你中断、执行到一半会话被关、或者结果判定为没完成 |
 
-「结果判定」和卡片标题由 Haiku 根据最近的对话总结，走 Claude Code 的无界面模式（`claude -p --model haiku`），用你的 Claude Code 登录。用 Claude 订阅登录时计入套餐额度，不单独收费；用 Anthropic Console 账号或 API key 时按 API 价格计费，每次约 $0.001。标题描述会话**当前**在做的核心任务，不是会话开头的那句话。每一轮开始和结束各总结一次，长时间运行的轮次每 5 分钟刷新一次。
+「结果判定」和卡片标题由 Haiku 根据最近的对话总结，走 Claude Code 的无界面模式（`claude -p --model haiku`），用你的 Claude Code 登录。用 Claude 订阅登录时计入套餐额度，不单独收费；用 Anthropic Console 账号或 API key 时按 API 价格计费，每次约 $0.001。标题描述会话**当前**在做的核心任务，不是会话开头的那句话。每一轮开始和结束各总结一次，长时间运行的轮次每 5 分钟刷新一次。不想调用总结时，把「设置 → 高级 → 标题」改成「原文」：卡片显示会话本身的名字（没有名字时用你最近一条消息），一轮结束就算完成，不做判定。
 
-没装 Claude Code 时，改由 Codex 写标题和判定（`codex exec --ephemeral`，不保存会话），用你的 Codex 登录；两个都没有时，标题取自任务本身，结果只看明确的信号（完成、中断、出错）。用 `summarizer.engine` 选择：`auto`（默认）、`claude`、`codex` 或 `off`。Codex 每次总结会带上它自己约 15k token 的指令，在意的话把 `summarizer.codexModel` 设成小模型。
+没装 Claude Code 时，改由 Codex 写标题和判定（`codex exec --ephemeral`，不保存会话），用你的 Codex 登录；两个都没有时，和「标题」选「原文」一样，标题保持原文。在「设置 → 高级 → 由谁总结」（`summarizer.engine`）里选择：自动（默认）、Claude 或 Codex。Codex 每次总结会带上它自己约 15k token 的指令，在意的话把 `summarizer.codexModel` 设成小模型。
 
 从没收到过请求的空会话、以及超过 12 小时没有动静的会话不显示（执行中和等待授权的除外）。
 
@@ -237,7 +237,7 @@ relay.example.com {
 Beeplight 完全在本机运行，没有账号、遥测、统计或更新检查。
 
 - **读取什么**：`~/.claude` 下 Claude Code 自己的文件（`sessions/`、`projects/` 里的 transcript、`jobs/`），`~/.codex` 下 Codex 的文件（`sessions/` 里的任务记录、`thread-writer-locks/`、`session_index.jsonl`、`app-server-daemon/daemon.pid`），以及进程列表。只读，不装 hook，也不改它们的设置。
-- **什么会离开本机**：为了生成标题和结果判定，Beeplight 会把每个会话（包括 Codex 任务）最近对话的摘录，通过你自己的 `claude` CLI 登录发给 Claude Haiku。它和你平时用 Claude Code 一样发到 Anthropic，也会计入你的用量。没装 claude（或 `summarizer.engine` 设为 `codex`）时，摘录改为通过你自己的 `codex` 登录发给 OpenAI，计入你的 Codex 用量。额度探测是 claude 登录下的极小请求。把 `summarizer.engine` 设为 `off` 就什么都不发。
+- **什么会离开本机**：为了生成标题和结果判定，Beeplight 会把每个会话（包括 Codex 任务）最近对话的摘录，通过你自己的 `claude` CLI 登录发给 Claude Haiku。它和你平时用 Claude Code 一样发到 Anthropic，也会计入你的用量。没装 claude（或「由谁总结」选了 Codex）时，摘录改为通过你自己的 `codex` 登录发给 OpenAI，计入你的 Codex 用量。额度探测是 claude 登录下的极小请求。把「标题」改成「原文」（「设置 → 高级」，或 `BEEPLIGHT_SUMMARIZER_TITLES=original`）就不再总结，也就不会为此发送任何内容。
 - **存了什么**：标题、判定、状态轨迹和设置，在 `~/Library/Application Support/Beeplight`（`npm start` 时在 `./data`）。历史数据最长保留 30 天，可以在设置 → 高级里调短，或立即清理。
 - **网络**：服务只监听 `127.0.0.1`，并校验每个请求的 `Host` 头。手机访问默认关闭，见上面的「手机访问」。
 

@@ -19,6 +19,8 @@ struct Meta: Decodable {
     /// The character picked in the Mac app, for the phone's status screen.
     var character: String?
     var cpu: CpuMeta?
+    /// "ai" or "original": the service's summarizer.titles parameter.
+    var titles: String?
 }
 
 /// CPU use as shares (0…1) of the whole Mac, averaged over the last `sec` seconds (src/core/cpu.js).

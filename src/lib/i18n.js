@@ -85,6 +85,7 @@ const ZH = {
   'must be text': '必须是文本',
   'must be at most {n} characters': '最多 {n} 个字符',
   'has characters that are not allowed': '包含不允许的字符',
+  'must be one of {list}': '只能是 {list} 之一',
   'unknown setting': '未知的设置项',
   'not valid JSON: {msg}': '不是有效的 JSON：{msg}',
   'must be an object of settings': '必须是由设置项组成的对象',
@@ -115,6 +116,11 @@ const ZH = {
     '面板和看板上显示的本机、Claude、Beeplight 的 CPU 占用，按这段时间取平均。越短越能看出瞬间的高峰，越长越平稳。',
   'Keep finished tasks (hours)': '已结束任务保留（小时）',
   'Finished or quiet tasks leave the board after this long.': '已结束或长时间没有动静的任务，过了这么久就从看板上移走。',
+  Titles: '标题',
+  'AI summary': 'AI 总结',
+  Original: '原文',
+  "AI summary: the summary model names each task's goal and judges how each turn ended. Original: the session's own name, or your latest message; nothing is sent for summaries, and a finished turn counts as done without a verdict.":
+    'AI 总结：由总结模型概括每个任务的目标，并判定每一轮的结果。原文：显示会话本身的名字，没有名字时用你最近一条消息；不再为总结发送任何内容，一轮结束就算完成，不做判定。',
   'Summary model': '总结模型',
   'Model that writes task titles and judges results, passed to claude --model.': '用来写任务标题、判定结果的模型，会传给 claude --model。',
   'Summaries at once': '同时总结数',
@@ -151,9 +157,10 @@ const ZH = {
   "This Mac's name on your other devices. Empty uses the computer name.": '这台 Mac 在你其他设备上显示的名字。留空就用电脑名称。',
   'claude command': 'claude 命令',
   'codex command': 'codex 命令',
-  'Summary engine': '总结用的模型',
-  'Who writes titles and verdicts. auto: Claude (the summary model) when claude is installed, else Codex, else nobody. claude or codex: only that one. off: nobody; titles come from the sessions and only clear signals (finished, interrupted, error) decide the result.':
-    '由谁写标题和判定。auto：装了 claude 就用 Claude（上面的总结模型），没有就用 Codex，都没有就不总结。claude 或 codex：只用这一个。off：都不用，标题取自会话本身，结果只看明确的信号（完成、中断、出错）。',
+  'Summaries by': '由谁总结',
+  'Who writes AI titles and verdicts. Automatic: Claude (the summary model) when claude is installed, else Codex. Claude or Codex: only that one. When the chosen one is not installed, titles stay original.':
+    '由谁写 AI 标题和判定。自动：装了 claude 就用 Claude（上面的总结模型），没有就用 Codex。Claude 或 Codex：只用这一个。选中的那个没装时，标题保持原文。',
+  Automatic: '自动',
   'Codex summary model': 'Codex 总结模型',
   'Model for summaries written by Codex, passed to codex exec -m. Empty uses your Codex default.': '由 Codex 写总结时用的模型，传给 codex exec -m。留空用你的 Codex 默认模型。',
   'Full path to the codex executable, used to resume a closed terminal session. Empty finds it on PATH and in the usual install folders.':

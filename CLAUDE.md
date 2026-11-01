@@ -33,7 +33,7 @@ desktop/build/Beeplight.app/Contents/MacOS/Beeplight --snapshot /tmp/snap   # �
 - 只读，不侵入。只读 agent 写下的文件和进程表：不装 hook，不改 agent 的配置，不往 `~/.claude`、`~/.codex` 里写东西。Codex 的 SQLite 也不打开（WAL 模式的读者也会写 `-shm`），锁文件只 stat 不加锁，不连它的 app-server。
 - 各 agent 的内部格式都是逆向得来的，随时会变，只在各自的 `src/sources/<agent>/` 里解析，其他地方只用解析后的统一结果（`src/sources/common/analysis.js` 的对话分析、registry 形状的实时信号）。某个 agent 升级后的适配只改它自己的目录。
 - 同一条规则只写在一处：状态判定只在 `deriveStatus()`；请求的安全检查只在 `src/transports/http.js`；Mac 和 iOS 画形象只用 `Figure.draw()`。
-- 离开这台 Mac 的数据只有两类：一是总结时发出的对话摘录（默认经用户自己的 `claude` 登录发给 Anthropic；没装 claude 或 `summarizer.engine` 设为 `codex` 时，经用户自己的 `codex` 登录发给 OpenAI；设为 `off` 时不发），二是跨设备同步时经 `shareView()` 白名单裁剪并加密的任务摘要。新增任何对外发送，都要先在 README 的隐私说明里写清楚。
+- 离开这台 Mac 的数据只有两类：一是总结时发出的对话摘录（默认经用户自己的 `claude` 登录发给 Anthropic；没装 claude 或 `summarizer.engine` 设为 `codex` 时，经用户自己的 `codex` 登录发给 OpenAI；`summarizer.titles` 设为 `original` 时不发），二是跨设备同步时经 `shareView()` 白名单裁剪并加密的任务摘要。新增任何对外发送，都要先在 README 的隐私说明里写清楚。
 - 开源边界：本仓库按 Apache-2.0 开源。收费功能（iOS 上的抽卡形象）的逻辑和美术素材不进本仓库，本仓库只放格式定义和接口。
 - 零依赖：Node 服务和 `relay/server.js` 不引入 npm 包；Mac 应用只用系统框架。
 
@@ -119,6 +119,7 @@ Mac 应用：
 - 用到的时候才调用 `config.get(key)`，不要在模块加载时把值存成常量，否则改了不会生效。定时器用 `config.every(key, 倍数, fn)`，间隔一改就自动重新计时。
 - `restart: true` 只给确实无法热更新的参数（目前只有端口）。
 - 校验只在 schema 里做一处：客户端把输入原样提交，由服务端校验并返回错误。
+- 类型有 `int`、`number`、`string` 和 `choice`。`choice` 只能取 `choices` 里列出的值，每个选项带标签（同样要在 i18n 里补中文）；「高级」页把它画成分段选择器，其他类型画成文本框。
 - 不放进配置的：别的程序依赖的约定（meta 每秒推一次，是 Mac 端判断连接是否断开的心跳；同步相关的时间要在所有设备上一致），以及解析细节。
 - 测试里用 `new Config({ file: null, env: {} })`，不读本机的配置文件和环境变量。
 - 客户端自己的偏好（外观、通知开关、语言）不属于服务端配置：Mac 存在 UserDefaults，网页存在 localStorage。UserDefaults 的解码要手写容错，缺少的字段用默认值（见「外观」）。
@@ -161,7 +162,7 @@ Mac 应用：
   - **等你批准不落盘**，只能推断：本轮未结束、最后一个要求跳出沙箱的调用（`sandbox_permissions: require_escalated` 或 `request_permissions`）还没有输出、当前 `approval_policy` 会问人 → `waiting`。调用的输出要等用户回答后才写；别用"宿主下有没有新起的 shell"判断，Codex 在问人之前就会起 shell（实测），`needs` 是调用里的 `justification`。
   - `session_index.jsonl` 是 Codex 自己的任务名，作标题候选。跳转：桌面端打开 `codex://threads/<id>`；命令行活着跳 tty，结束了新标签里 `codex resume <id>`。
 
-总结引擎（`summarizer.engine`）：`auto` 装了 claude 就用 Haiku，没有就用 `codex exec --ephemeral`（不落盘，不会出现在用户的 Codex 任务里），都没有就不总结；不总结时 `deriveStatus()` 收到 `judging: false`，一轮正常结束直接算成功，不挂"正在核对结果"。
+总结开关和引擎是两个参数：`summarizer.titles`（`ai` / `original`）决定要不要 AI 总结；`summarizer.engine`（`auto` / `claude` / `codex`）决定由谁写，`auto` 装了 claude 就用 Haiku，没有就用 `codex exec --ephemeral`（不落盘，不会出现在用户的 Codex 任务里）。原文标题、或选中的引擎没装时，`deriveStatus()` 收到 `verdicts: false`，一轮正常结束直接算成功，不挂"正在核对结果"。
 
 接入新 agent：在 `src/sources/<agent>/` 写一个实现 `collector.js` 开头那套接口的类（id 用 `<agent>:` 前缀，解析成统一的对话分析和 registry 形状的实时信号）→ `server.js` 里加进 `sources` → 跳转需要新的 URL 或命令时加进 `focus.js` 的 `URLS`/`CLIS` → 用合成的 fixture 写测试（不放真实对话）→ README 的隐私说明写清楚读哪些文件 → 客户端徽标显示 `agentName`。
 
@@ -175,6 +176,7 @@ LLM 总结（`src/services/summarizer.js`）：
 - 调用方式：`claude -p --model haiku --tools "" --setting-sources "" --no-session-persistence --json-schema …`，cwd 是空目录 `data/llm-cwd`。不能用 `--bare`，因为它不读 OAuth。子进程也会在 registry 里注册（`entrypoint: sdk-cli`），靠 `ownPids` 过滤掉。
 - 去重键：`endKey(a) = <本轮首条 prompt uuid>@<最新时间线时间戳>`。Claude 在同一轮里恢复工作后（例如收到后台任务通知）键会变，旧判定随之失效；会话关闭后则沿用这一轮最后一次判定。
 - 失败处理：连续失败全局指数退避（30 秒到 10 分钟），失败记录带 `retryAfter`，到点由 Collector 重新请求。
+- 关闭总结：参数 `summarizer.titles`（`ai` | `original`）。为 `original` 时 `Collector` 不排队也不 pump 总结器，`summaryOf()` 忽略已存的总结，标题走 `buildView()` 里原有的回退链（自定义名 → 后台任务名 → Claude Code 的 ai-title → registry 名 → 最近一条消息）；`deriveStatus({ verdicts: false })` 让一轮结束直接算成功，不带 `pending`。meta 的 `titles` 告诉客户端隐藏「重新总结」按钮和页脚的总结统计。额度探测不受影响。
 - 持久化：结果存在 `data/state.json`（`src/core/store.js`），同时保存已结束会话的视图。重启后 `restoreEnded()` 会把这些会话重新挂上 transcript，而不是展示冻结的快照。
 - 保留期限：标题和判定、状态轨迹、移除记录最长保留 `store.keepDays` 天（默认 30，上限也是 30）；只在看板上用的已结束视图和未读标记按 `collector.retainHours`，同样不超过这个上限；设置项（flags）不清理。启动时、每小时、改了这两个参数时，以及「高级」页点「立即清理」（`POST /api/store/prune`，只限本机）时都会清理，最后一种会马上写盘并返回文件大小。
 
@@ -193,7 +195,7 @@ Token 用量与额度：
 - 走路（只在网页状态屏）：字符画形象可以带 `walk`（`facing`、`speed`、`step`、`frames`），状态屏用 `data-text` 把能量环换成一条虚线地面，`walk()`/`stepWalker()` 让它在线上走：空闲时按 `MOODS[].walk` 隔几秒溜达到一个点，执行中（`pace`）来回踱步，等你和失败时停下。位置以字符宽度为单位，帧号由走过的距离除以 `step` 算出；反方向走时整段字符画用 `scale` 镜像，转身是 `scale` 从 1 过 0 到 -1。每帧只改 `<pre>` 的 CSS `translate`/`scale`，所以晃动和跳的动画写在 `.amb-figure > *` 的 `transform` 上，两者不冲突。Mac 和 iOS app 里形象不走路，iOS 状态屏在环里显示完整字符画。
 - `AppearanceConfig` 的解码在扩展里手写，缺少的字段用默认值。新增外观字段时要在这里补一行，否则旧版本存下的设置会整体解码失败，用户的外观被重置。
 - 菜单栏的 6 种样式在 `Glyphs.swift` 的 `MenuBarBadge` 里，用 `ImageRenderer` 渲染成位图。徽章视图显式接收 `Palette` 和 `ink` 参数，所以设置页能用别的主题渲染预览。
-- 灵动岛（`Island.swift`）是一块固定大小的透明 `NSPanel`，层级在 mainMenu 之上，透明区域的点击会穿透到下面。刘海尺寸取自 `NSScreen.auxiliaryTopLeftArea/RightArea`。没有刘海时（刘海模式找不到带刘海的屏幕，或悬浮模式）是一个胶囊，可以拖动，位置存在 `islandOrigin`。开了「自动隐藏」（`islandAutoHide`）时，没有等你的、也没有新完成的任务就隐藏：胶囊整个不画，这样透明画布让点击穿透；刘海模式收回刘海里，悬停刘海仍然能展开。弹出提示（`flash`）期间不隐藏。岛体内不在 SwiftUI scene 里，打开看板窗口要通过 `WindowOpener`：由一直在渲染的 `MenuBarLabel` 在 onAppear 时注册 `openWindow`。
+- 灵动岛（`Island.swift`）是一块固定大小的透明 `NSPanel`，层级在 mainMenu 之上，透明区域的点击会穿透到下面。刘海尺寸取自 `NSScreen.auxiliaryTopLeftArea/RightArea`。没有刘海时（刘海模式找不到带刘海的屏幕，或悬浮模式）是一个胶囊，可以拖动，位置存在 `islandTop`（胶囊顶边中点，画布改尺寸后位置不变；旧版本存的 `islandOrigin` 是 520 宽画布的左下角，读一次后换成新键）。刘海模式下右翼按计数的位数加宽（`countsWing`，三个数各到 999 也放得下），左翼不变，整体右移一半差值，让中间的空隙仍然对准刘海；画布 760 宽，容得下各种机型和缩放下的刘海。开了「自动隐藏」（`islandAutoHide`）时，没有等你的、也没有新完成的任务就隐藏：胶囊整个不画，这样透明画布让点击穿透；刘海模式收回刘海里，悬停刘海仍然能展开。弹出提示（`flash`）期间不隐藏。岛体内不在 SwiftUI scene 里，打开看板窗口要通过 `WindowOpener`：由一直在渲染的 `MenuBarLabel` 在 onAppear 时注册 `openWindow`。
 - 截图：`--snapshot <dir> --preset <id> [--island-open] [--island-click] [--quota-week]` 会把 board、panel、settings、general、devices、advanced、island、phone、quota（额度详情，加 `--quota-week` 时显示本周额度）各渲染成一张图。截图模式下 `Appearance.persist = false`，不会改写用户设置。加 `--island-click` 时会往灵动岛第一行发一次合成点击，服务端日志里出现 `[focus] … from island` 就说明点击生效。改灵动岛的手势或布局后，用它回归测试。
 - 灵动岛有两个点击相关的坑。一是 `.gesture(_, including: .none)` 会禁用整个子视图树的手势，按钮也会全部失效，只想关掉自己的手势时要用 `.subviews`。二是面板永远不是激活窗口，所以要用 `FirstMouseHostingView` 接受首次点击。悬停在这两种情况下都照常工作，所以看起来像「能展示但点不了」。
 - 灵动岛「收不回去」：SwiftUI 的 `onHover` 偶尔收不到移出事件（从岛上点一行跳走之后出现过），`hovering` 就一直为真。现在有三道保险：从岛上跳转或打开看板后 `collapse()`；全局鼠标监听，点岛以外任何地方都收起（包括固定状态）；悬停展开期间 `watchHover()` 每 0.25 秒核对一次鼠标是否还在岛的范围内（`model.frame` 由 GeometryReader 记下），连续两次不在就收起，并递增 `hoverEpoch` 重建视图，清掉 SwiftUI 残留的悬停状态。

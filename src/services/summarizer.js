@@ -65,8 +65,9 @@ const ENGINE_CHECK_MS = 10_000;
 
 // Titles and verdicts, one queue for every agent. The model is Claude's (Haiku, through the user's
 // claude login) when claude is installed, else Codex's (`codex exec`, through the user's Codex
-// login), else none: summarizer.engine picks. Without one, titles come from the sessions themselves
-// and only hard signals decide an outcome (deriveStatus() is told there is no verdict to wait for).
+// login): summarizer.engine picks. With neither, titles stay original and only hard signals decide
+// an outcome (the collector tells deriveStatus() no verdict is coming). summarizer.titles = original
+// turns summaries off altogether; the collector then never calls in here.
 export class Summarizer extends EventEmitter {
   constructor(store, runner, config = defaultConfig, codex = null) {
     super();
@@ -84,7 +85,7 @@ export class Summarizer extends EventEmitter {
     this.cooldownUntil = 0;
   }
 
-  /** The model that writes summaries now: 'claude', 'codex', or null (summarizer.engine). */
+  /** The model that writes summaries now: 'claude', 'codex', or null when the chosen one is missing. */
   engine() {
     const now = Date.now();
     const c = this.engineCheck;
@@ -92,8 +93,7 @@ export class Summarizer extends EventEmitter {
     if (want !== c.want || now - c.at > ENGINE_CHECK_MS) {
       const claude = this.runner.available?.() ?? true;
       const codex = !!this.codex?.available();
-      c.engine = want === 'off' ? null
-        : want === 'claude' ? (claude ? 'claude' : null)
+      c.engine = want === 'claude' ? (claude ? 'claude' : null)
         : want === 'codex' ? (codex ? 'codex' : null)
         : claude ? 'claude' : codex ? 'codex' : null;
       c.want = want;
