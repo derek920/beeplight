@@ -108,8 +108,8 @@ final class BluetoothBridge: NSObject {
         let up = CBMutableCharacteristic(type: BluetoothWire.up, properties: [.write], value: nil, permissions: [.writeable])
         let s = CBMutableService(type: service, primary: true)
         s.characteristics = [down, up]
+        // Advertised once the service is in (didAdd).
         manager.add(s)
-        manager.startAdvertising([CBAdvertisementDataServiceUUIDsKey: [service]])
         self.down = down
         published = true
     }
@@ -264,6 +264,16 @@ extension BluetoothBridge: CBPeripheralManagerDelegate {
                 subscribed = [:]
                 trusted = []
             }
+        }
+    }
+
+    nonisolated func peripheralManager(_ peripheral: CBPeripheralManager, didAdd service: CBService, error: Error?) {
+        MainActor.assumeIsolated {
+            guard error == nil, service.uuid == self.service else {
+                published = false
+                return
+            }
+            peripheral.startAdvertising([CBAdvertisementDataServiceUUIDsKey: [service.uuid]])
         }
     }
 
