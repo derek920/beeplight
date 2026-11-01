@@ -69,12 +69,54 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        StillRunningNotice.terminating = true
+        return .terminateNow
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         ServerManager.shared.stop()
     }
 
-    // Closing the board keeps the app alive in the menu bar.
+    // Closing the board keeps the app alive in the menu bar; `StillRunningNotice` says so.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
+    }
+}
+
+/// Closing the board leaves the menu bar icon, the island and the service running, which looks
+/// like the close button failed to quit the app. The first close says where it went and how to
+/// quit, and offers to quit right there. Shown once.
+@MainActor
+enum StillRunningNotice {
+    private static let shownKey = "stillRunningNoticeShown"
+    static var terminating = false
+
+    /// Runs `then` right away, or once the notice is dismissed.
+    static func showOnce(then: @escaping () -> Void) {
+        guard DebugSnapshot.dir == nil, !UserDefaults.standard.bool(forKey: shownKey) else { return then() }
+        // Called from the board's onDisappear; let the window finish closing first. A timer, not
+        // DispatchQueue.main: a modal run inside a main-queue block holds back every other
+        // main-queue job (the SIGTERM handler, @MainActor tasks) until the alert is dismissed.
+        Timer.scheduledTimer(withTimeInterval: 0, repeats: false) { _ in
+            MainActor.assumeIsolated {
+                present()
+                then()
+            }
+        }
+    }
+
+    private static func present() {
+        guard !terminating else { return }
+        UserDefaults.standard.set(true, forKey: shownKey)
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Beeplight is still running")
+        alert.informativeText = Appearance.shared.config.island == .off
+            ? String(localized: "It stays in the menu bar to tell you when Claude needs you. Click the menu bar icon to open the board again. To quit, choose Quit Beeplight from the ⚙ menu.")
+            : String(localized: "It stays in the menu bar to tell you when Claude needs you. Click the menu bar icon to open the board again. To quit, choose Quit Beeplight from the ⚙ menu, or right-click the island.")
+        alert.addButton(withTitle: String(localized: "OK"))
+        alert.addButton(withTitle: String(localized: "Quit Beeplight"))
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertSecondButtonReturn { NSApp.terminate(nil) }
     }
 }

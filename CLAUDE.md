@@ -125,7 +125,7 @@ Mac 应用：
 
 格式规范见 `docs/packs.md`。内置包是 `public/` 下的 `themes.json`、`presets.json`、`characters.json`，共享解码在 `desktop/Sources/Packs.swift`，Mac 端的主题注册表和颜色映射在 `Themes.swift`。
 
-已经实现：包格式、5 个主题和 5 个预设改成内置包、Mac 应用和网页都从包里读主题和预设、形象走同一个宽松解码器、付费相关的字段和接口。还没做：下载签名包（只有 iPhone 应用会用到）。
+已经实现：包格式、内置主题和预设都是包（目前各 8 个，其中莓果奶霜、玫瑰暮色、奶糖的配色来自 Catppuccin 和 Rosé Pine，出处写在主题的 `credit` 里）、Mac 应用和网页都从包里读主题和预设、形象走同一个宽松解码器、付费相关的字段和接口。还没做：下载签名包（只有 iPhone 应用会用到）。
 
 网页的主题：服务端把 `themes.json`、`presets.json` 内嵌进首页（`<script id="packs">`，`src/transports/web.js`），所以首屏就是对的颜色。网页的主题菜单列的是预设，选择存在浏览器里（`prefs.skin`，存的是预设 id）。`app.js` 的 `applyPreset()` 把主题里的 `#RRGGBB` 颜色、`corner`、`scheme` 和 `web` 里的网页专用颜色写成 `:root` 上的 CSS 变量；系统色（`system:…`、`primary`）在 CSS 里没有对应，这些位置沿用页面自己的浅色、深色默认值，所以原生主题在网页上什么都不覆盖。装饰按特性生效，不按主题名：`data-font`、`data-glow`（`glow` ≥ 8 为 `strong`，和 Mac 画色块的门槛一致）、`data-effects`、`data-motion`（预设 `motion: off` 时停掉所有动画）。新加一种装饰：在 `ThemePack.knownEffects` 里登记，再在 `style.css` 里写 `:root[data-effects~='…']` 规则。
 
@@ -202,11 +202,12 @@ Mac 应用（`desktop/`）：
 - `Monitor.swift`：SSE 客户端（`URLSession.bytes.lines` 会丢掉空行，所以收到 `data:` 行就立刻处理）、通知触发、菜单栏徽章。它是 `@Observable`，写法上的约束见「开发约束 → 性能」。有任务执行时，菜单栏徽章每秒换 12 帧。
 - `LayerEffects.swift`：常驻动画（转圈、紧急卡片的呼吸发光、等待图标的脉冲）的 Core Animation 实现，由窗口服务器驱动，所有实例对齐到同一个相位。
 - `Board.swift` / `Panel.swift`：两套界面。
+- 关掉看板不退出 app：菜单栏图标、灵动岛和服务都还在，看起来像「点叉号退不出去」。所以第一次关看板时 `StillRunningNotice`（`App.swift`）弹一次说明，带「退出 Beeplight」按钮，看过的标记存在 UserDefaults 的 `stillRunningNoticeShown`。退出入口有三个：⚙ 菜单、看板打开时的 ⌘Q、右键灵动岛。弹窗用 `Timer` 排到下一轮再 `runModal`，不能放在 `DispatchQueue.main.async` 里：主队列的 block 里跑模态，弹窗开着的这段时间，其他主队列任务（SIGTERM 处理、`@MainActor` 任务）全部卡住。灵动岛的右键菜单由 `FirstMouseHostingView.rightMouseDown` 自己弹出：SwiftUI 的 `.contextMenu` 能用 `menu(for:)` 取到，但发到这块面板上的右键（用合成事件测的）不会把它弹出来。
 - `Glyphs.swift`：状态图标、时间轴和菜单栏渲染。
 - 菜单栏图标「看不见」有两种情况，先用 `CGWindowListCopyWindowInfo` 看 layer 25 的窗口：
-  - 窗口不在屏幕上（`kCGWindowIsOnscreen` 为假）：带刘海的 Mac 上菜单栏挤满了，排在最左边的图标会被系统藏起来。用 ⌘ 拖动图标，或者设置 `defaults write app.beeplight.mac "NSStatusItem Preferred Position Item-0" -float <离屏幕右边缘的距离>` 后重启 app。`BeeplightApp.init` 在这个键不存在时（首次启动）写入 400，让新用户的图标一开始就靠右。
+  - 窗口不在屏幕上（`kCGWindowIsOnscreen` 为假）：带刘海的 Mac 上菜单栏挤满了，排在最左边的图标会被系统藏起来。用 ⌘ 拖动图标，或者设置 `defaults write dev.beeplight.mac "NSStatusItem Preferred Position Item-0" -float <离屏幕右边缘的距离>` 后重启 app。`BeeplightApp.init` 在这个键不存在时（首次启动）写入 400，让新用户的图标一开始就靠右。
   - 窗口在屏幕上但看不见：图标颜色要看菜单栏自己的深浅（`MenuBarLook`，读 `NSStatusBarWindow` 的外观），不能看 app 的外观。浅色模式配深色壁纸时，菜单栏是深色的。
-- 改名：项目先叫 Claude Monitor（bundle ID `local.claude-monitor`，数据目录 `ClaudeMonitor`），后来叫 Tasklight（`app.tasklight.mac`，数据目录 `Tasklight`），都没有公开发布过。`Legacy.swift` 在 `BeeplightApp.init` 里最先执行，一次性把旧设置和数据目录搬过来，新名字的优先。网页端 `app.js` 开头也会把旧的 `tasklight-*`、`claude-monitor-*` localStorage 键搬过来。通知和自动化权限按 bundle ID 记，改名后系统会重新询问。bundle ID `app.beeplight.mac` 要和最终的域名对上，正式发布前确认。
+- 改名：项目先叫 Claude Monitor（bundle ID `local.claude-monitor`，数据目录 `ClaudeMonitor`），后来叫 Tasklight（`app.tasklight.mac`，数据目录 `Tasklight`），改名 Beeplight 后先用过 `app.beeplight.mac`，都没有公开发布过。现在的 bundle ID 是 `dev.beeplight.mac`，和域名 beeplight.dev 对应，发布后不要再改。`Legacy.swift` 在 `BeeplightApp.init` 里最先执行，一次性把旧设置和数据目录搬过来，新名字的优先。网页端 `app.js` 开头也会把旧的 `tasklight-*`、`claude-monitor-*` localStorage 键搬过来。通知、自动化权限和「登录时启动」都按 bundle ID 记，换 ID 后系统会重新询问，登录时启动要重新打开。
 - `Info.plist`：必须带 `NSAppleEventsUsageDescription`，否则由 app 拉起的 Node 调 osascript 控制 iTerm2 会被 TCC 静默拒绝。
 - 签名：默认 ad-hoc 签名，每次重新构建签名都会变，系统可能会重新询问通知和自动化权限。发布版见下面的「发布」。
 

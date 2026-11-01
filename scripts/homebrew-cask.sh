@@ -21,7 +21,7 @@ cask "beeplight" do
   url "https://github.com/$REPO/releases/download/v#{version}/Beeplight-#{version}.dmg"
   name "Beeplight"
   desc "Menu bar status light for Claude Code sessions"
-  homepage "https://github.com/$REPO"
+  homepage "https://beeplight.dev"
 
   livecheck do
     url :url

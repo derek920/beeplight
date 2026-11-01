@@ -48,6 +48,33 @@
       "menuBar": "dot",
       "island": "off",
       "motion": "off"
+    },
+    {
+      "id": "berry",
+      "name": { "en": "Berry Cream", "zh-Hans": "莓果奶霜" },
+      "blurb": { "en": "Soft pastels on deep blue-gray, rounded", "zh-Hans": "深蓝灰底配柔和马卡龙色，圆体字" },
+      "theme": "berry",
+      "menuBar": "capsules",
+      "island": "notch",
+      "motion": "soft"
+    },
+    {
+      "id": "rose",
+      "name": { "en": "Rosé Dusk", "zh-Hans": "玫瑰暮色" },
+      "blurb": { "en": "Muted rose and gold, serif titles", "zh-Hans": "低饱和玫瑰与金，衬线字体" },
+      "theme": "rose",
+      "menuBar": "radar",
+      "island": "notch",
+      "motion": "soft"
+    },
+    {
+      "id": "latte",
+      "name": { "en": "Milk Candy", "zh-Hans": "奶糖" },
+      "blurb": { "en": "Light and airy, a pink edge on cards", "zh-Hans": "浅色清爽，卡片带一圈淡粉描边" },
+      "theme": "latte",
+      "menuBar": "capsules",
+      "island": "floating",
+      "motion": "full"
     }
   ]
 }
