@@ -166,8 +166,12 @@ const ZH = {
   'Full path to the codex executable, used to resume a closed terminal session. Empty finds it on PATH and in the usual install folders.':
     'codex 可执行文件的完整路径，用来恢复已关闭的终端会话。留空会从 PATH 和常见安装目录里查找。',
   'Codex check interval (s)': 'Codex 检查间隔（秒）',
-  'How often to look for the Codex threads that are open in the ChatGPT app or a terminal. 0 turns off Codex monitoring.':
-    '多久查一次 ChatGPT app 或终端里打开着的 Codex 任务。设为 0 关闭 Codex 监控。',
+  'How often to look for the Codex threads that are open in the ChatGPT app or a terminal.': '多久查一次 ChatGPT app 或终端里打开着的 Codex 任务。',
+  'Monitor Codex': '监控 Codex',
+  "Show tasks from Codex (the ChatGPT app's and the codex CLI's) on the board. Off: nothing in ~/.codex is read, and Codex tasks leave the board.":
+    '在看板上显示 Codex 的任务（ChatGPT app 里的和 codex 命令行的）。关闭后不再读取 ~/.codex 里的任何内容，Codex 任务也从看板上移走。',
+  On: '开',
+  Off: '关',
   'Codex threads followed': '最多跟踪的 Codex 任务数',
   'At most this many open Codex threads are followed, the newest first.': '最多跟踪这么多个打开着的 Codex 任务，新的优先。',
   'Web search': '网页搜索',

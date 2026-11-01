@@ -176,9 +176,15 @@ export const PARAMS = [
   },
 
   {
-    key: 'codex.scanSec', type: 'number', default: 2, min: 0, max: 60,
+    key: 'codex.monitor', type: 'choice', default: 'on',
+    choices: [{ value: 'on', label: 'On' }, { value: 'off', label: 'Off' }],
+    label: 'Monitor Codex',
+    help: "Show tasks from Codex (the ChatGPT app's and the codex CLI's) on the board. Off: nothing in ~/.codex is read, and Codex tasks leave the board.",
+  },
+  {
+    key: 'codex.scanSec', type: 'number', default: 2, min: 0.5, max: 60,
     label: 'Codex check interval (s)',
-    help: 'How often to look for the Codex threads that are open in the ChatGPT app or a terminal. 0 turns off Codex monitoring.',
+    help: 'How often to look for the Codex threads that are open in the ChatGPT app or a terminal.',
   },
   {
     key: 'codex.maxThreads', type: 'int', default: 40, min: 1, max: 500,

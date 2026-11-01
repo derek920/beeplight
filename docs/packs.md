@@ -1,6 +1,6 @@
 # Packs
 
-Themes, presets and characters are data, not code. Each comes in a pack: one JSON file that the
+Themes, presets, characters and agent marks are data, not code. Each comes in a pack: one JSON file that the
 Mac app, the web page and the iPhone app can all read. Adding a theme, a preset or a character is
 an edit to a pack file; no app code changes.
 
@@ -11,6 +11,7 @@ The built-in packs are in `public/`:
 | `themes.json` | `themes` | Colors and finish of the board, the menu bar panel and the island |
 | `presets.json` | `presets` | A theme, a menu bar style, the island and motion picked together |
 | `characters.json` | `characters` | The idle face: line drawings and text art |
+| `agents.json` | `agents` | The mark before each task's title, one per coding agent |
 
 Rules that hold for every pack:
 
@@ -39,7 +40,7 @@ Rules that hold for every pack:
 
 - `format`: bumped only for a change older apps cannot read; they skip a file with a newer format.
 - `id`: the pack's own id. Built-in packs start with `beeplight.`.
-- `kind`: `themes`, `presets`, `characters` or `pools`. The items are in the field of the same name.
+- `kind`: `themes`, `presets`, `characters`, `agents` or `pools`. The items are in the field of the same name.
 - `_about` (optional): a note for people editing the file.
 
 ## Fields every item has
@@ -144,6 +145,16 @@ A value the app does not know falls back to its default; a theme it does not hav
 The fields of a line drawing or a text-art character are described in the `_about` note of
 `characters.json`. Characters take the common fields above, so a paid character is an entry with
 `requires`, `rarity` and `series`.
+
+## Agent marks
+
+`agents.json` has one mark per coding agent, drawn before task titles on the board, in the menu bar
+panel, on the island and on the web page, so tasks from different agents tell apart at a glance.
+An entry's `id` is the agent id the service puts on each task (`claude-code`, `codex`; a task
+without one is Claude Code's). `color` follows the color rules above; `box` is `[width, height]`
+and `paths` are filled SVG paths in it (M L H V C Q Z, no arcs). The built-in marks are original
+shapes, not the agents' logos, which are their makers' trademarks. A new agent source needs an
+entry here; `test/packs.test.js` checks that every source has one.
 
 ## Draw pools
 

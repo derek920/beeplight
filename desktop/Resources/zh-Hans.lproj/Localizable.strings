@@ -72,7 +72,6 @@
 "Succeeded" = "成功";
 "Failed" = "失败"; /* also Panel.swift */
 "Every coding agent session on this Mac · Click a card to jump to its window" = "本机所有编程 agent 的会话 · 点击卡片跳到对应窗口";
-"The coding agent this task runs in" = "这个任务所在的编程 agent";
 "Waiting" = "需要你"; /* also Panel.swift */
 "Done" = "完成"; /* also Panel.swift */
 "%lld new" = "%lld 新"; /* also Panel.swift */

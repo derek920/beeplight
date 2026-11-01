@@ -167,6 +167,7 @@ private struct PanelRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     if item.unread == true { UnreadDot(size: 7) }
+                    AgentMarkView(agent: item.agent, size: 12)
                     Text(item.title).font(.system(size: 13, weight: item.unread == true ? .bold : .semibold)).lineLimit(1)
                     Spacer(minLength: 4)
                     Ticking(monitor) { now in
@@ -196,7 +197,7 @@ private struct PanelRow: View {
     private var subtitle: String {
         let detail = item.detail ?? ""
         let text = item.phase == .doing ? (detail.isEmpty ? item.label : detail) : (detail.isEmpty ? item.label : "\(item.label) · \(detail)")
-        return ([item.remote?.label, item.agentBadge].compactMap { $0 } + [text]).joined(separator: " · ")
+        return item.remote.map { "\($0.label) · \(text)" } ?? text
     }
 }
 

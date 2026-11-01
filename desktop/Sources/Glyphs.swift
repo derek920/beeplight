@@ -459,3 +459,38 @@ struct MenuBarLabel: View {
             .onAppear { WindowOpener.board = { openWindow(id: "board") } }
     }
 }
+
+// MARK: - agent marks
+
+/// The agent marks from public/agents.json, which the app bundles with the service, by agent id.
+enum AgentMarks {
+    static let all: [String: AgentMark] = {
+        guard let url = Bundle.main.resourceURL?.appending(path: "server/public/agents.json") else { return [:] }
+        let marks = Packs.available(Packs.load(AgentMark.self, from: url), NoPurchases())
+        return Dictionary(marks.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    }()
+
+    /// The mark of a task's agent. Tasks from a service older than agent ids are Claude Code's.
+    static func of(_ agent: String?) -> AgentMark? {
+        all[agent ?? "claude-code"]
+    }
+}
+
+/// A task's agent mark, set before its title so tasks from different agents tell apart at a glance.
+/// Sits on the title's baseline when placed in a `.firstTextBaseline` stack.
+struct AgentMarkView: View {
+    let agent: String?
+    var size: CGFloat = 13
+
+    var body: some View {
+        if let mark = AgentMarks.of(agent) {
+            let name = mark.name.localized(Bundle.main.preferredLocalizations.first ?? "en") ?? mark.id
+            mark.path(size: size)
+                .fill(mark.color.color)
+                .frame(width: size, height: size)
+                .alignmentGuide(.firstTextBaseline) { d in d[.bottom] - d.height * 0.1 }
+                .help(name)
+                .accessibilityLabel(name)
+        }
+    }
+}

@@ -24,6 +24,8 @@ const TRANSCRIPT_PROBE_MS = 2000;
  *   caps                   { limits, cpu }: whether its activity drives Claude limit probes, and
  *                          which share of the CPU meter its processes count toward ('claude' | 'codex')
  *   owns(sid)              whether a task id is one of its own
+ *   enabled?()             false while the user has switched this agent off (e.g. codex.monitor):
+ *                          its tasks leave the board at once
  *   poll(now, ps)          every tick, cheap: Map<sid, live entry> in the registry-entry shape
  *                          { pid, cwd, status: busy|waiting|idle, waitingFor, needs, statusUpdatedAt,
  *                          startedAt, entrypoint, hostSessionId, name, nameSource, sharedHost }
@@ -151,6 +153,7 @@ export class Collector extends EventEmitter {
       const live = new Set();
       const livePids = new Set();
       for (const source of this.sources) {
+        if (source.enabled?.() === false) this.dropTasks(source);
         for (const [sid, reg] of source.poll(now, this.ps)) {
           let s = this.sessions.get(sid);
           if (!s) {
@@ -200,6 +203,11 @@ export class Collector extends EventEmitter {
       this.lastErrorAt = now;
     }
     this.lastTickMs = performance.now() - t0;
+  }
+
+  // An agent the user switched off: its tasks go, not into Done as closed.
+  dropTasks(source) {
+    for (const [sid, s] of this.sessions) if (s.source === source) this.sessions.delete(sid);
   }
 
   // Tasks without a process (Claude's `--bg` jobs), from every source that has them.

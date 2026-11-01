@@ -252,7 +252,8 @@ extension TaskItem {
 
     var isLive: Bool { live ?? false }
 
-    /// A badge naming the agent, shown on tasks that aren't Claude Code's.
+    /// The agent's name for text-only places (notifications), on tasks that aren't Claude Code's;
+    /// lists show its mark instead (AgentMarkView).
     var agentBadge: String? {
         guard let agent, agent != "claude-code" else { return nil }
         return agentName ?? agent

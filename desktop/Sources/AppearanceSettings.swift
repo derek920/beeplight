@@ -78,6 +78,11 @@ struct AppearanceSettingsView: View {
         .frame(width: 890, height: 640)
         .background(ThemedBackdrop().ignoresSafeArea())
         .themedPage()
+        // The toolbar's glass picks each tab's text color from what lies under it. Over a dark
+        // theme's backdrop it got that wrong for the Advanced tab alone (dark on dark, invisible).
+        // A toolbar scheme of its own gives the bar its usual solid look, the same as on the other
+        // tabs, with every tab legible.
+        .toolbarColorScheme(Theme.palette.scheme, for: .windowToolbar)
         .id(appearance.revision)
     }
 

@@ -32,7 +32,7 @@ It has a SwiftUI menu bar app and a web board. Both show the same live data, in 
 - **Your other Macs**: their tasks on your board too, through a relay you run yourself, end-to-end encrypted.
 - **Subagents and background sessions**: subagents show under their parent session, and `claude --bg` sessions are tracked too.
 - **CPU use**: how busy the Mac is, and how much of that is Claude Code and how much is Beeplight itself.
-- **Codex too**: Codex tasks from the ChatGPT app and the `codex` CLI show on the same board with a Codex badge, and open in the app or their terminal. Other agents can be added the same way.
+- **Codex too**: Codex tasks from the ChatGPT app and the `codex` CLI show on the same board, each title marked with its agent (an orange C for Claude Code, a blue >_ for Codex), and open in the app or their terminal. Other agents can be added the same way.
 
 ## Requirements
 
@@ -157,7 +157,7 @@ Without Claude Code, Codex writes the titles and verdicts instead (`codex exec -
 
 Sessions that never received a request, and sessions that have been quiet for more than 12 hours, are hidden, unless they are running or waiting for a permission.
 
-**Codex.** Beeplight reads the thread records Codex keeps in `~/.codex`. A thread is open while the ChatGPT app or a `codex` CLI holds it. A turn that started and hasn't finished is **Doing**; one that finished, was interrupted or failed is **Done**, with the verdict as above. Codex does not record when it stops to ask for your approval, so Beeplight infers it: a command that asks to leave the sandbox and has no result yet shows as **Waiting**, with the reason Codex gave.
+**Codex.** Beeplight reads the thread records Codex keeps in `~/.codex`. A thread is open while the ChatGPT app or a `codex` CLI holds it. A turn that started and hasn't finished is **Doing**; one that finished, was interrupted or failed is **Done**, with the verdict as above. Codex does not record when it stops to ask for your approval, so Beeplight infers it: a command that asks to leave the sandbox and has no result yet shows as **Waiting**, with the reason Codex gave. To leave Codex out, set **Settings → Advanced → Monitor Codex** to **Off** (`codex.monitor`); nothing in `~/.codex` is read then.
 
 ## Unread finishes
 

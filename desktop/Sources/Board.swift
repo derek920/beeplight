@@ -275,10 +275,13 @@ struct TaskCard: View {
                 }
             }
 
-            Text(item.title)
-                .font(.system(size: 14.5, weight: .semibold))
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                AgentMarkView(agent: item.agent, size: 14)
+                Text(item.title)
+                    .font(.system(size: 14.5, weight: .semibold))
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if let goal = item.goal, !goal.isEmpty {
                 Text(goal)
                     .font(.system(size: 12))
@@ -341,7 +344,6 @@ struct TaskCard: View {
 
             HStack(spacing: 5) {
                 if let r = item.remote { Chip(text: r.label, tint: r.online ? Theme.doing : nil).help("Runs on another device; synced through your relay") }
-                if let a = item.agentBadge { Chip(text: a).help("The coding agent this task runs in") }
                 Chip(text: item.project ?? "—").help(item.cwd ?? "")
                 Chip(text: item.hostText)
                 if item.stopped == true { Chip(text: String(localized: "Suspended"), tint: Theme.waiting).help("The process is suspended (Ctrl+Z); type fg in its terminal to resume") }

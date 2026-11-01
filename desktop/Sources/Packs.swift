@@ -4,8 +4,9 @@ import SwiftUI
 // separate, closed-source project that can compile this file), so only SwiftUI here, no AppKit;
 // turning a PackColor into a Color is up to each app. The format is described in docs/packs.md.
 //
-// A pack file is { "format": 1, "id": ..., "kind": "themes" | "presets" | "characters" | "pools",
-// "<kind>": [items] }. The built-in ones are public/themes.json, presets.json and characters.json.
+// A pack file is { "format": 1, "id": ..., "kind": "themes" | "presets" | "characters" | "agents" |
+// "pools", "<kind>": [items] }. The built-in ones are public/themes.json, presets.json,
+// characters.json and agents.json. Agent marks draw with SVGPath, so they also need Figure.swift.
 
 enum Packs {
     /// Files with a newer format than this are skipped; within a format, new fields are optional.
@@ -62,6 +63,28 @@ protocol PackItem: Decodable {
 
 extension Figure: PackItem {
     static let kind = "characters"
+}
+
+/// A coding agent's mark, drawn before task titles (public/agents.json). Filled SVG paths in a
+/// `box`, in `color`; `id` is the task's `agent`. Drawing uses SVGPath from Figure.swift.
+struct AgentMark: PackItem {
+    static let kind = "agents"
+    let id: String
+    let requires: String?
+    let name: LocalizedText
+    let color: PackColor
+    let box: [Double]
+    let paths: [String]
+
+    /// Paths scaled to fit a square of `size`, centered.
+    func path(size: CGFloat) -> Path {
+        let w = box.first ?? 16, h = box.count > 1 ? box[1] : w
+        let s = size / max(w, h)
+        let t = CGAffineTransform(translationX: (size - w * s) / 2, y: (size - h * s) / 2).scaledBy(x: s, y: s)
+        var p = Path()
+        for d in paths { p.addPath(SVGPath.parse(d), transform: t) }
+        return p
+    }
 }
 
 private struct PackFile<Item: PackItem>: Decodable {

@@ -546,8 +546,11 @@ struct IslandView: View {
                         if item.unread == true { UnreadDot(size: 6) }
                         StatusGlyph(phase: item.phase, urgent: monitor.isUrgent(item), size: 15)
                         VStack(alignment: .leading, spacing: 1) {
-                            Text(item.title).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
-                            Text(([item.agentBadge] + [item.detail?.isEmpty == false ? item.detail! : item.label]).compactMap { $0 }.joined(separator: " · "))
+                            HStack(alignment: .firstTextBaseline, spacing: 5) {
+                                AgentMarkView(agent: item.agent, size: 11.5)
+                                Text(item.title).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
+                            }
+                            Text(item.detail?.isEmpty == false ? item.detail! : item.label)
                                 .font(.system(size: 10.5))
                                 .foregroundStyle(.white.opacity(0.55))
                                 .lineLimit(1)

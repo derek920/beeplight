@@ -161,6 +161,6 @@ test('thread names, restore after a restart, and switching Codex off', () => {
   assert.equal(src.owns(s.sid), true);
   assert.equal(src.owns('11111111-1111-4111-8111-111111111111'), false);
 
-  const off = new CodexSource({ dir, config: new Config({ file: null, env: { BEEPLIGHT_CODEX_SCAN_SEC: '0' } }) });
+  const off = new CodexSource({ dir, config: new Config({ file: null, env: { BEEPLIGHT_CODEX_MONITOR: 'off' } }) });
   assert.equal(off.poll(NOW, new Map()).size, 0);
 });

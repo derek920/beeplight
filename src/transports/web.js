@@ -10,6 +10,7 @@ const FILES = {
   '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
   '/i18n.js': ['i18n.js', 'text/javascript; charset=utf-8'],
   '/characters.json': ['characters.json', 'application/json; charset=utf-8'],
+  '/agents.json': ['agents.json', 'application/json; charset=utf-8'],
   '/style.css': ['style.css', 'text/css; charset=utf-8'],
   '/icons/apple-touch-icon.png': ['icons/apple-touch-icon.png', 'image/png'],
   '/icons/icon-192.png': ['icons/icon-192.png', 'image/png'],

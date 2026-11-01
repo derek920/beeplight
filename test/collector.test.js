@@ -507,4 +507,12 @@ test('a Codex thread joins the board as its own agent, next to Claude', () => {
   assert.deepEqual(collector.focusPlan(id).steps, [{ do: 'host' }]);
   // Codex activity doesn't spend Claude limit probes.
   assert.equal(collector.recentlyActive(Date.now()), false);
+
+  // Switched off, its tasks leave the board at once (not as closed cards); back on, they return.
+  collector.config.set({ 'codex.monitor': 'off' });
+  collector.tick();
+  assert.equal(collector.snapshot.sessions.some((x) => x.agent === 'codex'), false);
+  collector.config.set({ 'codex.monitor': 'on' });
+  collector.tick();
+  assert.equal(collector.snapshot.sessions.find((x) => x.id === id)?.state, 'doing');
 });
