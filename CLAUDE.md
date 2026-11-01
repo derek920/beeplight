@@ -117,6 +117,7 @@ Mac 应用：
 - 用到的时候才调用 `config.get(key)`，不要在模块加载时把值存成常量，否则改了不会生效。定时器用 `config.every(key, 倍数, fn)`，间隔一改就自动重新计时。
 - `restart: true` 只给确实无法热更新的参数（目前只有端口）。
 - 校验只在 schema 里做一处：客户端把输入原样提交，由服务端校验并返回错误。
+- 类型有 `int`、`number`、`string` 和 `choice`。`choice` 只能取 `choices` 里列出的值，每个选项带标签（同样要在 i18n 里补中文）；「高级」页把它画成分段选择器，其他类型画成文本框。
 - 不放进配置的：别的程序依赖的约定（meta 每秒推一次，是 Mac 端判断连接是否断开的心跳；同步相关的时间要在所有设备上一致），以及解析细节。
 - 测试里用 `new Config({ file: null, env: {} })`，不读本机的配置文件和环境变量。
 - 客户端自己的偏好（外观、通知开关、语言）不属于服务端配置：Mac 存在 UserDefaults，网页存在 localStorage。UserDefaults 的解码要手写容错，缺少的字段用默认值（见「外观」）。
@@ -163,6 +164,7 @@ LLM 总结（`src/services/summarizer.js`）：
 - 调用方式：`claude -p --model haiku --tools "" --setting-sources "" --no-session-persistence --json-schema …`，cwd 是空目录 `data/llm-cwd`。不能用 `--bare`，因为它不读 OAuth。子进程也会在 registry 里注册（`entrypoint: sdk-cli`），靠 `ownPids` 过滤掉。
 - 去重键：`endKey(a) = <本轮首条 prompt uuid>@<最新时间线时间戳>`。Claude 在同一轮里恢复工作后（例如收到后台任务通知）键会变，旧判定随之失效；会话关闭后则沿用这一轮最后一次判定。
 - 失败处理：连续失败全局指数退避（30 秒到 10 分钟），失败记录带 `retryAfter`，到点由 Collector 重新请求。
+- 关闭总结：参数 `summarizer.titles`（`ai` | `original`）。为 `original` 时 `Collector` 不排队也不 pump 总结器，`summaryOf()` 忽略已存的总结，标题走 `buildView()` 里原有的回退链（自定义名 → 后台任务名 → Claude Code 的 ai-title → registry 名 → 最近一条消息）；`deriveStatus({ verdicts: false })` 让一轮结束直接算成功，不带 `pending`。meta 的 `titles` 告诉客户端隐藏「重新总结」按钮和页脚的总结统计。额度探测不受影响。
 - 持久化：结果存在 `data/state.json`（`src/core/store.js`），同时保存已结束会话的视图。重启后 `restoreEnded()` 会把这些会话重新挂上 transcript，而不是展示冻结的快照。
 - 保留期限：标题和判定、状态轨迹、移除记录最长保留 `store.keepDays` 天（默认 30，上限也是 30）；只在看板上用的已结束视图和未读标记按 `collector.retainHours`，同样不超过这个上限；设置项（flags）不清理。启动时、每小时、改了这两个参数时，以及「高级」页点「立即清理」（`POST /api/store/prune`，只限本机）时都会清理，最后一种会马上写盘并返回文件大小。
 

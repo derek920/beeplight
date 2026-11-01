@@ -39,6 +39,13 @@ struct ConfigParam: Decodable, Identifiable, Equatable {
     var env: String?
     var restart: Bool
     var restartPending: Bool
+    /// For type "choice": the allowed values with their labels.
+    var choices: [Choice]?
+
+    struct Choice: Decodable, Equatable {
+        var value: String
+        var label: String
+    }
 
     var id: String { key }
 }
@@ -242,14 +249,24 @@ struct AdvancedSettingsView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             VStack(alignment: .trailing, spacing: 3) {
-                TextField(defaultText(p), text: draft(p))
-                    .textFieldStyle(.roundedBorder)
-                    .multilineTextAlignment(p.type == "string" ? .leading : .trailing)
-                    .font(.system(size: 12).monospacedDigit())
-                    .frame(width: p.type == "string" ? 240 : 90)
-                    .focused($focused, equals: p.key)
-                    .onSubmit { commit(p.key) }
+                if let choices = p.choices {
+                    Picker("", selection: Binding(get: { p.configured.text }, set: { v in Task { await config.set(p.key, v) } })) {
+                        ForEach(choices, id: \.value) { Text($0.label).tag($0.value) }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
                     .disabled(p.source == "env")
+                } else {
+                    TextField(defaultText(p), text: draft(p))
+                        .textFieldStyle(.roundedBorder)
+                        .multilineTextAlignment(p.type == "string" ? .leading : .trailing)
+                        .font(.system(size: 12).monospacedDigit())
+                        .frame(width: p.type == "string" ? 240 : 90)
+                        .focused($focused, equals: p.key)
+                        .onSubmit { commit(p.key) }
+                        .disabled(p.source == "env")
+                }
                 note(p)
             }
         }
@@ -293,7 +310,8 @@ struct AdvancedSettingsView: View {
     }
 
     private func defaultText(_ p: ConfigParam) -> String {
-        p.default.text.isEmpty ? String(localized: "Automatic") : p.default.text
+        if let c = p.choices?.first(where: { $0.value == p.default.text }) { return c.label }
+        return p.default.text.isEmpty ? String(localized: "Automatic") : p.default.text
     }
 
     private func draft(_ p: ConfigParam) -> Binding<String> {

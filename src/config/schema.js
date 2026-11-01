@@ -7,6 +7,7 @@
 // in src/lib/i18n.js).
 //
 // - The unit is part of the key (`…Ms`, `…Sec`, `…Minutes`, `…Hours`, `…MB`).
+// - Types: int, number, string, and choice (one of `choices`, shown as a segmented control).
 // - Each parameter can be set from the environment as BEEPLIGHT_<KEY IN UPPER SNAKE CASE>, e.g.
 //   BEEPLIGHT_COLLECTOR_TICK_MS; `aliases` are older names that keep working.
 // - `restart: true` is read once at startup; everything else applies within a second or so.
@@ -62,6 +63,12 @@ export const PARAMS = [
     help: 'Task titles, results, timelines and removed tasks older than this are deleted, checked every hour. 30 days at most.',
   },
 
+  {
+    key: 'summarizer.titles', type: 'choice', default: 'ai',
+    choices: [{ value: 'ai', label: 'AI summary' }, { value: 'original', label: 'Original' }],
+    label: 'Titles',
+    help: "AI summary: the summary model names each task's goal and judges how each turn ended. Original: the session's own name, or your latest message; nothing is sent for summaries, and a finished turn counts as done without a verdict.",
+  },
   {
     key: 'summarizer.model', type: 'string', default: 'haiku', pattern: /^[\w.:[\]-]{1,64}$/, aliases: ['BEEPLIGHT_MODEL'],
     label: 'Summary model',

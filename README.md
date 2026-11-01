@@ -150,7 +150,7 @@ You don't need the LaunchAgent if you use the Mac app.
 
 Beeplight reads Claude Code's own session files, so it does not install hooks or change your Claude Code settings.
 
-Titles and verdicts come from Claude Haiku. Beeplight sends it the recent conversation through Claude Code's headless mode (`claude -p --model haiku`), using your Claude Code login. On a Claude subscription this counts toward your plan's usage limits and is not billed separately; with an Anthropic Console login or API key it is billed at API prices, about $0.001 per call. It summarizes once when a turn starts and once when it ends, and every 5 minutes during long turns. See [Privacy](#privacy) for what this sends.
+Titles and verdicts come from Claude Haiku. Beeplight sends it the recent conversation through Claude Code's headless mode (`claude -p --model haiku`), using your Claude Code login. On a Claude subscription this counts toward your plan's usage limits and is not billed separately; with an Anthropic Console login or API key it is billed at API prices, about $0.001 per call. It summarizes once when a turn starts and once when it ends, and every 5 minutes during long turns. See [Privacy](#privacy) for what this sends. To turn summaries off, set **Settings → Advanced → Titles** to **Original**: cards then show the session's own name (or your latest message), and a finished turn counts as done without a verdict.
 
 Sessions that never received a request, and sessions that have been quiet for more than 12 hours, are hidden, unless they are running or waiting for a permission.
 
@@ -234,7 +234,7 @@ Pick where you host the relay with your data policies in mind: the contents are 
 Beeplight runs entirely on your Mac. It has no accounts, telemetry, analytics or update checks.
 
 - **What it reads**: Claude Code's files under `~/.claude` (`sessions/`, the transcripts in `projects/`, and `jobs/`), plus the process list. It only reads them.
-- **What leaves your Mac**: to write titles and verdicts, Beeplight sends an excerpt of each session's recent conversation to Claude Haiku through your own `claude` CLI login. It goes to Anthropic the same way your Claude Code sessions do, and it counts toward your usage. The limit probes are tiny requests through the same login. There is no switch for summaries yet; one is planned.
+- **What leaves your Mac**: to write titles and verdicts, Beeplight sends an excerpt of each session's recent conversation to Claude Haiku through your own `claude` CLI login. It goes to Anthropic the same way your Claude Code sessions do, and it counts toward your usage. The limit probes are tiny requests through the same login. Setting **Titles** to **Original** (Settings → Advanced, or `BEEPLIGHT_SUMMARIZER_TITLES=original`) stops summaries, so nothing is sent for them.
 - **What it stores**: titles, verdicts, timelines and settings, in `~/Library/Application Support/Beeplight` (or `./data` when you run `npm start`). History is kept for 30 days at most; Settings → Advanced can shorten that or clean up right away.
 - **Network**: the service listens only on `127.0.0.1` and checks every request's `Host` header. Phone access is off until you turn it on; see [Phone access](#phone-access-lan).
 

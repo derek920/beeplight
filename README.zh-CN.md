@@ -186,7 +186,7 @@ npm run service:status    # 查看状态；service:restart / service:uninstall
 | **Done ✓** | 这一轮做完了 | 本轮结束，结果判定为已交付 |
 | **Done ✗** | 这一轮没成功 | API 报错、被你中断、执行到一半会话被关、或者结果判定为没完成 |
 
-「结果判定」和卡片标题由 Haiku 根据最近的对话总结，走 Claude Code 的无界面模式（`claude -p --model haiku`），用你的 Claude Code 登录。用 Claude 订阅登录时计入套餐额度，不单独收费；用 Anthropic Console 账号或 API key 时按 API 价格计费，每次约 $0.001。标题描述会话**当前**在做的核心任务，不是会话开头的那句话。每一轮开始和结束各总结一次，长时间运行的轮次每 5 分钟刷新一次。
+「结果判定」和卡片标题由 Haiku 根据最近的对话总结，走 Claude Code 的无界面模式（`claude -p --model haiku`），用你的 Claude Code 登录。用 Claude 订阅登录时计入套餐额度，不单独收费；用 Anthropic Console 账号或 API key 时按 API 价格计费，每次约 $0.001。标题描述会话**当前**在做的核心任务，不是会话开头的那句话。每一轮开始和结束各总结一次，长时间运行的轮次每 5 分钟刷新一次。不想调用总结时，把「设置 → 高级 → 标题」改成「原文」：卡片显示会话本身的名字（没有名字时用你最近一条消息），一轮结束就算完成，不做判定。
 
 从没收到过请求的空会话、以及超过 12 小时没有动静的会话不显示（执行中和等待授权的除外）。
 
@@ -232,7 +232,7 @@ relay.example.com {
 Beeplight 完全在本机运行，没有账号、遥测、统计或更新检查。
 
 - **读取什么**：`~/.claude` 下 Claude Code 自己的文件（`sessions/`、`projects/` 里的 transcript、`jobs/`），以及进程列表。只读，不装 hook，也不改 Claude Code 的设置。
-- **什么会离开本机**：为了生成标题和结果判定，Beeplight 会把每个会话最近对话的摘录，通过你自己的 `claude` CLI 登录发给 Claude Haiku。它和你平时用 Claude Code 一样发到 Anthropic，也会计入你的用量。额度探测是同一登录下的极小请求。总结目前还不能关闭，开关在计划中。
+- **什么会离开本机**：为了生成标题和结果判定，Beeplight 会把每个会话最近对话的摘录，通过你自己的 `claude` CLI 登录发给 Claude Haiku。它和你平时用 Claude Code 一样发到 Anthropic，也会计入你的用量。额度探测是同一登录下的极小请求。把「标题」改成「原文」（「设置 → 高级」，或 `BEEPLIGHT_SUMMARIZER_TITLES=original`）就不再总结，也就不会为此发送任何内容。
 - **存了什么**：标题、判定、状态轨迹和设置，在 `~/Library/Application Support/Beeplight`（`npm start` 时在 `./data`）。历史数据最长保留 30 天，可以在设置 → 高级里调短，或立即清理。
 - **网络**：服务只监听 `127.0.0.1`，并校验每个请求的 `Host` 头。手机访问默认关闭，见上面的「手机访问」。
 

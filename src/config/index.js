@@ -68,6 +68,10 @@ export class Config extends EventEmitter {
     }
     if (typeof raw !== 'string' && typeof raw !== 'number') return { error: t('must be text') };
     const v = String(raw).trim();
+    if (p.type === 'choice') {
+      if (!p.choices.some((c) => c.value === v)) return { error: t('must be one of {list}', { list: p.choices.map((c) => c.value).join(', ') }) };
+      return { value: v };
+    }
     if (p.maxLength && v.length > p.maxLength) return { error: t('must be at most {n} characters', { n: p.maxLength }) };
     if (p.pattern && !p.pattern.test(v)) return { error: t('has characters that are not allowed') };
     return { value: v };
@@ -237,6 +241,7 @@ export class Config extends EventEmitter {
           min: p.min ?? null,
           max: p.max ?? null,
           maxLength: p.maxLength ?? null,
+          choices: p.choices?.map((c) => ({ value: c.value, label: t(c.label) })) ?? null,
           source: env ? 'env' : p.key in this.saved ? 'file' : 'default',
           env,
           envNames: [envName(p.key), ...(p.aliases || [])],

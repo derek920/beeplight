@@ -44,9 +44,10 @@ export function matchingEndSummary(summary, a, live) {
  * @param {object}  [s.job]      background job state
  * @param {object}  [s.a]        transcript analysis
  * @param {object}  [s.summary]  latest LLM summary for the session
+ * @param {boolean} [s.verdicts] false when no LLM verdict will come (summarizer.titles = original)
  * @param {number}  [s.runningAgents]
  */
-export function deriveStatus({ live, reg, lastRegStatus, job, a, summary, runningAgents = 0 }) {
+export function deriveStatus({ live, reg, lastRegStatus, job, a, summary, verdicts = true, runningAgents = 0 }) {
   const pending = a ? lastPendingTool(a) : null;
 
   if (live && reg?.status === 'waiting') {
@@ -112,13 +113,14 @@ export function deriveStatus({ live, reg, lastRegStatus, job, a, summary, runnin
         return { state: 'done', outcome: 'success', label: t('Done'), detail, since };
     }
   }
-  // No verdict yet (summary in flight, or the summarizer failed).
+  // No verdict yet (summary in flight, or the summarizer failed), or none coming (original titles).
+  const waiting = !verdict && verdicts;
   return {
     state: 'done',
     outcome: 'success',
     label: t('Done'),
-    detail: verdict ? oneLine(plainText(a.lastReply?.text), 120) : t('Checking the result…'),
+    detail: waiting ? t('Checking the result…') : oneLine(plainText(a.lastReply?.text), 120),
     since,
-    pending: !verdict,
+    pending: waiting,
   };
 }

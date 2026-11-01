@@ -83,6 +83,18 @@ test('set saves only what differs from the default, all or nothing', () => {
   assert.throws(() => c.get('nope'), /unknown config key/);
 });
 
+test('a choice takes only its listed values and describes them', () => {
+  const c = make({ env: { BEEPLIGHT_SUMMARIZER_TITLES: 'original' } });
+  assert.equal(c.get('summarizer.titles'), 'original');
+  const d = make();
+  assert.equal(d.get('summarizer.titles'), 'ai');
+  assert.match(d.set({ 'summarizer.titles': 'short' }).errors['summarizer.titles'], /one of ai, original/);
+  assert.deepEqual(d.set({ 'summarizer.titles': 'original' }).changed, ['summarizer.titles']);
+  const p = d.describe().params.find((x) => x.key === 'summarizer.titles');
+  assert.deepEqual(p.choices, [{ value: 'ai', label: 'AI summary' }, { value: 'original', label: 'Original' }]);
+  assert.equal(d.describe().params.find((x) => x.key === 'summarizer.model').choices, null);
+});
+
 test('restart-only parameters keep their startup value', () => {
   const file = tmpFile();
   const c = make({ file });
