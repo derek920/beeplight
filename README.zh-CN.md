@@ -11,9 +11,7 @@
 每秒检查 3 次，把会话分成 **Doing**（执行中）、**Waiting**（等你）和 **Done**（已完成），点卡片直达任务所在的窗口。提交任务后就可以去做别的事，Claude 需要你或者做完了，菜单栏会告诉你。有 Mac 应用和网页两种界面，数据相同。界面跟随系统语言显示英文或简体中文，任务标题也跟随 Mac 的语言。想让 Beeplight 单独用某种语言，在 app 的「设置 → 通用」里选（和「系统设置 → 通用 → 语言与地区 → 应用程序」是同一个设置）。
 
 > [!NOTE]
-> **早期预览版**：还没有签名的安装包和 Homebrew，目前需要从源码构建，大约一分钟。签名、公证过的安装包会随第一个正式版本发布在[官网](https://beeplight.dev/zh/)和 [Releases](https://github.com/derek920/beeplight/releases) 上。
->
-> Beeplight 是独立项目，与 Anthropic 无关，也未经其认可。Claude 和 Claude Code 是 Anthropic 的商标。
+> Beeplight 是独立项目，与 Anthropic、OpenAI 都无关，也未经它们认可。Claude 和 Claude Code 是 Anthropic 的商标，ChatGPT 和 Codex 是 OpenAI 的商标。
 
 ## 功能
 
@@ -41,6 +39,24 @@
 
 ## 安装
 
+从[最新版本](https://github.com/derek920/beeplight/releases/latest)下载 DMG（[官网](https://beeplight.dev/zh/)上也有链接），打开后把 Beeplight 拖进「应用程序」。同一个 app 支持 Apple 芯片和 Intel，用 Developer ID 签名，并经过 Apple 公证。
+
+也可以用 Homebrew：
+
+```sh
+brew install derek920/tap/beeplight
+```
+
+Beeplight 不检查更新。要更新，运行 `brew upgrade beeplight`，或者下载新的 DMG 替换 app。
+
+第一次使用时，macOS 会请求几项权限：
+
+- **通知**：用于等你、完成和失败的提醒。
+- **自动化**（控制 iTerm2 或 Terminal）：第一次跳转到终端标签页时。
+- **接受传入连接**（`node`）：只在打开手机访问时。
+
+### 从源码构建
+
 ```sh
 git clone https://github.com/derek920/beeplight.git
 cd beeplight
@@ -49,12 +65,6 @@ open ~/Applications/Beeplight.app
 ```
 
 `npm run app` 只构建到 `desktop/build/Beeplight.app`（按本机芯片），不安装。`npm run app:dist` 构建 Apple 芯片和 Intel 通用版，并打包成 DMG 方便分享。第一次构建会从 nodejs.org 下载 app 自带的官方 Node.js（每种芯片约 50 MB，按官方校验和核对），缓存在 `desktop/build/node`。没有 npm 依赖要装。
-
-第一次使用时，macOS 会请求几项权限：
-
-- **通知**：用于等你、完成和失败的提醒。
-- **自动化**（控制 iTerm2 或 Terminal）：第一次跳转到终端标签页时。
-- **接受传入连接**（`node`）：只在打开手机访问时。
 
 ## 使用 Mac 应用
 
@@ -297,7 +307,7 @@ Beeplight 完全在本机运行，没有账号、遥测、统计或更新检查�
 
 **Claude Code 升级会不会让它失效？** 有可能。Beeplight 读的是 Claude Code 的内部文件，格式可能会变；真变了，Beeplight 会跟着更新。
 
-**Beeplight 是 Anthropic 做的吗？** 不是。它是独立项目，与 Anthropic 无关，也未经其认可。
+**Beeplight 是 Anthropic 做的吗？** 不是。它是独立项目，与 Anthropic、OpenAI 都无关，也未经它们认可。
 
 更多问题见[官网](https://beeplight.dev/zh/#faq)。
 
