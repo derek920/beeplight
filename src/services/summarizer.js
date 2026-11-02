@@ -217,11 +217,13 @@ const STATE_LINES = {
   busy: (who) => `Current state: ${who} is working on this turn; it has not ended.`,
   waiting: (who) => `Current state: ${who} is stopped at a screen that needs the user's permission or input.`,
   idle: (who) => `Current state: ${who} has ended the turn and is waiting for the user's next message.`,
+  shell: (who) =>
+    `Current state: ${who} has ended the turn, but background commands it started are still running (listed above). If ${who} said it is waiting for one of them to finish, the outcome is working; a server or watcher left running for the user is not work in progress.`,
   ended: () => 'Current state: the session is closed.',
 };
 
 // Renders the recent conversation into a compact, budgeted prompt (newest content wins).
-export function buildSummaryInput({ cwd, a, names = [], state, waitingFor, speaker = CLAUDE.speaker }) {
+export function buildSummaryInput({ cwd, a, names = [], state, waitingFor, speaker = CLAUDE.speaker, background = [] }) {
   const parts = [`Project directory: ${cwd}`];
   const uniq = [...new Set(names.filter(Boolean))];
   if (uniq.length) parts.push(`Session name: ${uniq.join(' / ')}`);
@@ -246,6 +248,12 @@ export function buildSummaryInput({ cwd, a, names = [], state, waitingFor, speak
   const earlier = [a.firstPrompt, ...a.recentPrompts].filter((p, i, arr) => p && !shown.has(p.uuid) && arr.indexOf(p) === i);
   if (earlier.length) parts.push(`## Earlier user requests, oldest first\n${earlier.map((p) => `User: ${truncate(p.text, 500)}`).join('\n')}`);
   parts.push(`## Recent conversation, oldest first\n${rendered.reverse().join('\n')}`);
+  const running = background.filter((c) => c.state === 'running');
+  if (running.length) {
+    // The title, as the tool lines above show it (the description, else the command), never more.
+    const line = (c) => `- ${c.title}${c.ports?.length ? ` (listening on port ${c.ports.join(', ')})` : ''}`;
+    parts.push(`## Background commands still running\n${running.map(line).join('\n')}`);
+  }
   let stateLine = STATE_LINES[state]?.(speaker) || '';
   if (state === 'waiting' && waitingFor) stateLine += ` (${waitingFor})`;
   if (stateLine) parts.push(stateLine);

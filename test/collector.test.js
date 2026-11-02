@@ -301,6 +301,60 @@ test('a finished turn is Done once the verdict is in, and asks for one when it e
   assert.equal(v.unread, false);
 });
 
+// A Bash call started with run_in_background, and the result that hands back its task id.
+const bgStart = (toolId, taskId, input, secAgo) => [
+  toolUse(toolId, 'Bash', { run_in_background: true, ...input }, secAgo),
+  {
+    type: 'user', isSidechain: false, toolUseResult: { backgroundTaskId: taskId },
+    message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: toolId, content: `Command running in background with ID: ${taskId}.` }] },
+    timestamp: iso(secAgo - 1),
+  },
+];
+
+test('a turn that ended with a background command still running is Doing until judged; a dev server is not', () => {
+  reset();
+  // "shell": Claude Code's status for a finished turn with its own background command still running.
+  writeRegistry(process.pid, { sessionId: SID.busy, status: 'shell', statusUpdatedAt: NOW - 20_000 });
+  writeTranscript(SID.busy, [
+    human('u1', 'Compare the two builds on the device', 120),
+    ...bgStart('t1', 'b1', { command: 'scripts/device.sh', description: 'Measure both builds on the iPhone' }, 100),
+    reply('The device run is going; I will post the table when it ends.', 90),
+    turnEnd(89),
+  ]);
+  writeRegistry(process.ppid, { sessionId: SID.wait, status: 'shell', statusUpdatedAt: NOW - 20_000 });
+  writeTranscript(SID.wait, [
+    human('u2', 'Start the dev server', 120),
+    ...bgStart('t2', 'b2', { command: 'npm run dev' }, 100),
+    reply('It is up at http://localhost:5173.', 90),
+    turnEnd(89),
+  ]);
+  const { collector, summarizer } = makeCollector();
+  collector.tick();
+  let all = Object.fromEntries(collector.snapshot.sessions.map((v) => [v.id, v]));
+
+  const build = all[SID.busy];
+  assert.deepEqual([build.state, build.label, build.detail], ['doing', 'Background command running', 'Measure both builds on the iPhone']);
+  assert.deepEqual(build.background.map((c) => [c.id, c.state, c.role]), [['b1', 'running', 'task']]);
+  // The turn is over, so it asks for an end-of-turn verdict, telling the model what still runs.
+  const job = summarizer.requests.find((j) => j.sid === SID.busy);
+  assert.equal(job.kind, 'end');
+  const input = job.buildInput();
+  assert.match(input, /## Background commands still running\n- Measure both builds on the iPhone\n\nCurrent state: Claude has ended the turn, but background commands it started are still running/);
+
+  // The dev server never keeps its task in Doing: the turn is done, and the server is listed apart.
+  const server = all[SID.wait];
+  assert.deepEqual([server.state, server.outcome, server.pending], ['done', 'success', true]);
+  assert.deepEqual(server.background.map((c) => [c.title, c.state, c.role]), [['npm run dev', 'running', 'service']]);
+
+  // A verdict that the build turn is done after all: the build is left running, so it is listed too.
+  summarizer.answers[SID.busy] = { title: 'Device comparison', goal: '', outcome: 'done', reason: 'Started' };
+  summarizer.pump();
+  collector.tick();
+  all = Object.fromEntries(collector.snapshot.sessions.map((v) => [v.id, v]));
+  assert.equal(all[SID.busy].state, 'done');
+  assert.equal(all[SID.busy].background[0].role, 'service');
+});
+
 test('a session that exits mid-turn fails, and is resumed with claude --resume', async () => {
   reset();
   const proc = liveProcess();

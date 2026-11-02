@@ -58,6 +58,8 @@ final class Monitor {
     /// Unread finishes first, like unread chats.
     private(set) var done: [TaskItem] = []
     private(set) var unreadDone: [TaskItem] = []
+    /// Servers and watchers agents left running (and ones that just ended): listed apart, never notified.
+    private(set) var services: [ServiceItem] = []
     /// Waiting on a real prompt for longer than `urgentAfter`; checked every second.
     private(set) var urgentIDs: Set<String> = []
     var anyUrgent: Bool { !urgentIDs.isEmpty }
@@ -95,6 +97,7 @@ final class Monitor {
         assign(\.doing, v.filter { $0.phase == .doing }.sorted { ($0.turnStartedAt ?? $0.since ?? 0) < ($1.turnStartedAt ?? $1.since ?? 0) })
         assign(\.done, d)
         assign(\.unreadDone, d.filter { $0.unread == true })
+        assign(\.services, ServiceItem.all(in: v))
         itemIDs = Set(items.map(\.id))
         updateUrgent()
     }

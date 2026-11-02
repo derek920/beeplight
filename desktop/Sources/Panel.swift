@@ -17,7 +17,7 @@ struct PanelView: View {
                     .frame(height: 150)
             } else {
                 // Natural height for a few rows; a fixed scrolling area once the list gets long.
-                let rows = monitor.waiting.count + monitor.doing.count + min(monitor.done.count, doneLimit)
+                let rows = monitor.waiting.count + monitor.doing.count + min(monitor.done.count, doneLimit) + monitor.services.count
                 if rows > 6 {
                     ScrollView { sections }.frame(height: 480)
                 } else {
@@ -46,6 +46,7 @@ struct PanelView: View {
             PanelSection(title: monitor.unreadDone.isEmpty ? String(localized: "Recently done") : String(localized: "New"), color: Theme.success,
                          items: Array(monitor.done.prefix(max(doneLimit, monitor.unreadDone.count))), monitor: monitor,
                          unread: monitor.unreadDone.count)
+            PanelServices(monitor: monitor)
         }
         .padding(10)
     }

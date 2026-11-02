@@ -28,6 +28,7 @@ export const GROUPS = [
   { id: 'usage', label: 'Token usage' },
   { id: 'transcript', label: 'Transcripts' },
   { id: 'subagents', label: 'Subagents' },
+  { id: 'background', label: 'Background commands' },
   { id: 'seen', label: 'Read detection' },
   { id: 'lan', label: 'Phone access' },
   { id: 'relay', label: 'Devices' },
@@ -149,6 +150,17 @@ export const PARAMS = [
     key: 'subagents.showFinishedMinutes', type: 'number', default: 10, min: 0, max: 1440,
     label: 'Show finished subagents (minutes)',
     help: "A finished subagent stays on its task's card this long.",
+  },
+
+  {
+    key: 'background.portScanSec', type: 'number', default: 10, min: 0, max: 600,
+    label: 'Port check (seconds)',
+    help: 'While an agent has commands running in the background, their listening ports are read (lsof) this often, which tells a server apart from work the agent waits for. 0 turns it off.',
+  },
+  {
+    key: 'background.keepEndedMinutes', type: 'number', default: 10, min: 0, max: 1440,
+    label: 'Show ended services (minutes)',
+    help: 'A background service that exited or was stopped stays on the board this long, with how it ended.',
   },
 
   {

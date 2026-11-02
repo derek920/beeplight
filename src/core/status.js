@@ -47,8 +47,9 @@ export function matchingEndSummary(summary, a, live) {
  * @param {boolean} [s.verdicts] false when no LLM verdict will come (summarizer.titles = original, or
  *                               no summary model installed)
  * @param {number}  [s.runningAgents]
+ * @param {object[]} [s.background] the task's background commands (src/core/background.js)
  */
-export function deriveStatus({ live, reg, lastRegStatus, job, a, summary, verdicts = true, runningAgents = 0 }) {
+export function deriveStatus({ live, reg, lastRegStatus, job, a, summary, verdicts = true, runningAgents = 0, background = [] }) {
   const pending = a ? lastPendingTool(a) : null;
 
   if (live && reg?.status === 'waiting') {
@@ -107,6 +108,8 @@ export function deriveStatus({ live, reg, lastRegStatus, job, a, summary, verdic
       case 'blocked':
         return { state: 'waiting', kind: 'question', label: t('Awaiting your reply'), detail, since };
       case 'working':
+        // Closed with work still going: nothing of it will come back to this session.
+        if (!live) return { state: 'done', outcome: 'failed', label: t('Not finished'), detail, since };
         return { state: 'doing', label: t('Background work running'), detail, since };
       case 'failed':
         return { state: 'done', outcome: 'failed', label: t('Not finished'), detail, since };
@@ -114,6 +117,20 @@ export function deriveStatus({ live, reg, lastRegStatus, job, a, summary, verdic
         return { state: 'done', outcome: 'success', label: t('Done'), detail, since };
     }
   }
+  // The turn is over but a background command it waits for still runs ("shell": Claude Code's own
+  // word for it). Services (dev servers, watchers) don't count: nobody waits for them to finish.
+  // Without a verdict this stands; the verdict above can still say the turn is done.
+  if (live) {
+    const running = background.filter((c) => c.state === 'running');
+    const awaited = running.filter((c) => !c.service);
+    if (awaited.length || (reg?.status === 'shell' && !running.length)) {
+      const first = awaited[0];
+      const detail = !first ? t('A background command is running')
+        : awaited.length > 1 ? t('{title} and {n} more', { title: first.title, n: awaited.length - 1 }) : first.title;
+      return { state: 'doing', label: t('Background command running'), detail, since };
+    }
+  }
+
   // No verdict yet (summary in flight, or the summarizer failed), or none coming (original titles,
   // or no summary model).
   const waiting = !verdict && verdicts;

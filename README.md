@@ -31,6 +31,7 @@ It has a SwiftUI menu bar app and a web board. Both show the same live data, in 
 - **Phone access**: an optional, paired, LAN-only page that turns a phone into a status screen next to your Mac.
 - **Your other Macs**: their tasks on your board too, through a relay you run yourself, end-to-end encrypted.
 - **Subagents and background sessions**: subagents show under their parent session, and `claude --bg` sessions are tracked too.
+- **Background services**: dev servers and watchers an agent left running get their own list under the board, with their ports and how long they've run. They never notify and never keep a task in Doing.
 - **CPU use**: how busy the Mac is, and how much of that is Claude Code and how much is Beeplight itself.
 - **Codex too**: Codex tasks from the ChatGPT app and the `codex` CLI show on the same board, each title marked with its agent (an orange C for Claude Code, a blue >_ for Codex), and open in the app or their terminal. Other agents can be added the same way.
 
@@ -144,7 +145,7 @@ You don't need the LaunchAgent if you use the Mac app.
 
 | Column | Meaning | Based on |
 |---|---|---|
-| **Doing** | Claude is working | Claude Code's own session state is `busy`, or the turn ended but Claude said it is waiting for background work to finish |
+| **Doing** | Claude is working | Claude Code's own session state is `busy`; or the turn ended while a background command Claude waits for still runs (`shell`), or Claude said it is waiting for background work to finish |
 | **Waiting** | Claude needs your answer or approval | The session is stopped at a permission prompt, an input request or a dialog (`waiting`), or the turn ended with a question for you |
 | **Done ✓** | The turn finished | The turn ended and the verdict is that the work was delivered |
 | **Done ✗** | The turn did not succeed | An API error, you interrupted it, the session closed mid-turn, or the verdict is that the work was not done |
@@ -155,7 +156,9 @@ Titles and verdicts come from Claude Haiku. Beeplight sends it the recent conver
 
 Without Claude Code, Codex writes the titles and verdicts instead (`codex exec --ephemeral`, which saves no session), through your Codex login; with neither, titles stay original, as with **Titles** set to **Original**. **Settings → Advanced → Summaries by** (`summarizer.engine`) picks: Automatic (default), Claude or Codex. A Codex summary call carries about 15k tokens of Codex's own instructions, so set `summarizer.codexModel` to a small model if that matters.
 
-Sessions that never received a request, and sessions that have been quiet for more than 12 hours, are hidden, unless they are running or waiting for a permission.
+Sessions that never received a request, and sessions that have been quiet for more than 12 hours, are hidden, unless they are running, waiting for a permission, or have a background command running.
+
+**Background commands.** When Claude starts a command in the background and ends its turn, Claude Code reports the session as `shell`. If Claude waits for that command (a long build, a device test), the task stays in **Doing** and shows the command. A dev server or watcher left running for you is a *background service* instead: the turn counts as finished, and the service is listed under the board, and at the end of the menu bar panel, with its ports and how long it has run. Services never notify; one that exits stays listed for 10 minutes with how it ended. Beeplight tells them apart by the ports a command listens on (read with `lsof`) and by its command line (`npm run dev`, `vite`, `--watch`, …), and the verdict can still decide either way.
 
 **Codex.** Beeplight reads the thread records Codex keeps in `~/.codex`. A thread is open while the ChatGPT app or a `codex` CLI holds it. A turn that started and hasn't finished is **Doing**; one that finished, was interrupted or failed is **Done**, with the verdict as above. Codex does not record when it stops to ask for your approval, so Beeplight infers it: a command that asks to leave the sandbox and has no result yet shows as **Waiting**, with the reason Codex gave. To leave Codex out, set **Settings → Advanced → Monitor Codex** to **Off** (`codex.monitor`); nothing in `~/.codex` is read then.
 
@@ -238,7 +241,7 @@ Pick where you host the relay with your data policies in mind: the contents are 
 
 Beeplight runs entirely on your Mac. It has no accounts, telemetry, analytics or update checks.
 
-- **What it reads**: Claude Code's files under `~/.claude` (`sessions/`, the transcripts in `projects/`, and `jobs/`), Codex's files under `~/.codex` (the thread records in `sessions/`, `thread-writer-locks/`, `session_index.jsonl` and `app-server-daemon/daemon.pid`), plus the process list. It only reads them.
+- **What it reads**: Claude Code's files under `~/.claude` (`sessions/`, the transcripts in `projects/`, and `jobs/`), Codex's files under `~/.codex` (the thread records in `sessions/`, `thread-writer-locks/`, `session_index.jsonl` and `app-server-daemon/daemon.pid`), plus the process list, and which ports the commands an agent left running in the background listen on (`lsof`). It only reads them.
 - **What leaves your Mac**: to write titles and verdicts, Beeplight sends an excerpt of each session's recent conversation, Codex tasks included, to Claude Haiku through your own `claude` CLI login. It goes to Anthropic the same way your Claude Code sessions do, and it counts toward your usage. When claude isn't installed (or **Summaries by** is set to Codex), the excerpts go to OpenAI through your own `codex` login instead, and count toward your Codex usage. The limit probes are tiny requests through your claude login. Setting **Titles** to **Original** (Settings → Advanced, or `BEEPLIGHT_SUMMARIZER_TITLES=original`) stops summaries, so nothing is sent for them.
 - **What it stores**: titles, verdicts, timelines and settings, in `~/Library/Application Support/Beeplight` (or `./data` when you run `npm start`). History is kept for 30 days at most; Settings → Advanced can shorten that or clean up right away.
 - **Network**: the service listens only on `127.0.0.1` and checks every request's `Host` header. Phone access is off until you turn it on; see [Phone access](#phone-access-lan).

@@ -48,9 +48,9 @@ desktop/build/Beeplight.app/Contents/MacOS/Beeplight --snapshot /tmp/snap   # �
 | `sources/claude-code/` | Claude Code 写的文件：registry、transcript、subagents、jobs、usage；`index.js` 的 `ClaudeCodeSource` 把它们包成一个 agent 数据源。全是逆向得来的格式，Claude Code 升级后先查这里 | lib、config |
 | `sources/codex/` | Codex（ChatGPT app 里的和 `codex` 命令行）写在 `~/.codex` 的文件：rollout（`rollout.js`）、线程锁、任务名、daemon pid；`index.js` 的 `CodexSource`。逆向自 0.166，Codex 升级后先查这里 | lib、config |
 | `sources/common/` | 各 agent 数据源共用：对话分析的统一形状（`analysis.js`）、JSONL 增量读取（`jsonl-tail.js`） | lib、config |
-| `sources/system/` | 进程表、各进程和整机的 CPU 时间（`proc.js`） | lib、config |
+| `sources/system/` | 进程表、各进程和整机的 CPU 时间（`proc.js`）；进程监听的端口（`ports.js`，lsof） | lib、config |
 | `services/` | 模型调用：`claude -p`（`claude-cli.js`）、没有 Claude 时的 `codex exec`（`codex-cli.js`）；总结、额度 | lib、config |
-| `core/` | collector、status、timeline、store、cpu | lib、config、sources、services |
+| `core/` | collector、status、timeline、store、cpu、background（后台命令和后台服务） | lib、config、sources、services |
 | `actions/` | 在 Mac 上动手：跳转窗口（`focus.js`）、检测看过的标签页（`seen.js`） | lib、config |
 | `transports/` | 对外：`http.js`（统一的请求检查）、`api.js`（全部接口）、`web.js`（页面外壳）、`stream.js`（SSE）、`lan.js`、`relay.js` | lib、config |
 
@@ -78,7 +78,7 @@ desktop/build/Beeplight.app/Contents/MacOS/Beeplight --snapshot /tmp/snap   # �
 - tick 里只做轻活：不同步读大文件，不启动子进程，不调 LLM。重活异步、分块做，中间让出事件循环（参照 `UsageIndex`）。
 - 文件只增量读：记住读到的位置，只读新写入的部分。首次读取和每次读取都有上限（`transcript.initialTailMB`、`transcript.maxReadMB`）。
 - 只在变化时推送：state 按签名去重；每秒都在变的数据（今日统计、用量）放在 meta 里，不进 state 签名。SSE 每个事件只序列化一次。
-- 外部命令按固定节奏调用，并且只在需要时调用：`ps` 每 2 秒一次，CPU 占用也从这次扫描里算，不另起命令；`osascript` 只在跳转时调用，另外在有未读任务时由 `seen.js` 每 1.5 秒调用一次。
+- 外部命令按固定节奏调用，并且只在需要时调用：`ps` 每 2 秒一次，CPU 占用也从这次扫描里算，不另起命令；`osascript` 只在跳转时调用，另外在有未读任务时由 `seen.js` 每 1.5 秒调用一次；`lsof` 只在有 agent 的后台命令在跑时按 `background.portScanSec`（默认 10 秒）调用，新命令出现时立刻查一次。
 - LLM 调用一律经过 `Summarizer` 的队列，由它负责去重、并发、每小时上限和失败退避；额度探测也有固定间隔，找不到 claude 时不探测。不要在别处直接调 `claude -p` 或 `codex exec`。
 - 常驻内存和存盘的数据都要有上限或过期时间：解析结果只保留最近若干条，用量记录和额度样本只保留 8 天，store 里的历史最长保留 `store.keepDays` 天（见「LLM 总结」的持久化）。
 
@@ -151,9 +151,9 @@ Mac 应用：
 
 数据源都是 Claude Code 的内部文件（基于 2.1.312 逆向观察，升级后最先坏的就是这里）：
 
-- **`~/.claude/sessions/<pid>.json`**（`src/sources/claude-code/registry.js`）：每个运行中的 Claude 进程都会写。`status` 为 `busy | idle | waiting`，`waitingFor` 为 `permission prompt | input needed | dialog open | goal proposal | sandbox request | worker request`。这是 Doing/Waiting 的主信号，所以不需要往用户的 settings.json 装 hook。进程正常退出时文件会被删；崩溃时会残留，所以 `isGenuine()` 用 `ps` 的启动时间和 `startedAt` 比对，排除 PID 复用。
-- **`~/.claude/projects/<slug>/<sessionId>.jsonl`**（`src/sources/claude-code/transcript.js`）：增量 tail 读取。首次只读最后 4MB（有的文件超过 100MB），按字节切行，避免截断多字节字符。只有 `origin.kind === 'human'`（或没有 origin 的老格式）的 user 消息算一轮新请求；task-notification、isMeta、peer 消息都不算。`system/turn_duration` 标记一轮结束，`isApiErrorMessage` 是 API 失败，`[Request interrupted by user` 是中断。**transcript 有 3～4 秒写入缓冲**，正在执行的 tool_use 要过几秒才出现。
-- **`<project>/<sessionId>/subagents/agent-*.jsonl` + `.meta.json`**（`src/sources/claude-code/subagents.js`）：子 agent。
+- **`~/.claude/sessions/<pid>.json`**（`src/sources/claude-code/registry.js`）：每个运行中的 Claude 进程都会写。`status` 为 `busy | idle | waiting | shell`（`shell`：本轮结束了，但它自己用 `run_in_background` 起的 Bash 命令还在跑，Claude Code 自己的界面把它算作工作中；后台子 agent 在跑时则一直是 `busy`），`waitingFor` 为 `permission prompt | input needed | dialog open | goal proposal | sandbox request | worker request`。这是 Doing/Waiting 的主信号，所以不需要往用户的 settings.json 装 hook。进程正常退出时文件会被删；崩溃时会残留，所以 `isGenuine()` 用 `ps` 的启动时间和 `startedAt` 比对，排除 PID 复用。
+- **`~/.claude/projects/<slug>/<sessionId>.jsonl`**（`src/sources/claude-code/transcript.js`）：增量 tail 读取。首次只读最后 4MB（有的文件超过 100MB），按字节切行，避免截断多字节字符。只有 `origin.kind === 'human'`（或没有 origin 的老格式）的 user 消息算一轮新请求；task-notification、isMeta、peer 消息都不算。`system/turn_duration` 标记一轮结束，`isApiErrorMessage` 是 API 失败，`[Request interrupted by user` 是中断。后台命令记在 `a.background`：Bash 结果的 `toolUseResult.backgroundTaskId` 是启动（正文里同样的字样不算，前台命令的输出也可能出现），结束是 task-notification（会话空闲时是 user 消息，执行中到达时是 `attachment` 里的 `queued_command`，`commandMode: task-notification`）里的 `completed (exit code N)` / `failed with exit code N` / `was stopped`，或 TaskStop 的结果。**transcript 有 3～4 秒写入缓冲**，正在执行的 tool_use 要过几秒才出现。
+- **`<project>/<sessionId>/subagents/agent-*.jsonl` + `.meta.json`**（`src/sources/claude-code/subagents.js`）：子 agent。以普通回复结束，或（2.1.316 起）以调用 `SubagentHandback` 收尾，两种都算结束；否则 15 分钟没动静才算结束。
 - **`~/.claude/jobs/<short>/state.json`**（`src/sources/claude-code/jobs.js`）：`claude --bg` 后台会话，daemon 自己维护 `state = working|blocked|done|failed`。
 
 - **Codex（`~/.codex`，`src/sources/codex/`，基于 0.166 逆向）**：任务 id 是 `codex:<threadId>`（threadId 是 UUIDv7，前 48 位是创建时间，由此算出 rollout 所在的日期目录）。
@@ -167,7 +167,7 @@ Mac 应用：
 
 接入新 agent：在 `src/sources/<agent>/` 写一个实现 `collector.js` 开头那套接口的类（带 `<agent>.monitor` 开关和 `enabled()`）（id 用 `<agent>:` 前缀，解析成统一的对话分析和 registry 形状的实时信号）→ `server.js` 里加进 `sources` → 跳转需要新的 URL 或命令时加进 `focus.js` 的 `URLS`/`CLIS` → 用合成的 fixture 写测试（不放真实对话）→ README 的隐私说明写清楚读哪些文件 → 在 `public/agents.json` 加它的标记（测试会检查每个数据源都有）。
 
-三态规则只在 `deriveStatus()` 一处定义，优先级：registry 的 waiting/busy → 不在线的后台 job 用 daemon 判定 → 硬失败信号（中途退出、API 错误、中断）→ 本轮结束时的 LLM 判定（`blocked` 映射成 Waiting，`working` 映射成 Doing）→ 还没判定时临时显示为成功，并带 `pending`。改规则时同步改 `test/status.test.js`。
+三态规则只在 `deriveStatus()` 一处定义，优先级：registry 的 waiting/busy → 不在线的后台 job 用 daemon 判定 → 硬失败信号（中途退出、API 错误、中断）→ 本轮结束时的 LLM 判定（`blocked` 映射成 Waiting，`working` 映射成 Doing；会话已关闭时 `working` 算未完成）→ 本轮在等的后台命令还在跑（`shell`，后台服务不算）就是 Doing → 还没判定时临时显示为成功，并带 `pending`。`shell` 和 `idle` 一样请求本轮结束的判定，总结器的输入里会列出还在跑的后台命令（只发标题，和工具行一样）。改规则时同步改 `test/status.test.js`。
 
 运行参数见「开发约束 → 配置化」。
 
@@ -204,6 +204,8 @@ Token 用量与额度：
 新完成（未读）：`Collector.trackState()` 发现某个会话的轨迹从非 done 变成 `done:*`，并且判定已经出来（不是 `p: true`）时，写入 `store.unread[sid]`。下面几种情况会清除：会话回到 doing/waiting（发了新消息，或者 Claude 自己继续干活）；调用 focus 或 read 接口；`POST /api/read-all`；dismiss；`src/actions/seen.js` 检测到这个会话的终端标签页连续两次是前台。`seen.js` 只有在 `store.flags.appleEventsOk` 为真时才轮询，这个标志在第一次通过 AppleScript 跳转成功时写入，所以轮询永远不会成为触发系统授权弹窗的原因。每次标记和清除都会打 `[unread]` / `[focus]` 日志，带上原因和来源（`via=panel|board|notification|web`）。查「徽章为什么没了 / 为什么清不掉」时先看这里。客户端的未读计数都从可见列表里算，菜单栏、面板、看板、Dock 用的是同一个判定。
 
 桌面端的收尾卡片：Claude 桌面端结束一轮时会调用 `mcp__ccd_turn__wrap_up`，参数是 `recap / ask / actions`。向用户的提问只出现在这里，回复正文里看不到，所以 `transcript.js` 把它记到 `turn.wrapUp`。在 `deriveStatus()` 里，有 `ask` 就直接判 Waiting，不交给 LLM。
+
+后台命令和后台服务（`src/core/background.js` `BackgroundTracker`）：agent 用 `run_in_background` 起、本轮结束后还在跑的命令。对话记录给出启动和结束（`a.background`）；每次 `ps` 扫描后，`refresh()` 把命令配对到 agent 进程下、启动时间对得上的子进程（ps 只有 `comm` 没有参数，所以按时间配），进程没了就算已退出（不等通知）；`lsof` 读这棵进程树监听的端口。命令监听端口、或命令行像开发服务器和监听进程（`SERVICE_COMMAND`：`npm run dev`、`vite`、`--watch`、`tail -f`……）就是**后台服务**：没人等它结束，所以不让任务停在 Doing，也不发提醒。其余还在跑的命令是本轮在等的工作，任务留在 Doing。视图里每个任务带 `background`（`role: service | task`；判定说本轮已完成、命令还在跑的也算 service），客户端把 service 汇总成单独一类：看板三列下面一条、面板最后一节、网页看板同样位置，显示状态、端口（本机点了在浏览器打开）、已运行多久，退出的保留 `background.keepEndedMinutes`。`background` 不在 `shareView()` 白名单里，不同步；灵动岛和手机状态屏暂不显示。
 
 CPU 占用（`src/core/cpu.js` `CpuMeter`）：面板和看板底部、网页页脚显示整台 Mac、Claude、Beeplight 三个数，都是占整台 Mac 的比例（0～1），按 `collector.cpuAverageSec`（默认 10 秒）取平均，放在 meta 的 `cpu` 里下发，不进 state 签名，也不同步到其他设备。数据来自 `refreshPs()` 那次 `ps`：多读一列 `time`（进程累计 CPU 时间），两次扫描之差就是这段时间用的；整机用 `os.cpus()` 的累计时间（`machineCpu()`）。Claude 是每个在线会话的进程加上它启动的所有子进程（工具命令、MCP 服务）；Beeplight 是服务自己和它的子进程（Haiku 调用、ps、osascript），再加上 Mac 应用（可执行文件路径是 `…/Beeplight.app/Contents/MacOS/Beeplight` 的进程）。每个进程只算一次，先算 Beeplight，所以开发时从 Claude 会话的终端里 `npm start` 起的服务算 Beeplight。在两次扫描之间结束的进程，最后这段用量会丢掉；浏览器里打开的网页算在浏览器上。
 
