@@ -1,6 +1,7 @@
 import CoreBluetooth
 import CryptoKit
 import Foundation
+import os
 
 /// Serves the paired iPhone over Bluetooth LE (BluetoothWire): advertises while phone access is on
 /// and the Bluetooth switch in Phone settings is on, relays the local /api/stream to phones that
@@ -9,8 +10,11 @@ import Foundation
 /// sparingly, since every message wakes a phone in the background: the board at most once a second
 /// (the latest), meta (usage, today's totals; the stream sends it every second) every 30 s. A
 /// phone that has the LAN says `pause` and gets nothing until its next hello.
+///
+/// `log stream --predicate 'subsystem == "dev.beeplight.mac" && category == "bluetooth"'` shows
+/// what it does (never what it carries).
 @MainActor
-final class BluetoothBridge: NSObject {
+final class BluetoothBridge: NSObject, ObservableObject {
     static let shared = BluetoothBridge()
     static let enabledKey = "bluetoothEnabled"
 
@@ -22,6 +26,23 @@ final class BluetoothBridge: NSObject {
         }
     }
 
+    enum Status: Equatable {
+        /// The switch or phone access is off.
+        case off
+        case starting
+        case advertising
+        case poweredOff
+        case unauthorized
+        case unsupported
+        case failed(String)
+    }
+
+    /// For Phone settings.
+    @Published private(set) var status: Status = .off
+    /// Phones that said hello and listen.
+    @Published private(set) var phones = 0
+
+    private let log = Logger(subsystem: "dev.beeplight.mac", category: "bluetooth")
     private let base = URL(string: "http://127.0.0.1:7333/")!
     private let session = URLSession(configuration: .ephemeral)
     private var manager: CBPeripheralManager?
@@ -44,12 +65,20 @@ final class BluetoothBridge: NSObject {
     private var flushing = false
     private var metaSent = Date.distantPast
     static let metaEvery: TimeInterval = 30
-    /// Packets that didn't fit the send queue yet, and who they're for (nil: every trusted phone).
-    private var outbox: [(packet: Data, to: [CBCentral]?)] = []
+    /// Packets the send queue didn't take yet, who they're for (nil: every trusted phone), and the
+    /// event they carry. A newer message of the same event replaces what is left of an older one.
+    private var outbox: [(packet: Data, to: [CBCentral]?, event: String)] = []
+    private static let outboxMax = 600
     private var number: UInt8 = 0
 
     func start() {
-        Task { await refresh() }
+        // At launch the service may still be starting: ask again soon, not in 30 s.
+        Task {
+            for _ in 0 ..< 30 {
+                if await refresh() != .unreachable { break }
+                try? await Task.sleep(for: .seconds(2))
+            }
+        }
         // Phone access, its token and the switch can change in Settings or from another client.
         Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { _ in
             Task { @MainActor in await BluetoothBridge.shared.refresh() }
@@ -57,32 +86,61 @@ final class BluetoothBridge: NSObject {
     }
 
     /// Matches the Bluetooth service to the switch, phone access and the current pairing token.
-    func refresh() async {
-        guard Self.enabled, let token = await pairingToken() else { return stop() }
-        if token != self.token {
+    @discardableResult
+    func refresh() async -> Pairing {
+        guard Self.enabled else {
             stop()
-            self.token = token
-            key = BluetoothWire.key(token: token)
-            service = BluetoothWire.service(token: token)
+            return .off
         }
-        if manager == nil {
-            // Asks for Bluetooth permission the first time.
-            manager = CBPeripheralManager(delegate: self, queue: .main)
-        } else {
-            publish()
+        let pairing = await pairing()
+        switch pairing {
+        case .unreachable:
+            // The service is restarting, or busy: keep the phones we have.
+            break
+        case .off:
+            stop()
+        case let .token(token):
+            if token != self.token {
+                stop()
+                self.token = token
+                key = BluetoothWire.key(token: token)
+                service = BluetoothWire.service(token: token)
+            }
+            if manager == nil {
+                log.info("starting")
+                status = .starting
+                // Asks for Bluetooth permission the first time.
+                manager = CBPeripheralManager(delegate: self, queue: .main)
+            } else {
+                publish()
+            }
         }
+        return pairing
+    }
+
+    enum Pairing: Equatable {
+        case token(String)
+        /// Phone access is off.
+        case off
+        /// The service didn't answer.
+        case unreachable
     }
 
     /// The LAN pairing token, when phone access is on.
-    private func pairingToken() async -> String? {
-        guard let (data, _) = try? await session.data(from: base.appending(path: "api/lan")),
-              let info = try? JSONDecoder().decode(LanInfo.self, from: data), info.enabled,
-              let link = info.urls.first?.url ?? info.mdnsUrl,
-              let t = URLComponents(string: link)?.queryItems?.first(where: { $0.name == "t" })?.value, !t.isEmpty else { return nil }
-        return t
+    private func pairing() async -> Pairing {
+        guard let (data, resp) = try? await session.data(from: base.appending(path: "api/lan")),
+              (resp as? HTTPURLResponse)?.statusCode == 200,
+              let info = try? JSONDecoder().decode(LanInfo.self, from: data) else { return .unreachable }
+        guard info.enabled else { return .off }
+        if let t = info.token, !t.isEmpty { return .token(t) }
+        // An older service has it only in the URLs, and has none while it starts or the Mac is offline.
+        guard let link = info.urls.first?.url ?? info.mdnsUrl,
+              let t = URLComponents(string: link)?.queryItems?.first(where: { $0.name == "t" })?.value, !t.isEmpty else { return .unreachable }
+        return .token(t)
     }
 
     private func stop() {
+        if manager != nil { log.info("stopping") }
         stream?.cancel()
         stream = nil
         if let manager {
@@ -100,6 +158,9 @@ final class BluetoothBridge: NSObject {
         assemblers = [:]
         outbox = []
         latest = [:]
+        pending = []
+        status = .off
+        countPhones()
     }
 
     private func publish() {
@@ -112,6 +173,11 @@ final class BluetoothBridge: NSObject {
         manager.add(s)
         self.down = down
         published = true
+    }
+
+    private func countPhones() {
+        let n = trusted.filter { subscribed[$0] != nil }.count
+        if n != phones { phones = n }
     }
 
     // MARK: the stream
@@ -166,10 +232,14 @@ final class BluetoothBridge: NSObject {
         let targets = to ?? trusted.compactMap { subscribed[$0] }
         guard !targets.isEmpty, let sealed = try? BluetoothWire.seal(Data((event + "\n").utf8) + data, key: key, .down) else { return }
         let size = targets.map(\.maximumUpdateValueLength).min() ?? 20
+        // Only the latest board matters: drop what is left of an older one (the phone's assembler
+        // starts over at the new message's number).
+        if to == nil { outbox.removeAll { $0.to == nil && $0.event == event } }
         number = (number + 1) & 0x7F
         for p in BluetoothWire.packets(sealed, number: number, size: size) {
-            outbox.append((p, to))
+            outbox.append((p, to, event))
         }
+        if outbox.count > Self.outboxMax { outbox.removeFirst(outbox.count - Self.outboxMax) }
         drain(manager)
     }
 
@@ -193,15 +263,29 @@ final class BluetoothBridge: NSObject {
         var assembler = assemblers[central.identifier] ?? BluetoothWire.Assembler()
         let message = assembler.add(packet)
         assemblers[central.identifier] = assembler
-        guard let message, let key, let (plain, nonce) = try? BluetoothWire.open(message, key: key, .up),
-              let request = try? JSONDecoder().decode(BluetoothWire.Up.self, from: plain) else { return }
+        guard let message else { return }
+        let who = String(central.identifier.uuidString.prefix(8))
+        guard let key, let (plain, nonce) = try? BluetoothWire.open(message, key: key, .up),
+              let request = try? JSONDecoder().decode(BluetoothWire.Up.self, from: plain) else {
+            log.notice("\(who, privacy: .public): a message that doesn't open with the pairing key")
+            return
+        }
         let now = Date()
         seen = seen.filter { now.timeIntervalSince($0.value) < BluetoothWire.maxAge }
-        guard abs(now.timeIntervalSince(request.sent)) < BluetoothWire.maxAge, seen[nonce] == nil else { return }
+        guard abs(now.timeIntervalSince(request.sent)) < BluetoothWire.maxAge else {
+            log.notice("\(who, privacy: .public): \(request.op, privacy: .public) is too old")
+            return
+        }
+        guard seen[nonce] == nil else {
+            log.notice("\(who, privacy: .public): \(request.op, privacy: .public) was sent before")
+            return
+        }
         seen[nonce] = now
+        log.info("\(who, privacy: .public): \(request.op, privacy: .public)")
         switch request.op {
         case "hello":
             trusted.insert(central.identifier)
+            countPhones()
             follow()
             for e in ["meta", "state"] {
                 if let d = latest[e] { send(e, d, to: [central]) }
@@ -209,6 +293,7 @@ final class BluetoothBridge: NSObject {
             return
         case "pause":
             trusted.remove(central.identifier)
+            countPhones()
             if trusted.isEmpty { unfollow() }
             return
         default:
@@ -240,6 +325,7 @@ final class BluetoothBridge: NSObject {
         subscribed[central.identifier] = nil
         trusted.remove(central.identifier)
         assemblers[central.identifier] = nil
+        countPhones()
         if trusted.isEmpty { unfollow() }
     }
 
@@ -256,20 +342,32 @@ final class BluetoothBridge: NSObject {
 extension BluetoothBridge: CBPeripheralManagerDelegate {
     nonisolated func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
         MainActor.assumeIsolated {
-            if peripheral.state == .poweredOn {
+            log.info("state \(peripheral.state.rawValue, privacy: .public)")
+            switch peripheral.state {
+            case .poweredOn:
+                status = .starting
                 publish()
-            } else {
-                // Off or not allowed: everything set up is gone; publish again when it's back.
-                published = false
-                subscribed = [:]
-                trusted = []
+                return
+            case .poweredOff: status = .poweredOff
+            case .unauthorized: status = .unauthorized
+            case .unsupported: status = .unsupported
+            default: status = .starting
             }
+            // Off or not allowed: everything set up is gone; publish again when it's back.
+            published = false
+            subscribed = [:]
+            trusted = []
+            assemblers = [:]
+            outbox = []
+            countPhones()
+            unfollow()
         }
     }
 
     nonisolated func peripheralManager(_ peripheral: CBPeripheralManager, didAdd service: CBService, error: Error?) {
         MainActor.assumeIsolated {
             guard error == nil, service.uuid == self.service else {
+                if let error { log.error("adding the service failed: \(error.localizedDescription, privacy: .public)") }
                 published = false
                 return
             }
@@ -277,26 +375,69 @@ extension BluetoothBridge: CBPeripheralManagerDelegate {
         }
     }
 
+    nonisolated func peripheralManagerDidStartAdvertising(_ peripheral: CBPeripheralManager, error: Error?) {
+        MainActor.assumeIsolated {
+            if let error {
+                log.error("advertising failed: \(error.localizedDescription, privacy: .public)")
+                status = .failed(error.localizedDescription)
+            } else {
+                log.info("advertising")
+                status = .advertising
+            }
+        }
+    }
+
     nonisolated func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didSubscribeTo characteristic: CBCharacteristic) {
         MainActor.assumeIsolated {
+            log.info("\(String(central.identifier.uuidString.prefix(8)), privacy: .public) subscribed, \(central.maximumUpdateValueLength, privacy: .public) bytes a packet")
             subscribed[central.identifier] = central
+            countPhones()
         }
     }
 
     nonisolated func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didUnsubscribeFrom characteristic: CBCharacteristic) {
-        MainActor.assumeIsolated { forget(central) }
+        MainActor.assumeIsolated {
+            log.info("\(String(central.identifier.uuidString.prefix(8)), privacy: .public) left")
+            forget(central)
+        }
     }
 
     nonisolated func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveWrite requests: [CBATTRequest]) {
         MainActor.assumeIsolated {
+            // A write longer than one ATT packet (the phone may write up to 512 bytes with response)
+            // arrives as parts with growing offsets: put each write back together before reading it.
+            var write: (central: CBCentral, value: Data)?
             for r in requests where r.characteristic.uuid == BluetoothWire.up {
-                if let value = r.value { received(value, from: r.central) }
+                guard let v = r.value else { continue }
+                if let w = write, r.offset > 0, w.central.identifier == r.central.identifier {
+                    write = (w.central, w.value + v)
+                } else {
+                    if let w = write { received(w.value, from: w.central) }
+                    write = (r.central, v)
+                }
             }
+            if let w = write { received(w.value, from: w.central) }
             if let first = requests.first { peripheral.respond(to: first, withResult: .success) }
         }
     }
 
     nonisolated func peripheralManagerIsReady(toUpdateSubscribers peripheral: CBPeripheralManager) {
         MainActor.assumeIsolated { drain(peripheral) }
+    }
+}
+
+extension BluetoothBridge {
+    /// One line for Phone settings.
+    var statusText: String {
+        switch status {
+        case .off: return ""
+        case .starting: return String(localized: "Bluetooth: starting…")
+        case .advertising:
+            return phones > 0 ? String(localized: "Bluetooth: \(phones) iPhone connected") : String(localized: "Bluetooth: on, waiting for the iPhone app")
+        case .poweredOff: return String(localized: "Bluetooth is off on this Mac.")
+        case .unauthorized: return String(localized: "Beeplight isn't allowed to use Bluetooth. Allow it in System Settings → Privacy & Security → Bluetooth.")
+        case .unsupported: return String(localized: "This Mac has no Bluetooth LE.")
+        case let .failed(why): return String(localized: "Bluetooth couldn't start: \(why)")
+        }
     }
 }

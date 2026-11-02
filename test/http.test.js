@@ -187,3 +187,13 @@ test('the page carries the theme and preset packs inline', async () => {
   assert.ok(packs.themes.themes.some((t) => t.id === 'neon'));
   assert.ok(packs.presets.presets.some((p) => p.id === 'minimal'));
 });
+
+test('/api/lan gives the pairing token while phone access is on, for the Mac app’s Bluetooth link', async () => {
+  const { Lan } = await import('../src/transports/lan.js');
+  const flags = { lan: true, lanToken: 'a'.repeat(32) };
+  const store = { flags, setFlag: (k, v) => (flags[k] = v) };
+  const lan = new Lan({ store, handler: () => {} });
+  assert.equal(lan.info().token, 'a'.repeat(32));
+  flags.lan = false;
+  assert.equal(lan.info().token, null);
+});

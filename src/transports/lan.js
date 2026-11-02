@@ -165,6 +165,9 @@ export class Lan {
       urls,
       mdnsUrl: this.mdnsName ? `http://${this.mdnsName}:${PORT}/?t=${this.token}` : null,
       pin: this.enabled ? this.pairingPin() : null,
+      // The Mac app's Bluetooth link derives its keys from it, and needs it even when this Mac has
+      // no network address (that is when the phone needs Bluetooth most). Local-only, like the URLs.
+      token: this.enabled ? this.token : null,
     };
   }
 }

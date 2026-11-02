@@ -16,6 +16,8 @@ struct LanInfo: Decodable, Equatable {
 
     var enabled: Bool
     var listening: [String]
+    /// The pairing token while phone access is on (older services only put it in the URLs).
+    var token: String?
     var urls: [Link]
     var mdnsUrl: String?
     /// 6-digit code for pairing a home-screen app, which cannot scan or reuse Safari's pairing.
@@ -81,6 +83,7 @@ struct PhoneSettingsView: View {
     @ObservedObject var lan = LanController.shared
     @State private var picked: String?
     @AppStorage(BluetoothBridge.enabledKey) private var bluetooth = true
+    @ObservedObject private var bridge = BluetoothBridge.shared
 
     var body: some View {
         let info = lan.info
@@ -101,6 +104,12 @@ struct PhoneSettingsView: View {
                     .toggleStyle(.switch)
                     .disabled(info?.enabled != true)
                     .onChange(of: bluetooth) { Task { await BluetoothBridge.shared.refresh() } }
+                if bluetooth, info?.enabled == true, !bridge.statusText.isEmpty {
+                    Text(bridge.statusText)
+                        .font(.caption)
+                        .foregroundStyle(bridge.status == .advertising ? .secondary : Color.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 if let info, info.enabled {
                     if links.isEmpty {
                         Text("No Wi-Fi or wired network address found. VPN addresses aren't used, since phones can't reach them.")

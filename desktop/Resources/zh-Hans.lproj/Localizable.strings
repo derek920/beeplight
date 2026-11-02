@@ -311,4 +311,11 @@
 
 /* Phone settings: Bluetooth */
 "Also over Bluetooth, for the iPhone app" = "也通过蓝牙连接（iPhone app）";
+"Bluetooth: starting…" = "蓝牙：正在启动…";
+"Bluetooth: %lld iPhone connected" = "蓝牙：已连接 %lld 台 iPhone";
+"Bluetooth: on, waiting for the iPhone app" = "蓝牙：已开启，等待 iPhone app 连接";
+"Bluetooth is off on this Mac." = "这台 Mac 的蓝牙关着。";
+"Beeplight isn't allowed to use Bluetooth. Allow it in System Settings → Privacy & Security → Bluetooth." = "Beeplight 没有蓝牙权限，请在「系统设置 → 隐私与安全性 → 蓝牙」里打开。";
+"This Mac has no Bluetooth LE." = "这台 Mac 不支持低功耗蓝牙。";
+"Bluetooth couldn't start: %@" = "蓝牙启动失败：%@";
 "Over Bluetooth, the paired Beeplight iPhone app gets the same task list when it can't reach this Mac on the network, and keeps it current in the background while the phone is nearby. It's encrypted with the pairing code; the first time, macOS asks to allow Bluetooth." = "配对过的 Beeplight iPhone app 在局域网连不上这台 Mac 时，经蓝牙收到同样的任务列表；手机在附近时，退到后台也保持最新。内容用配对码加密。第一次使用时，macOS 会询问是否允许使用蓝牙。";
