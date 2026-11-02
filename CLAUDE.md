@@ -248,7 +248,7 @@ Mac 应用（`desktop/`）：
 1. 一次性准备：在 Xcode 的 Settings → Accounts 里创建「Developer ID Application」证书；`xcrun notarytool store-credentials <profile> --apple-id <邮箱> --team-id <团队 ID>`，按提示填 App 专用密码，把公证凭据存进钥匙串。
 2. 改 `package.json` 的 `version`，然后 `SIGN_IDENTITY="Developer ID Application: <名字> (<团队 ID>)" NOTARY_PROFILE=<profile> npm run app:dist`：构建通用版，开启 hardened runtime 签名，公证 DMG 并把公证票据装订（staple）进去，最后打印 sha256。
 3. `gh release create v<version> desktop/build/Beeplight-<version>.dmg`。
-4. `sh scripts/homebrew-cask.sh <owner>/<repo> > <tap 仓库>/Casks/beeplight.rb`，提交并推送 tap 仓库（`<owner>/homebrew-tap`）。用户安装：`brew install <owner>/tap/beeplight`。cask 写法用 `brew style` 检查过。
+4. `sh scripts/homebrew-cask.sh <owner>/<repo> > <tap 仓库>/Casks/beeplight.rb`，提交并推送 tap 仓库（`<owner>/homebrew-tap`）。用户安装：`brew install <owner>/tap/beeplight`。推送前先在本机验证：`brew tap <owner>/tap <tap 目录>`，`brew trust --cask <owner>/tap/beeplight`，再跑 `brew style --cask`、`brew audit --cask --online`、`brew fetch --cask`（fetch 会核对 sha256），最后 `brew untrust` 和 `brew untap` 收尾。Homebrew 7 起不加载没被信任的第三方 tap；用户用全名 `brew install <owner>/tap/beeplight` 安装时会自动信任，所以安装命令不用改。
 
 - hardened runtime 下 node 要的权限在 `desktop/node.entitlements`：Apple 芯片缺 `allow-jit` 会启动即崩，Intel 缺 `allow-unsigned-executable-memory` 也会崩。官方 node 自带的权限里有 `get-task-allow`，公证会拒绝，所以签名时换成这份。app 的 `desktop/Beeplight.entitlements` 带 Apple Events 权限，没有它，跳转 iTerm2/Terminal 会被系统直接拒绝，也不会弹窗询问。
 - 没有证书时，可以用 `SIGN_IDENTITY=- npm run app:dist`，按 ad-hoc 加 hardened runtime 的方式构建，在本机验证两种架构都能跑（Intel 用 `arch -x86_64`）。注意：构建会替换 `desktop/build/Beeplight.app`，正在运行的 app 要先退出。
