@@ -17,6 +17,8 @@
   <key>LSUIElement</key><true/>
   <key>NSHighResolutionCapable</key><true/>
   <!-- Required for the bundled service to drive iTerm2 / Terminal via AppleScript. -->
+  <!-- The paired iPhone can connect over Bluetooth when it can't reach this Mac on the network. -->
+  <key>NSBluetoothAlwaysUsageDescription</key><string>Lets your paired iPhone show your tasks over Bluetooth when it can't reach this Mac on the network.</string>
   <key>NSAppleEventsUsageDescription</key><string>Switches iTerm2 or Terminal to the tab where a Claude session runs.</string>
 </dict>
 </plist>

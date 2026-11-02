@@ -33,7 +33,7 @@ desktop/build/Beeplight.app/Contents/MacOS/Beeplight --snapshot /tmp/snap   # �
 - 只读，不侵入。只读 agent 写下的文件和进程表：不装 hook，不改 agent 的配置，不往 `~/.claude`、`~/.codex` 里写东西。Codex 的 SQLite 也不打开（WAL 模式的读者也会写 `-shm`），锁文件只 stat 不加锁，不连它的 app-server。
 - 各 agent 的内部格式都是逆向得来的，随时会变，只在各自的 `src/sources/<agent>/` 里解析，其他地方只用解析后的统一结果（`src/sources/common/analysis.js` 的对话分析、registry 形状的实时信号）。某个 agent 升级后的适配只改它自己的目录。
 - 同一条规则只写在一处：状态判定只在 `deriveStatus()`；请求的安全检查只在 `src/transports/http.js`；Mac 和 iOS 画形象只用 `Figure.draw()`。
-- 离开这台 Mac 的数据只有两类：一是总结时发出的对话摘录（默认经用户自己的 `claude` 登录发给 Anthropic；没装 claude 或 `summarizer.engine` 设为 `codex` 时，经用户自己的 `codex` 登录发给 OpenAI；`summarizer.titles` 设为 `original` 时不发），二是跨设备同步时经 `shareView()` 白名单裁剪并加密的任务摘要。新增任何对外发送，都要先在 README 的隐私说明里写清楚。
+- 离开这台 Mac 的数据只有两类（局域网和蓝牙上给配对手机的看板不算「离开」，它们和本机网页看到的一样，只给持有配对码的设备）：一是总结时发出的对话摘录（默认经用户自己的 `claude` 登录发给 Anthropic；没装 claude 或 `summarizer.engine` 设为 `codex` 时，经用户自己的 `codex` 登录发给 OpenAI；`summarizer.titles` 设为 `original` 时不发），二是跨设备同步时经 `shareView()` 白名单裁剪并加密的任务摘要。新增任何对外发送，都要先在 README 的隐私说明里写清楚。
 - 开源边界：本仓库按 Apache-2.0 开源。收费功能（iOS 上的抽卡形象）的逻辑和美术素材不进本仓库，本仓库只放格式定义和接口。
 - 零依赖：Node 服务和 `relay/server.js` 不引入 npm 包；Mac 应用只用系统框架。
 
@@ -238,6 +238,7 @@ Mac 应用（`desktop/`）：
 - Mac 端的「手机」设置页在 `desktop/Sources/PhoneSettings.swift`，二维码用 CoreImage 的 `CIQRCodeGenerator` 生成。
 - 页面版本：服务端启动时对 `public/` 的文件算一个哈希，放在 meta 的 `page` 字段里；网页发现它变了就自动刷新，所以一直开着的手机状态屏在更新后会换上新代码。
 - 手机布局是 `public/style.css` 末尾的两个媒体查询：竖屏用标签页，横屏（`orientation: landscape` 且 `max-height: 540px`）三列并排。
+- 蓝牙（`desktop/Sources/BluetoothBridge.swift`，协议在 `BluetoothWire.swift`）：给 iPhone app 用，局域网连不上时、以及 app 在后台时（iOS 允许后台 app 保持蓝牙连接，不允许保持 socket）经低功耗蓝牙收看板。Node 服务零依赖、做不了蓝牙，所以放在 Mac 应用里：它像本机网页一样读 `/api/stream` 转发出去，把手机的 focus / read / read-all 转成本机请求。打开手机访问、并且「手机」设置里「也通过蓝牙连接」开着（默认开）时才广播。服务 UUID 和加密密钥都由配对码派生（HKDF），每条消息压缩后用 AES-256-GCM 封装再分包；手机先发 `hello` 才收数据，局域网通时发 `pause`。`BluetoothWire.swift` 也编进 iPhone app，只能用 Foundation、CryptoKit、CoreBluetooth；改协议要两端一起改。手机按 `.withResponse` 写 up，一包最长 512 字节，超过一个 ATT 包时系统拆成带 offset 的几段，`didReceiveWrite` 先拼回再交给 Assembler。只有手机访问关了（或配对码变了）才停广播；服务暂时连不上（重启中）时保持现状，不断开手机。截图模式（`--snapshot`）不启动蓝牙，免得弹授权。「手机」设置页在开关下面显示蓝牙状态（正在广播、连了几台 iPhone、蓝牙关着、没有权限）；联调看 `log stream --predicate 'subsystem == "dev.beeplight.mac" && category == "bluetooth"'`，只记步骤，不记内容。
 - 状态屏（`#ambient`，触屏设备默认；Mac 上的网页也能用顶栏的「◱ 简洁」切过去，「详情」切回看板）：中间的能量环按 等你/运行/失败/成功 分段，由 `renderCoreArcs()` 生成 SVG；配色变量 `--tone/--tone2` 用 `@property` 注册，状态切换时会渐变。`mode-ambient` 必须同时加在 `<html>` 上：iOS 主屏幕 app 会在 Home 指示条下面露出根元素背景，否则底部是一条白边。环的发光用 SVG `<filter>`，因为 Safari 不对 SVG 子元素应用 CSS `filter`。列表用 `patchList()` 按任务 id 原地更新，不整体重建，否则每次点按、每个新步骤都会让所有卡片重放入场动画；卡片不压缩高度（`flex-shrink: 0`），放不下时列表滚动。点开一条新完成的任务会把它标为已读，`ambKept` 让它留在原位，收起后才离开列表。
 
 ## 发布（Mac 应用）
@@ -276,7 +277,7 @@ Mac 应用（`desktop/`）：
 
 ## 安全约束
 
-服务只监听 127.0.0.1（打开手机访问后才在局域网地址上额外监听）。所有检查都在 `src/transports/http.js` 里统一做，路由本身不做检查：
+服务只监听 127.0.0.1（打开手机访问后才在局域网地址上额外监听）。所有检查都在 `src/transports/http.js` 里统一做，路由本身不做检查。唯一的例外是蓝牙：Mac 应用的 `BluetoothBridge` 先核对请求（用配对码派生的密钥解得开、发出不到 2 分钟、nonce 没见过、手机已发过 `hello`），只放行 focus / read / read-all 三种，再以本机身份调接口；它不做蓝牙以外的检查，其余仍由 `http.js` 管。
 
 - `Host` 必须是本机的回环名称，或者已开启手机访问时的局域网地址（防 DNS rebinding）。
 - `/api/` 下的路径都要配对，路径不存在也先返回 401，不暴露有哪些接口。

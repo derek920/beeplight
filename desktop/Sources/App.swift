@@ -64,6 +64,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             Monitor.shared.onTransition = { IslandController.shared.flash($0) }
             Monitor.shared.start()
+            // Not while rendering snapshots: it would ask for Bluetooth permission.
+            if DebugSnapshot.dir == nil { BluetoothBridge.shared.start() }
             DebugSnapshot.run(monitor: .shared)
             IslandController.shared.apply(appearance.config)
         }

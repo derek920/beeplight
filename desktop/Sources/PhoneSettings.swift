@@ -16,6 +16,8 @@ struct LanInfo: Decodable, Equatable {
 
     var enabled: Bool
     var listening: [String]
+    /// The pairing token while phone access is on (older services only put it in the URLs).
+    var token: String?
     var urls: [Link]
     var mdnsUrl: String?
     /// 6-digit code for pairing a home-screen app, which cannot scan or reuse Safari's pairing.
@@ -56,6 +58,8 @@ final class LanController: ObservableObject {
             if let (data, _) = try? await URLSession.shared.data(for: req), let i = try? JSONDecoder().decode(LanInfo.self, from: data) {
                 info = i
                 error = nil
+                // Phone access or its token changed: the Bluetooth service follows.
+                await BluetoothBridge.shared.refresh()
             } else {
                 error = String(localized: "Couldn't apply the change. Is the Beeplight service running?")
             }
@@ -78,6 +82,8 @@ func qrImage(_ text: String, scale: CGFloat = 8) -> NSImage? {
 struct PhoneSettingsView: View {
     @ObservedObject var lan = LanController.shared
     @State private var picked: String?
+    @AppStorage(BluetoothBridge.enabledKey) private var bluetooth = true
+    @ObservedObject private var bridge = BluetoothBridge.shared
 
     var body: some View {
         let info = lan.info
@@ -94,6 +100,16 @@ struct PhoneSettingsView: View {
                 Toggle("Allow phones on the local network", isOn: Binding(get: { info?.enabled ?? false }, set: { lan.setEnabled($0) }))
                     .toggleStyle(.switch)
                     .disabled(lan.busy || info == nil)
+                Toggle("Also over Bluetooth, for the iPhone app", isOn: $bluetooth)
+                    .toggleStyle(.switch)
+                    .disabled(info?.enabled != true)
+                    .onChange(of: bluetooth) { Task { await BluetoothBridge.shared.refresh() } }
+                if bluetooth, info?.enabled == true, !bridge.statusText.isEmpty {
+                    Text(bridge.statusText)
+                        .font(.caption)
+                        .foregroundStyle(bridge.status == .advertising ? .secondary : Color.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 if let info, info.enabled {
                     if links.isEmpty {
                         Text("No Wi-Fi or wired network address found. VPN addresses aren't used, since phones can't reach them.")
@@ -174,6 +190,7 @@ struct PhoneSettingsView: View {
             note("exclamationmark.triangle", String(localized: "The connection is plain HTTP, not encrypted. Only turn this on in trusted networks such as at home or on a phone hotspot; on office or public Wi-Fi, others on the network can see the traffic."))
             note("cable.connector", String(localized: "Office Wi-Fi usually keeps devices from reaching each other. Then turn on Personal Hotspot on the phone and connect it to the Mac with a USB cable (or join the iPhone's network from the Mac's Bluetooth menu); an “iPhone USB” or Bluetooth address shows up here, so scan its QR code. The Mac stays on the office Wi-Fi for the internet."))
             note("flame", String(localized: "The first time, the macOS firewall asks whether node may accept incoming connections; click “Allow”."))
+            note("dot.radiowaves.left.and.right", String(localized: "Over Bluetooth, the paired Beeplight iPhone app gets the same task list when it can't reach this Mac on the network, and keeps it current in the background while the phone is nearby. It's encrypted with the pairing code; the first time, macOS asks to allow Bluetooth."))
             note("bell.slash", String(localized: "HTTP pages can't send push notifications: while the page is open it vibrates and shows a banner, but nothing arrives once the phone is locked."))
         }
         .padding(12)
