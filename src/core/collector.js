@@ -4,6 +4,7 @@ import { performance } from 'node:perf_hooks';
 import { config as defaultConfig } from '../config/index.js';
 import { ClaudeCodeSource } from '../sources/claude-code/index.js';
 import { detectHost, machineCpu, psSnapshot } from '../sources/system/proc.js';
+import { BackgroundTracker } from './background.js';
 import { deriveStatus, endKey, matchingEndSummary } from './status.js';
 import { buildSummaryInput } from '../services/summarizer.js';
 import { stateKey, Timeline } from './timeline.js';
@@ -39,7 +40,7 @@ const TRANSCRIPT_PROBE_MS = 2000;
  * Everything after that (status, summaries, timeline, unread, relay) never asks which agent it was.
  */
 export class Collector extends EventEmitter {
-  constructor({ store, summarizer, runner, usage, limits, relay, cpu, sources, config = defaultConfig }) {
+  constructor({ store, summarizer, runner, usage, limits, relay, cpu, sources, background, config = defaultConfig }) {
     super();
     this.config = config;
     this.store = store;
@@ -51,6 +52,8 @@ export class Collector extends EventEmitter {
     this.relay = relay;
     // CPU use of the Mac, Claude and Beeplight (src/core/cpu.js), fed by each process scan.
     this.cpu = cpu;
+    // Commands agents left running in the background, and which of them are services.
+    this.background = background ?? new BackgroundTracker({ config });
     this.remoteVersion = 0;
     relay?.on('change', () => this.remoteVersion++);
     this.localSig = '';
@@ -136,6 +139,8 @@ export class Collector extends EventEmitter {
         s.host = detectHost(s.pid, this.ps) ?? s.host;
         s.stopped = this.ps.get(s.pid)?.stat?.startsWith('T') ?? false;
       }
+      // Its port check runs on its own; the next tick picks up what it found.
+      this.background.refresh([...this.sessions.values()], this.ps, Date.now()).catch((e) => console.warn(`[background] ${e.message}`));
     } finally {
       this.psBusy = false;
     }
@@ -264,7 +269,8 @@ export class Collector extends EventEmitter {
       this.summarizer.request({ sid: s.sid, key, kind, turnId, delayMs, agent: agentOf(s), buildInput: () => this.summaryInput(s) });
 
     // A failed summary is re-requested; Summarizer holds it back until its backoff passes.
-    if (status === 'idle' || status === 'ended') {
+    // "shell": the turn is over, with a background command still running.
+    if (status === 'idle' || status === 'shell' || status === 'ended') {
       const verdict = matchingEndSummary(sum, a, !s.ended);
       if (!verdict || verdict.error) request('end', endKey(a), this.config.get('summarizer.endDelaySec') * 1000);
       return;
@@ -299,6 +305,7 @@ export class Collector extends EventEmitter {
       state: s.ended ? 'ended' : s.reg?.status,
       waitingFor: s.reg?.waitingFor,
       speaker: s.source.speaker,
+      background: this.background.commands(s, Date.now()),
     });
   }
 
@@ -306,7 +313,7 @@ export class Collector extends EventEmitter {
     const s = this.sessions.get(sid);
     const a = s?.tx?.a;
     if (!a?.turn || !this.aiTitles()) return false;
-    const idle = s.ended || s.reg?.status === 'idle';
+    const idle = s.ended || s.reg?.status === 'idle' || s.reg?.status === 'shell';
     this.summarizer.force(sid, {
       sid,
       kind: idle ? 'end' : 'run',
@@ -323,6 +330,7 @@ export class Collector extends EventEmitter {
     const job = this.jobs.get(s.sid);
     const summary = this.summaryOf(s.sid);
     const subagents = s.subs ? s.subs.list(now, !s.ended) : [];
+    const background = this.background.commands(s, now);
     const st = deriveStatus({
       live: !s.ended,
       reg: s.reg,
@@ -334,6 +342,7 @@ export class Collector extends EventEmitter {
       // don't show "checking the result" forever.
       verdicts: this.aiTitles() && this.summarizer.available !== false,
       runningAgents: subagents.filter((x) => x.running).length,
+      background,
     });
     const reg = s.reg || {};
     return {
@@ -372,6 +381,7 @@ export class Collector extends EventEmitter {
       turnStartedAt: a?.turn?.startedAt || null,
       updatedAt: Math.max(a?.lastTs || 0, reg.statusUpdatedAt || 0) || null,
       subagents,
+      background: backgroundView(background, st),
       jobShort: job?.short || null,
       summarizing: this.summarizer.inflight.has(s.sid),
       usage: this.sessionUsage(s.sid, now),
@@ -410,6 +420,7 @@ export class Collector extends EventEmitter {
       turnStartedAt: null,
       updatedAt: job.updatedAt,
       subagents: [],
+      background: [],
       jobShort: job.short,
       summarizing: false,
       unread: false,
@@ -456,7 +467,7 @@ export class Collector extends EventEmitter {
       // Running work and real permission prompts always show; anything else that has been
       // quiet for longer than the retention window (e.g. old chats the desktop app keeps
       // alive) is noise.
-      const active = v.state === 'doing' || (v.state === 'waiting' && v.kind === 'prompt');
+      const active = v.state === 'doing' || (v.state === 'waiting' && v.kind === 'prompt') || v.background.some((c) => c.state === 'running');
       if (!active && now - (v.updatedAt || v.since || 0) > retain) {
         staleCount++;
         return false;
@@ -663,6 +674,13 @@ export class Collector extends EventEmitter {
     }
     return { id: sid, live: false, entrypoint: v.entrypoint, hostSessionId: v.hostSessionId, host: null, cwd: v.cwd, jobShort: v.jobShort };
   }
+}
+
+// Background commands on a task's view. role: service (a server or watcher, or anything still
+// running after its task stopped working: listed on its own, never notified) or task (work the task
+// waits for, which keeps it in Doing).
+function backgroundView(list, st) {
+  return list.map(({ service, ...c }) => ({ ...c, role: service || (c.state === 'running' && st.state !== 'doing') ? 'service' : 'task' }));
 }
 
 /** Who a session's summary is about, for the summarizer's prompt. */

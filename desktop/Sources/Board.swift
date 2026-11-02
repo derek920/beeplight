@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// Main window: three columns (Waiting / Doing / Done) of task cards.
+/// Main window: three columns (Waiting / Doing / Done) of task cards, and background services under them.
 struct BoardView: View {
     let monitor: Monitor
     @ObservedObject var appearance = Appearance.shared
@@ -50,6 +50,12 @@ struct BoardView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 8)
+                // Servers and watchers left running: their own kind, under the task columns.
+                if !monitor.services.isEmpty {
+                    BackgroundStrip(monitor: monitor)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 8)
+                }
             }
             FooterLine(monitor: monitor)
         }

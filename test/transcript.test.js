@@ -116,3 +116,88 @@ test('starting mid-file drops the partial first line', () => {
   assert.equal(t.a.promptCount, 1);
   assert.equal(t.a.lastPrompt.uuid, 'u9');
 });
+
+// --- background commands -----------------------------------------------------------------------
+
+const bgLaunch = (id, input, s) => assistant([{ type: 'tool_use', id, name: 'Bash', input: { run_in_background: true, ...input } }], s);
+const bgStarted = (toolId, taskId, s, { viaResult = true } = {}) =>
+  JSON.stringify({
+    isSidechain: false,
+    type: 'user',
+    message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: toolId, content: `Command running in background with ID: ${taskId}. Output is being written to: /tmp/x/${taskId}.output` }] },
+    ...(viaResult ? { toolUseResult: { stdout: '', backgroundTaskId: taskId } } : {}),
+    timestamp: ts(s),
+  });
+const notification = (taskId, status, summary, s) =>
+  JSON.stringify({
+    isSidechain: false,
+    type: 'user',
+    origin: { kind: 'task-notification' },
+    message: { content: `<task-notification>\n<task-id>${taskId}</task-id>\n<status>${status}</status>\n<summary>${summary}</summary>\n</task-notification>` },
+    timestamp: ts(s),
+  });
+
+test('a command started in the background is tracked until its notification', () => {
+  const a = feed([
+    human('u1', '跑一下基准测试', 1),
+    bgLaunch('t1', { command: 'npm run bench', description: 'Run the benchmark' }, 2),
+    bgStarted('t1', 'b1', 3),
+    bgLaunch('t2', { command: 'npm run dev' }, 4),
+    bgStarted('t2', 'b2', 5, { viaResult: false }), // older versions: the id only in the text
+  ]);
+  assert.deepEqual([...a.background.keys()], ['b1', 'b2']);
+  assert.deepEqual(
+    { ...a.background.get('b1') },
+    { id: 'b1', command: 'npm run bench', title: 'Run the benchmark', startedAt: Date.parse(ts(3)), endedAt: null, status: 'running', exitCode: null },
+  );
+  assert.equal(a.background.get('b2').title, 'npm run dev');
+
+  ingestLine(a, notification('b1', 'completed', 'Background command "Run the benchmark" completed (exit code 0)', 9));
+  assert.deepEqual([a.background.get('b1').status, a.background.get('b1').exitCode, a.background.get('b1').endedAt], ['completed', 0, Date.parse(ts(9))]);
+  ingestLine(a, notification('b2', 'failed', 'Background command "npm run dev" failed with exit code 144', 10));
+  assert.deepEqual([a.background.get('b2').status, a.background.get('b2').exitCode], ['failed', 144]);
+  // A notification about a subagent (not one of ours) changes nothing.
+  ingestLine(a, notification('a77', 'completed', 'Agent "Review" finished', 11));
+  assert.equal(a.background.size, 2);
+});
+
+test('a background command ends as stopped when killed, or by a TaskStop call', () => {
+  const a = feed([
+    human('u1', '起服务', 1),
+    bgLaunch('t1', { command: 'node server.js' }, 2),
+    bgStarted('t1', 'b1', 3),
+    bgLaunch('t2', { command: 'tail -f log' }, 4),
+    bgStarted('t2', 'b2', 5),
+    notification('b1', 'killed', 'Background command "node server.js" was stopped', 6),
+    assistant([{ type: 'tool_use', id: 't3', name: 'TaskStop', input: { task_id: 'b2' } }], 7),
+    toolResult('t3', 8),
+  ]);
+  assert.equal(a.background.get('b1').status, 'stopped');
+  assert.equal(a.background.get('b2').status, 'stopped');
+  assert.equal(a.background.get('b2').endedAt, Date.parse(ts(8)));
+});
+
+test('a foreground Bash call or a failed launch is not a background command', () => {
+  const a = feed([
+    human('u1', '测试', 1),
+    assistant([{ type: 'tool_use', id: 't1', name: 'Bash', input: { command: 'npm test' } }], 2),
+    toolResult('t1', 3),
+    bgLaunch('t2', { command: 'npm run dev' }, 4),
+    toolResult('t2', 5, true),
+    // A foreground command whose output happens to read like a launch (e.g. grepping a transcript).
+    assistant([{ type: 'tool_use', id: 't3', name: 'Bash', input: { command: 'grep -r background logs' } }], 6),
+    bgStarted('t3', 'b9', 7, { viaResult: false }),
+  ]);
+  assert.equal(a.background.size, 0);
+});
+
+test('a notification that arrives mid-turn, as a queued attachment, ends the command too', () => {
+  const a = feed([human('u1', '测一下', 1), bgLaunch('t1', { command: 'scripts/device.sh', description: '真机测量' }, 2), bgStarted('t1', 'b1', 3)]);
+  const prompt = '<task-notification>\n<task-id>b1</task-id>\n<status>completed</status>\n<summary>Background command "真机测量" completed (exit code 0)</summary>\n</task-notification>';
+  ingestLine(a, JSON.stringify({ type: 'attachment', isSidechain: false, attachment: { type: 'queued_command', commandMode: 'task-notification', prompt }, timestamp: ts(9) }));
+  assert.deepEqual([a.background.get('b1').status, a.background.get('b1').exitCode], ['completed', 0]);
+  assert.match(a.timeline.at(-1).text, /后台任务完成：Background command "真机测量" completed/);
+  // A message the user typed mid-turn is queued the same way, and is not a notification.
+  ingestLine(a, JSON.stringify({ type: 'attachment', isSidechain: false, attachment: { type: 'queued_command', commandMode: 'prompt', prompt: '<task-notification>' }, timestamp: ts(10) }));
+  assert.equal(a.timeline.length, 3);
+});

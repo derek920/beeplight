@@ -66,6 +66,15 @@
 "Nothing is running" = "当前没有在跑的任务";
 "Turn ended" = "本轮已结束";
 "Nothing finished yet" = "还没有完成的任务";
+
+/* Background services (Services.swift) */
+"Background services" = "后台服务";
+"Servers and watchers left running. They never notify." = "agent 在后台开着的服务器和监听进程，不发提醒";
+"Open http://localhost:%@" = "打开 http://localhost:%@";
+"Failed (exit %lld)" = "失败（退出码 %lld）";
+"Stopped" = "已停止";
+"Exited" = "已退出";
+"Click to jump to its task" = "点击跳到对应的任务";
 "Mark all read" = "全部已读"; /* also Island.swift, Panel.swift */
 "Mark every new finish as read" = "把所有新完成的任务标为已读";
 "All" = "全部";

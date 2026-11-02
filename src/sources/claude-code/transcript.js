@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { t } from '../../lib/i18n.js';
 import { oneLine } from '../../lib/util.js';
-import { emptyAnalysis, pushTimeline } from '../common/analysis.js';
+import { addBackground, emptyAnalysis, endBackground, pushTimeline } from '../common/analysis.js';
 import { JsonlTail } from '../common/jsonl-tail.js';
 
 // Claude Code's transcript (~/.claude/projects/<slug>/<sessionId>.jsonl) → the shared analysis
@@ -59,6 +59,8 @@ export function ingestLine(a, line) {
       return onAssistant(a, d, ts);
     case 'system':
       return onSystem(a, d, ts);
+    case 'attachment':
+      return onAttachment(a, d, ts);
     default:
       return false;
   }
@@ -81,6 +83,7 @@ function onUser(a, d, ts) {
       t.error = !!b.is_error;
       a.pendingTools.delete(b.tool_use_id);
       if (t.error && a.turn) a.turn.toolErrors++;
+      if (!t.error) onToolOutcome(a, t, b, d.toolUseResult, ts);
       changed = true;
     }
   }
@@ -101,14 +104,7 @@ function onUserText(a, d, text, ts) {
     return true;
   }
   const origin = d.origin?.kind;
-  if (origin === 'task-notification' || text.startsWith('<task-notification>')) {
-    const status = /<status>([^<]*)<\/status>/.exec(text)?.[1];
-    const summary = /<summary>([\s\S]*?)<\/summary>/.exec(text)?.[1];
-    const key = status === 'completed' ? 'Background task finished: {summary}'
-      : status === 'failed' ? 'Background task failed: {summary}' : 'Background task {status}: {summary}';
-    pushTimeline(a, { k: 'note', text: t(key, { status: status || '', summary: oneLine(summary, 160) }), ts });
-    return true;
-  }
+  if (origin === 'task-notification' || text.startsWith('<task-notification>')) return onNotification(a, text, ts);
   if (d.isMeta) return false;
   // auto-continuation, peer messages and other system-originated turns are not the user's task.
   if (origin && origin !== 'human') return false;
@@ -169,6 +165,10 @@ function onAssistant(a, d, ts) {
       changed = true;
     } else if (b?.type === 'tool_use') {
       const t = { id: b.id, name: displayToolName(b.name), brief: toolBrief(b.name, b.input), ts, done: false, error: false };
+      // What a background launch or a stop needs once its result is in.
+      const i = b.input && typeof b.input === 'object' ? b.input : {};
+      if (b.name === 'Bash') t.bash = { command: oneLine(i.command, 300), description: oneLine(i.description, 90), background: !!i.run_in_background };
+      else if (STOP_TOOLS.has(b.name)) t.stops = String(i.task_id || i.shell_id || '');
       a.pendingTools.set(b.id, t);
       a.recentTools.push(t);
       if (a.recentTools.length > RECENT_TOOLS_MAX) a.recentTools.shift();
@@ -182,6 +182,51 @@ function onAssistant(a, d, ts) {
     a.apiRetry = null;
   }
   return changed;
+}
+
+// Background commands. A Bash call started with run_in_background (or sent to the background with
+// ctrl+b) returns at once with the task id; the end comes later as a task notification ("completed
+// (exit code 0)", "failed with exit code 1", "was stopped"), or as the result of a TaskStop call.
+const STOP_TOOLS = new Set(['TaskStop', 'KillShell', 'KillBash']);
+const BG_LAUNCH = /^Command running in background with ID: ([A-Za-z0-9_-]+)/;
+
+function onToolOutcome(a, t, block, result, ts) {
+  if (t.bash) {
+    // The result's text alone is not proof: a foreground command can print the same words.
+    const id = result?.backgroundTaskId || (t.bash.background ? BG_LAUNCH.exec(textOf(block.content).trimStart())?.[1] : null);
+    if (!id) return;
+    const { command, description } = t.bash;
+    addBackground(a, { id, command, title: description || oneLine(command, 80), startedAt: ts, endedAt: null, status: 'running', exitCode: null });
+  } else if (t.stops) {
+    endBackground(a, t.stops, 'stopped', null, ts);
+  }
+}
+
+// A task notification: a user message when the session was idle, or a queued_command attachment
+// when it arrived mid-turn.
+function onNotification(a, text, ts) {
+  for (const [, block] of text.matchAll(/<task-notification>([\s\S]*?)<\/task-notification>/g)) endFromNotification(a, block, ts);
+  const status = /<status>([^<]*)<\/status>/.exec(text)?.[1];
+  const summary = /<summary>([\s\S]*?)<\/summary>/.exec(text)?.[1];
+  const key = status === 'completed' ? 'Background task finished: {summary}'
+    : status === 'failed' ? 'Background task failed: {summary}' : 'Background task {status}: {summary}';
+  pushTimeline(a, { k: 'note', text: t(key, { status: status || '', summary: oneLine(summary, 160) }), ts });
+  return true;
+}
+
+function onAttachment(a, d, ts) {
+  const at = d.attachment;
+  if (at?.type !== 'queued_command' || at.commandMode !== 'task-notification' || typeof at.prompt !== 'string') return false;
+  return onNotification(a, at.prompt, ts);
+}
+
+function endFromNotification(a, block, ts) {
+  const id = /<task-id>([^<]*)<\/task-id>/.exec(block)?.[1];
+  if (!id || !a.background.has(id)) return;
+  const status = /<status>([^<]*)<\/status>/.exec(block)?.[1];
+  const code = /exit code (-?\d+)/.exec(/<summary>([\s\S]*?)<\/summary>/.exec(block)?.[1] || '')?.[1];
+  const ended = status === 'completed' ? 'completed' : status === 'failed' ? 'failed' : 'stopped';
+  endBackground(a, id, ended, code != null ? Number(code) : null, ts);
 }
 
 function onSystem(a, d, ts) {

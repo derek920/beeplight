@@ -7,6 +7,7 @@ import { displayToolName, toolBrief } from './transcript.js';
 
 const TAIL_BYTES = 64 * 1024;
 const STALE_MS = 15 * 60_000;
+const HANDBACK = 'SubagentHandback';
 
 // Subagents of a session live in <project>/<sessionId>/subagents/agent-<id>.jsonl (+ .meta.json).
 export class Subagents {
@@ -81,7 +82,9 @@ function readTailState(file, size) {
   const lines = buf.toString('utf8').split('\n').filter(Boolean);
   let finished = false;
   let activity = null;
-  // Walk back to the newest parseable user/assistant entry.
+  // Walk back to the newest parseable user/assistant entry. A subagent ends with a plain reply, or
+  // (newer Claude Code) by calling SubagentHandback, whose result is then the newest entry.
+  let afterResult = false;
   for (let i = lines.length - 1; i >= 0; i--) {
     let d;
     try {
@@ -90,9 +93,16 @@ function readTailState(file, size) {
       continue;
     }
     if (d.type !== 'assistant' && d.type !== 'user') continue;
-    if (d.type === 'assistant') {
-      const blocks = Array.isArray(d.message?.content) ? d.message.content : [];
-      const tool = blocks.findLast((b) => b?.type === 'tool_use');
+    const blocks = Array.isArray(d.message?.content) ? d.message.content : [];
+    if (d.type === 'user') {
+      // A tool's result: still working, unless that tool was the hand-back.
+      if (afterResult || !blocks.some((b) => b?.type === 'tool_result')) break;
+      afterResult = true;
+      continue;
+    }
+    const tool = blocks.findLast((b) => b?.type === 'tool_use');
+    if (tool?.name === HANDBACK) finished = true;
+    else if (!afterResult) {
       if (tool) activity = toolLine({ name: displayToolName(tool.name), brief: toolBrief(tool.name, tool.input) });
       finished = !tool && d.message?.stop_reason === 'end_turn';
     }

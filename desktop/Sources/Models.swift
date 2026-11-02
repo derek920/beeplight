@@ -206,6 +206,48 @@ struct TaskItem: Decodable, Identifiable, Equatable {
     /// The coding agent the task belongs to ("claude-code", "codex", …) and its display name.
     var agent: String?
     var agentName: String?
+    /// Commands the agent left running in the background, and services that ended a little while ago.
+    var background: [BackgroundCommand]?
+}
+
+/// A command an agent left running in the background (src/core/background.js). role "service": a
+/// server or watcher, or anything still running after its task stopped working; it is listed on
+/// its own and never notifies. role "task": work its task waits for, which keeps the task in Doing.
+struct BackgroundCommand: Decodable, Equatable, Identifiable {
+    var id: String
+    var title: String
+    var command: String?
+    /// running | completed | failed | stopped | exited (ended without saying how)
+    var state: String
+    var role: String
+    var exitCode: Int?
+    var startedAt: Double?
+    var endedAt: Double?
+    var ports: [Int]?
+
+    var isRunning: Bool { state == "running" }
+}
+
+/// A background service with the task that started it, for the board's own list of them.
+struct ServiceItem: Identifiable, Equatable {
+    var command: BackgroundCommand
+    var taskID: String
+    var taskTitle: String
+    var project: String?
+    var agent: String?
+    var id: String { "\(taskID)/\(command.id)" }
+
+    /// Every service of these tasks: running ones first, then the newest.
+    static func all(in tasks: [TaskItem]) -> [ServiceItem] {
+        tasks.flatMap { t in
+            (t.background ?? []).filter { $0.role == "service" }.map {
+                ServiceItem(command: $0, taskID: t.id, taskTitle: t.title, project: t.project, agent: t.agent)
+            }
+        }
+        .sorted { a, b in
+            a.command.isRunning != b.command.isRunning ? a.command.isRunning : (a.command.startedAt ?? 0) > (b.command.startedAt ?? 0)
+        }
+    }
 }
 
 enum Phase: String {
