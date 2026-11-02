@@ -13,9 +13,7 @@ Beeplight checks every session three times a second, sorts them into **Doing**, 
 It has a SwiftUI menu bar app and a web board. Both show the same live data, in English or Simplified Chinese depending on your system language; task titles follow the Mac's language too. To pick a language for Beeplight alone, choose it in the app's Settings → General (the same choice as System Settings → General → Language & Region → Applications).
 
 > [!NOTE]
-> **Early preview.** There are no signed builds or Homebrew cask yet, so for now you build the app from source; it takes about a minute. Signed, notarized builds will be on [beeplight.dev](https://beeplight.dev) and [Releases](https://github.com/derek920/beeplight/releases) with the first release.
->
-> Beeplight is an independent project. It is not affiliated with or endorsed by Anthropic. Claude and Claude Code are trademarks of Anthropic.
+> Beeplight is an independent project. It is not affiliated with or endorsed by Anthropic or OpenAI. Claude and Claude Code are trademarks of Anthropic; ChatGPT and Codex are trademarks of OpenAI.
 
 ## Features
 
@@ -43,6 +41,24 @@ It has a SwiftUI menu bar app and a web board. Both show the same live data, in 
 
 ## Install
 
+Download the DMG from the [latest release](https://github.com/derek920/beeplight/releases/latest) (also linked from [beeplight.dev](https://beeplight.dev)), open it and drag Beeplight into Applications. It is one universal app for Apple silicon and Intel, signed with a Developer ID and notarized by Apple.
+
+Or with Homebrew:
+
+```sh
+brew install derek920/tap/beeplight
+```
+
+Beeplight doesn't check for updates. To update, run `brew upgrade beeplight`, or download the new DMG and replace the app.
+
+On first use, macOS asks for a few permissions:
+
+- **Notifications**, for the waiting, finished and failed alerts.
+- **Automation** (control iTerm2 or Terminal), the first time you jump to a terminal tab.
+- **Incoming connections** for `node`, only if you turn on phone access.
+
+### Build from source
+
 ```sh
 git clone https://github.com/derek920/beeplight.git
 cd beeplight
@@ -51,12 +67,6 @@ open ~/Applications/Beeplight.app
 ```
 
 `npm run app` builds into `desktop/build/Beeplight.app` for your Mac's chip without installing. `npm run app:dist` builds a universal app for Apple silicon and Intel and packs it as a DMG to share. The first build downloads the official Node.js release that the app bundles from nodejs.org (about 50 MB per chip, checked against its published checksums) and caches it in `desktop/build/node`. There are no npm dependencies to install.
-
-On first use, macOS asks for a few permissions:
-
-- **Notifications**, for the waiting, finished and failed alerts.
-- **Automation** (control iTerm2 or Terminal), the first time you jump to a terminal tab.
-- **Incoming connections** for `node`, only if you turn on phone access.
 
 ## Using the Mac app
 
@@ -299,7 +309,7 @@ These can only be set in the environment:
 
 **Will a Claude Code update break it?** It can: Beeplight reads Claude Code's internal files, which may change. When that happens, Beeplight gets an update.
 
-**Is Beeplight made by Anthropic?** No. It's an independent project, not affiliated with or endorsed by Anthropic.
+**Is Beeplight made by Anthropic?** No. It's an independent project, not affiliated with or endorsed by Anthropic or OpenAI.
 
 More questions are answered on [beeplight.dev](https://beeplight.dev/#faq).
 
