@@ -52,6 +52,9 @@ const ZH = {
   'You interrupted this turn': '这一轮执行被你中断了',
   '{ask} ({options})': '{ask}（{options}）',
   'Background work running': '后台进行中',
+  'Background command running': '后台命令运行中',
+  'A background command is running': '有一条后台命令在运行',
+  '{title} and {n} more': '{title}，另有 {n} 条',
   'Not finished': '未完成',
   'Checking the result…': '结果判定中…',
   // transcript.js
@@ -149,6 +152,12 @@ const ZH = {
   'Caps how much new transcript is read in one check, so a burst of output never stalls the service.': '每次检查最多读这么多新内容，大量输出时服务也不会卡住。',
   'Show finished subagents (minutes)': '已结束子 agent 显示（分钟）',
   "A finished subagent stays on its task's card this long.": '已结束的子 agent 在任务卡片上保留这么久。',
+  'Background commands': '后台命令',
+  'Port check (seconds)': '端口检查（秒）',
+  'While an agent has commands running in the background, their listening ports are read (lsof) this often, which tells a server apart from work the agent waits for. 0 turns it off.':
+    'agent 有命令在后台运行时，每隔这么久读一次它们监听的端口（lsof），用来区分开着的服务器和 agent 在等结果的任务。设为 0 关闭。',
+  'Show ended services (minutes)': '已结束服务显示（分钟）',
+  'A background service that exited or was stopped stays on the board this long, with how it ended.': '退出或被停止的后台服务在看板上保留这么久，并显示它是怎么结束的。',
   'Front tab check (ms)': '前台标签页检测（毫秒）',
   'How often the front terminal tab is checked, to mark a task read once you have looked at it.': '多久检查一次前台的终端标签页。你看过某个任务的标签页后，它会被标为已读。',
   'Network address check (seconds)': '网络地址检查（秒）',

@@ -2,6 +2,7 @@ import http from 'node:http';
 import { focusTarget } from './actions/focus.js';
 import { SeenWatcher } from './actions/seen.js';
 import { claudeBin, codexBin, config, HOST, PORT, PUBLIC_DIR } from './config/index.js';
+import { BackgroundTracker } from './core/background.js';
 import { Collector } from './core/collector.js';
 import { CpuMeter } from './core/cpu.js';
 import { Store } from './core/store.js';
@@ -42,9 +43,10 @@ const summarizer = new Summarizer(store, runner, config, new CodexRunner());
 const usage = new UsageIndex();
 const relay = new Relay(store);
 const cpu = new CpuMeter();
+const background = new BackgroundTracker({ config });
 // Each coding agent on this Mac is a source (interface in src/core/collector.js).
 const sources = [new ClaudeCodeSource({ isOwnPid: (pid) => runner.isOwnPid(pid), config }), new CodexSource({ config })];
-const collector = new Collector({ store, summarizer, runner, usage, limits, relay, cpu, sources });
+const collector = new Collector({ store, summarizer, runner, usage, limits, relay, cpu, sources, background });
 const seen = new SeenWatcher({ collector, store });
 
 const page = pageVersion(PUBLIC_DIR);

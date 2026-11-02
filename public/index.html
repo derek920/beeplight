@@ -133,6 +133,17 @@
       </section>
     </main>
 
+    <!-- Servers and watchers agents left running: their own kind, never notified. renderServices() in app.js. -->
+    <section class="services" id="services" hidden>
+      <header class="col-head">
+        <span class="svc-icon" aria-hidden="true">▤</span>
+        <h2 data-i18n>Background services</h2>
+        <span class="count"></span>
+        <span class="hint" data-i18n>Servers and watchers left running. They never notify.</span>
+      </header>
+      <div class="svc-list"></div>
+    </section>
+
     <footer class="foot"><span id="foot"></span><span class="cpu" id="cpu"></span></footer>
     <!-- Limit details, opened from a limit card; filled by renderDetail() in app.js. -->
     <div class="qd-backdrop" id="qd" hidden>

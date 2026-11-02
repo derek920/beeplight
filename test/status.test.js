@@ -89,6 +89,38 @@ test('a question on the wrap-up card means Waiting, whatever the LLM said', () =
   assert.equal(deriveStatus({ live: true, reg: reg('idle'), a, summary: endSummary(a, 'done') }).state, 'done');
 });
 
+// --- the turn is over, a background command still runs ("shell") ------------------------------
+
+const bg = (title, extra = {}) => ({ id: title, title, state: 'running', service: false, ...extra });
+
+test('a background command the turn waits for keeps the task in Doing', () => {
+  const s = deriveStatus({ live: true, reg: reg('shell'), a: analysis(), background: [bg('真机对照测试')] });
+  assert.deepEqual([s.state, s.label, s.detail, s.since], ['doing', '后台命令运行中', '真机对照测试', 1000]);
+  const two = deriveStatus({ live: true, reg: reg('shell'), a: analysis(), background: [bg('构建'), bg('测试')] });
+  assert.equal(two.detail, '构建，另有 1 条');
+  // Claude Code says something runs, but its launch is older than the part of the transcript we read.
+  assert.equal(deriveStatus({ live: true, reg: reg('shell'), a: analysis() }).detail, '有一条后台命令在运行');
+  // Without a verdict coming it is still Doing: Claude Code's own reading of "shell".
+  assert.equal(deriveStatus({ live: true, reg: reg('shell'), a: analysis(), background: [bg('构建')], verdicts: false }).state, 'doing');
+});
+
+test('a server or watcher left running does not keep the task in Doing', () => {
+  const a = analysis();
+  const server = bg('npm run dev', { service: true, ports: [5173] });
+  const s = deriveStatus({ live: true, reg: reg('shell'), a, background: [server] });
+  assert.deepEqual([s.state, s.outcome, s.pending], ['done', 'success', true]);
+  assert.equal(deriveStatus({ live: true, reg: reg('shell'), a, background: [server], verdicts: false }).pending, false);
+});
+
+test('the verdict decides over a background command, and a closed session is not still working', () => {
+  const a = analysis();
+  // The model read the turn as done although a command still runs.
+  assert.equal(deriveStatus({ live: true, reg: reg('shell'), a, summary: endSummary(a, 'done'), background: [bg('构建')] }).state, 'done');
+  assert.equal(deriveStatus({ live: true, reg: reg('shell'), a, summary: endSummary(a, 'working') }).label, '后台进行中');
+  const closed = deriveStatus({ live: false, lastRegStatus: 'shell', a, summary: endSummary(a, 'working', '等真机测完') });
+  assert.deepEqual([closed.state, closed.outcome, closed.label, closed.detail], ['done', 'failed', '未完成', '等真机测完']);
+});
+
 test('background jobs use the daemon state when not live', () => {
   const s = deriveStatus({ live: false, job: { state: 'blocked', needs: 'confirm: reply?', updatedAt: 5 } });
   assert.deepEqual([s.state, s.detail], ['waiting', 'confirm: reply?']);

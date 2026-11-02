@@ -316,6 +316,7 @@ function render() {
   renderColumn('waiting', waiting, changed);
   renderColumn('doing', doing, changed);
   renderColumn('done', done, changed);
+  renderServices(visible);
   renderTabs(waiting.length, doing.length, doneAll.length, doneAll.filter((v) => v.unread).length);
   renderAmbient(waiting, doing, doneAll);
 
@@ -337,6 +338,53 @@ function render() {
   updateElapsed();
   firstRender = false;
 }
+
+// Background services (src/core/background.js): dev servers and watchers an agent left running, with
+// the task that started them. Not tasks: they never change columns and never notify.
+function renderServices(visible) {
+  const list = visible
+    .flatMap((v) => (v.background || []).filter((c) => c.role === 'service').map((c) => ({ c, v })))
+    .sort((x, y) => Number(y.c.state === 'running') - Number(x.c.state === 'running') || (y.c.startedAt || 0) - (x.c.startedAt || 0));
+  const box = $('#services');
+  box.hidden = !list.length;
+  if (!list.length) return;
+  box.querySelector('.count').textContent = list.length;
+  const html = list.map(serviceHTML).join('');
+  const el = box.querySelector('.svc-list');
+  if (el.dataset.html !== html) {
+    el.dataset.html = html;
+    el.innerHTML = html;
+    updateElapsed();
+  }
+}
+
+// Ports open on this Mac only: from a phone, localhost is the phone.
+const ON_THIS_MAC = ['localhost', '127.0.0.1'].includes(location.hostname);
+
+function serviceHTML({ c, v }) {
+  const running = c.state === 'running';
+  const how =
+    c.state === 'failed' ? (c.exitCode != null ? t('Failed (exit {code})', { code: c.exitCode }) : t('Failed'))
+    : c.state === 'stopped' ? t('Stopped') : t('Exited');
+  const when = running
+    ? `<span class="elapsed" data-mode="run" data-t="${c.startedAt || ''}"></span>`
+    : `${esc(how)} · <span class="elapsed" data-mode="ago" data-t="${c.endedAt || ''}"></span>`;
+  const ports = (c.ports || []).slice(0, 3).map((p) => (ON_THIS_MAC
+    ? `<a class="svc-port" href="http://localhost:${Number(p)}" target="_blank" rel="noopener" title="${esc(t('Open http://localhost:{port}', { port: Number(p) }))}">:${Number(p)}</a>`
+    : `<span class="svc-port">:${Number(p)}</span>`)).join('');
+  const where = v.project ? `${v.project} · ${v.title}` : v.title;
+  return `<div class="svc svc-${esc(c.state)}" data-id="${esc(v.id)}" title="${esc([c.command, t('Click to jump to its task')].filter(Boolean).join('\n'))}">
+  <div class="svc-row1"><span class="svc-dot"></span>${agentMark(v)}<b>${esc(c.title)}</b></div>
+  <div class="svc-row2">${ports}<span class="svc-when">${when}</span></div>
+  <div class="svc-row3">${esc(where)}</div>
+</div>`;
+}
+
+$('#services').addEventListener('click', (e) => {
+  if (e.target.closest('a')) return;
+  const el = e.target.closest('.svc');
+  if (el) act(el.dataset.id, 'focus');
+});
 
 function renderStats(c) {
   const items = [
