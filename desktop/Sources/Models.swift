@@ -51,6 +51,8 @@ struct LimitsInfo: Decodable, Equatable {
     var known: Bool?
     var at: Double?
     var status: String?
+    /// Subscription type (max, ultra, …); ultra has only the weekly limit.
+    var plan: String?
     var fiveHour: LimitWindow?
     var sevenDay: LimitWindow?
     /// Other windows the account reports (seven_day_opus, …).
@@ -60,9 +62,13 @@ struct LimitsInfo: Decodable, Equatable {
     var monitorSelf: SelfUsage?
 
     enum CodingKeys: String, CodingKey {
-        case known, at, status, fiveHour, sevenDay, extra, probing, error
+        case known, at, status, plan, fiveHour, sevenDay, extra, probing, error
         case monitorSelf = "self"
     }
+
+    /// Ultra has no 5-hour window; max shows both. (The burn-rate strips ask the data instead:
+    /// they show a 5-hour strip only when a 5-hour window was actually reported.)
+    var hasFiveHour: Bool { plan != "ultra" }
 
     /// The weekly window for Fable, if the account reports one. The key name is a guess (matched on
     /// "fable"): no account here has ever returned such a window, so this is nil in practice today.
