@@ -61,6 +61,7 @@ export class Collector extends EventEmitter {
     this.sources = sources ?? [new ClaudeCodeSource({ isOwnPid: (pid) => runner.isOwnPid(pid), config })];
     this.sessions = new Map(); // sid -> session state (live, or ended while we watched)
     this.jobs = new Map();
+    this.archived = new Set();
     this.ps = new Map();
     this.tickCount = 0;
     this.tickTimes = [];
@@ -222,6 +223,10 @@ export class Collector extends EventEmitter {
       for (const [sid, job] of source.background?.() ?? []) jobs.set(sid, Object.assign(job, { agent: source.id, agentName: source.name }));
     }
     this.jobs = jobs;
+    // Sessions archived in an agent's desktop app never show (src/sources/claude-code/archived.js).
+    const archived = new Set();
+    for (const source of this.sources) for (const id of source.archivedIds?.() ?? []) archived.add(id);
+    this.archived = archived;
   }
 
   createSession(sid, reg, source) {
@@ -460,6 +465,7 @@ export class Collector extends EventEmitter {
     let idleCount = 0;
     let staleCount = 0;
     const board = views.filter((v) => {
+      if (v.hostSessionId && this.archived.has(v.hostSessionId)) return false;
       if (v.state === 'idle') {
         idleCount++;
         return false;

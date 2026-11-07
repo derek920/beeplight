@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { PROJECTS_DIR } from '../../config/index.js';
 import { cleanTitle, HOST_SESSION_RE, JOB_SHORT_RE, pidAlive, projectSlug, SESSION_ID_RE } from '../../lib/util.js';
+import { ArchivedSessions } from './archived.js';
 import { Jobs } from './jobs.js';
 import { Registry } from './registry.js';
 import { Subagents } from './subagents.js';
@@ -18,11 +19,12 @@ export class ClaudeCodeSource {
   caps = { limits: true, cpu: 'claude' };
 
   /** @param {{ isOwnPid?: (pid: number) => boolean, config?: object }} opts */
-  constructor({ isOwnPid = () => false, config, registry = new Registry(), jobs = new Jobs() } = {}) {
+  constructor({ isOwnPid = () => false, config, registry = new Registry(), jobs = new Jobs(), archived = new ArchivedSessions() } = {}) {
     this.isOwnPid = isOwnPid;
     this.config = config;
     this.registry = registry;
     this.jobs = jobs;
+    this.archived = archived;
   }
 
   owns(sid) {
@@ -41,6 +43,11 @@ export class ClaudeCodeSource {
 
   background() {
     return this.jobs.poll();
+  }
+
+  /** Desktop session ids the user archived; the collector hides tasks with a matching hostSessionId. */
+  archivedIds() {
+    return this.archived.poll();
   }
 
   /** The session's transcript and subagents, once its transcript file exists. */
