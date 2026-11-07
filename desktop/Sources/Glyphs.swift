@@ -283,7 +283,11 @@ struct MenuBarBadge: View {
 
     private var waitColor: Color { c.urgent ? p.urgent : p.waiting }
 
-    // Capsules: one filled capsule per state with an icon and a number.
+    /// While the limit pill is up the badge is wider (and the menu bar may be short of room), so the
+    /// state capsules drop their icons and keep just the number; the colour still says which state.
+    private var compact: Bool { c.limitValue != nil }
+
+    // Capsules: one filled capsule per state with an icon and a number (number only when `compact`).
     private var capsules: some View {
         HStack(spacing: 3) {
             if c.waiting > 0 { capsule(c.urgent ? "exclamationmark.triangle.fill" : "hand.raised.fill", c.waiting, waitColor) }
@@ -291,7 +295,7 @@ struct MenuBarBadge: View {
             if c.newDone > 0 { capsule("checkmark", c.newDone, p.success) }
             if c.doing > 0 {
                 HStack(spacing: 3) {
-                    miniSpinner(.white, 8.5)
+                    if !compact { miniSpinner(.white, 8.5) }
                     Text("\(c.doing)").font(.system(size: 11, weight: .bold).monospacedDigit())
                 }
                 .padding(.horizontal, 5)
@@ -410,7 +414,7 @@ struct MenuBarBadge: View {
 
     private func capsule(_ symbol: String, _ n: Int, _ color: Color) -> some View {
         HStack(spacing: 2) {
-            Image(systemName: symbol).font(.system(size: 8.5, weight: .heavy))
+            if !compact { Image(systemName: symbol).font(.system(size: 8.5, weight: .heavy)) }
             Text("\(n)").font(.system(size: 11, weight: .bold).monospacedDigit())
         }
         .padding(.horizontal, 5)
