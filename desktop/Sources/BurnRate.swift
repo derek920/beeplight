@@ -1,9 +1,10 @@
 import Charts
 import SwiftUI
 
-/// The chart's time spans; raw values match BURN_RANGES in src/sources/claude-code/usage.js.
+/// The chart's time spans; raw values are what GET /api/burn?range= takes: BURN_RANGES in
+/// src/sources/claude-code/usage.js, plus "28d", which is `UsageIndex.daily()` (per day, not per hour).
 enum BurnRange: String, CaseIterable {
-    case fiveHours = "5h", today, day = "24h", week = "7d"
+    case fiveHours = "5h", today, day = "24h", week = "7d", month = "28d"
 
     var label: String {
         switch self {
@@ -11,6 +12,7 @@ enum BurnRange: String, CaseIterable {
         case .today: return String(localized: "Today")
         case .day: return String(localized: "24 hours")
         case .week: return String(localized: "7 days")
+        case .month: return String(localized: "28 days")
         }
     }
 
@@ -20,6 +22,7 @@ enum BurnRange: String, CaseIterable {
         case .today: return String(localized: "Tokens per hour on this Mac, today from midnight · Bars: every 3 minutes · Lines: average of the past 60 minutes")
         case .day: return String(localized: "Tokens per hour on this Mac, last 24 hours · Bars: every 3 minutes · Lines: average of the past 60 minutes")
         case .week: return String(localized: "Tokens per hour on this Mac, last 7 days · Bars: every hour · Lines: average of the past 6 hours")
+        case .month: return String(localized: "Tokens per day on this Mac, last 28 days · Bars: every day · Lines: average of the past 7 days")
         }
     }
 
@@ -29,6 +32,7 @@ enum BurnRange: String, CaseIterable {
         case .today: return String(localized: "Input, today")
         case .day: return String(localized: "Input, 24h")
         case .week: return String(localized: "Input, 7d")
+        case .month: return String(localized: "Input, 28d")
         }
     }
 
@@ -38,6 +42,7 @@ enum BurnRange: String, CaseIterable {
         case .today: return String(localized: "Output, today")
         case .day: return String(localized: "Output, 24h")
         case .week: return String(localized: "Output, 7d")
+        case .month: return String(localized: "Output, 28d")
         }
     }
 
@@ -47,6 +52,7 @@ enum BurnRange: String, CaseIterable {
         case .today: return String(localized: "Cost, today")
         case .day: return String(localized: "Cost, 24h")
         case .week: return String(localized: "Cost, 7d")
+        case .month: return String(localized: "Cost, 28d")
         }
     }
 
@@ -55,6 +61,7 @@ enum BurnRange: String, CaseIterable {
         case .fiveHours: return String(localized: "30-min average")
         case .today, .day: return String(localized: "60-min average")
         case .week: return String(localized: "6-hour average")
+        case .month: return String(localized: "7-day average")
         }
     }
 }
@@ -260,6 +267,7 @@ private struct BurnHeader: View {
         let t = data?.range == range.rawValue ? data?.totals : nil
         let rates = t == nil ? nil : data
         let input = t.map { $0.cr + $0.cw + $0.input } ?? 0
+        let month = range == .month
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .center, spacing: 16) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -277,14 +285,14 @@ private struct BurnHeader: View {
                 RangePicker(range: $range)
             }
             HStack(spacing: 10) {
-                BurnStat(value: rates?.avgIn.last.map { Fmt.tokens($0) }, label: String(localized: "Input / hr"), color: Theme.failed, compact: compact)
-                BurnStat(value: rates?.avgOut.last.map { Fmt.tokens($0) }, label: String(localized: "Output / hr"), color: Theme.success, compact: compact)
+                BurnStat(value: rates?.avgIn.last.map { Fmt.tokens($0) }, label: month ? String(localized: "Input / day") : String(localized: "Input / hr"), color: Theme.failed, compact: compact)
+                BurnStat(value: rates?.avgOut.last.map { Fmt.tokens($0) }, label: month ? String(localized: "Output / day") : String(localized: "Output / hr"), color: Theme.success, compact: compact)
                 BurnStat(value: t.map { input > 0 ? String(format: "%.1f%%", $0.cr / input * 100) : "—" }, label: String(localized: "Cache hits"), color: cacheColor, compact: compact)
                 if !compact {
                     BurnStat(value: t.map { _ in Fmt.tokens(input) }, label: range.inputTotal, color: cacheColor)
                     BurnStat(value: t.map { Fmt.tokens($0.out) }, label: range.outputTotal, color: Theme.success)
                 }
-                BurnStat(value: rates.map { "≈" + usdShort($0.costPerHour) }, label: String(localized: "Cost / hr"), color: Theme.waiting, compact: compact)
+                BurnStat(value: rates.map { "≈" + usdShort($0.costPerHour) }, label: month ? String(localized: "Cost / day") : String(localized: "Cost / hr"), color: Theme.waiting, compact: compact)
                     .help(costHelp)
                 BurnStat(value: t.map { "≈" + usdShort($0.cost) }, label: range.costTotal, color: Theme.waiting, compact: compact)
                     .help(costHelp)
@@ -447,7 +455,7 @@ private func bar(_ a: Date, _ b: Date, _ y0: Double, _ y1: Double, _ series: Str
 private func ticks(_ d: BurnData, _ r: BurnRange) -> [Date] {
     let cal = Calendar.current
     let span = span(d)
-    let (unit, every): (Calendar.Component, Int) = r == .week ? (.day, 1) : (.hour, r == .fiveHours ? 1 : 2)
+    let (unit, every): (Calendar.Component, Int) = r == .month ? (.day, 7) : r == .week ? (.day, 1) : (.hour, r == .fiveHours ? 1 : 2)
     guard var t = cal.dateInterval(of: unit, for: span.lowerBound)?.end else { return [] }
     if unit == .hour { while cal.component(.hour, from: t) % every != 0 { t = cal.date(byAdding: .hour, value: 1, to: t)! } }
     let width = span.upperBound.timeIntervalSince(span.lowerBound)
@@ -468,10 +476,12 @@ private func dayFormat(_ template: String) -> DateFormatter {
     return f
 }
 private let weekTickFormat = dayFormat("MMMdEEE")
+private let monthTickFormat = dayFormat("MMMd")
 
 private func tickLabel(_ d: Date, _ r: BurnRange) -> String {
     switch r {
     case .week: return weekTickFormat.string(from: d)
+    case .month: return monthTickFormat.string(from: d)
     default: return Fmt.clock(d.timeIntervalSince1970 * 1000)
     }
 }

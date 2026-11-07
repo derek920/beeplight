@@ -41,7 +41,7 @@ export function apiRoutes({ collector, store, config, lan, relay, limits, stream
       },
     },
     {
-      // Burn-rate chart: ?range=5h|today|24h|7d.
+      // Burn-rate chart: ?range=5h|today|24h|7d, or 28d for one bar per day.
       method: 'GET', path: '/api/burn', access: 'paired',
       handle: ({ res, url }) => json(res, 200, collector.usageBurn(url.searchParams.get('range'))),
     },

@@ -74,3 +74,25 @@ test('burn: today runs from midnight on an axis fixed to the whole day', () => {
   assert.equal(b.totals.out, 300);
   assert.equal(b.out[(10 * 60 - 30) / 3], 6000);
 });
+
+test('daily: one bar per local day, with the trailing 7-day mean', () => {
+  const day = (n, h = 12) => new Date(2026, 9, 28 + n, h).getTime();
+  const u = new UsageIndex('/nonexistent');
+  const s = u.session('s1');
+  for (const [t, out] of [[day(-27), 700], [day(-1), 70], [day(0, 3), 7], [day(0, 9), 7], [day(-28), 999]]) {
+    s.records.push(recordFromUsage('claude-opus-5-5', { input_tokens: 1, output_tokens: out, cache_read_input_tokens: 100 }, t));
+  }
+  s.lastAt = day(0, 9);
+  const d = u.daily(28, day(0, 10));
+  assert.equal(d.out.length, 28);
+  assert.equal(d.from, new Date(2026, 9, 1).getTime());
+  assert.equal(d.out[0], 700);
+  assert.equal(d.out[26], 70);
+  assert.equal(d.out[27], 14); // today so far
+  assert.equal(d.cr[27], 200);
+  assert.equal(d.totals.out, 784); // the record from 28 days back is outside the span
+  assert.equal(d.avgOut[0], 700);
+  assert.equal(d.avgOut[27], Math.round((70 + 14) / 7)); // days 21..27, only the last two have data
+  assert.equal(d.avgIn[27], Math.round(((100 + 1) * 3) / 7));
+  assert.equal(u.burn('28d', day(0)).range, '24h'); // 28d goes through daily(), not burn()
+});

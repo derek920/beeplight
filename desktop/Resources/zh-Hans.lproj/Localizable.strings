@@ -341,6 +341,15 @@
 "Cost, today" = "今天金额";
 "24 hours" = "24 小时";
 "7 days" = "7 天";
+"28 days" = "28 天";
+"Tokens per day on this Mac, last 28 days · Bars: every day · Lines: average of the past 7 days" = "这台 Mac 过去 28 天每天消耗的 token · 柱子：每天一根 · 曲线：过去 7 天的平均";
+"Input / day" = "输入 / 天";
+"Output / day" = "输出 / 天";
+"Cost / day" = "金额 / 天";
+"Input, 28d" = "28 天输入";
+"Output, 28d" = "28 天输出";
+"Cost, 28d" = "28 天金额";
+"7-day average" = "7 天平均";
 "Tokens per hour on this Mac, last 5 hours · Bars: every minute · Lines: average of the past 30 minutes" = "这台 Mac 过去 5 小时每小时消耗的 token · 柱子：每分钟一根 · 曲线：过去 30 分钟的平均";
 "Tokens per hour on this Mac, last 24 hours · Bars: every 3 minutes · Lines: average of the past 60 minutes" = "这台 Mac 过去 24 小时每小时消耗的 token · 柱子：每 3 分钟一根 · 曲线：过去 60 分钟的平均";
 "Tokens per hour on this Mac, last 7 days · Bars: every hour · Lines: average of the past 6 hours" = "这台 Mac 过去 7 天每小时消耗的 token · 柱子：每小时一根 · 曲线：过去 6 小时的平均";
