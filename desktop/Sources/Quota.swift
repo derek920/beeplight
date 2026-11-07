@@ -267,7 +267,7 @@ struct CompactQuota: View {
     var body: some View {
         let L = monitor.limits
         VStack(spacing: 5) {
-            line(String(localized: "5h"), L?.fiveHour, withDay: false)
+            if L?.hasFiveHour ?? true { line(String(localized: "5h"), L?.fiveHour, withDay: false) }
             line(String(localized: "Week"), L?.sevenDay, withDay: true)
         }
     }

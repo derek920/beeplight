@@ -51,6 +51,8 @@ struct LimitsInfo: Decodable, Equatable {
     var known: Bool?
     var at: Double?
     var status: String?
+    /// Subscription type (max, ultra, …); ultra has only the weekly limit.
+    var plan: String?
     var fiveHour: LimitWindow?
     var sevenDay: LimitWindow?
     var probing: Bool?
@@ -58,9 +60,12 @@ struct LimitsInfo: Decodable, Equatable {
     var monitorSelf: SelfUsage?
 
     enum CodingKeys: String, CodingKey {
-        case known, at, status, fiveHour, sevenDay, probing, error
+        case known, at, status, plan, fiveHour, sevenDay, probing, error
         case monitorSelf = "self"
     }
+
+    /// Ultra has no 5-hour window; max shows both.
+    var hasFiveHour: Bool { plan != "ultra" }
 }
 
 /// Server-reported utilization (0…1) of one limit window.
