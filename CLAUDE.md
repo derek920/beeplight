@@ -78,7 +78,7 @@ desktop/build/Beeplight.app/Contents/MacOS/Beeplight --snapshot /tmp/snap   # �
 - tick 里只做轻活：不同步读大文件，不启动子进程，不调 LLM。重活异步、分块做，中间让出事件循环（参照 `UsageIndex`）。
 - 文件只增量读：记住读到的位置，只读新写入的部分。首次读取和每次读取都有上限（`transcript.initialTailMB`、`transcript.maxReadMB`）。
 - 只在变化时推送：state 按签名去重；每秒都在变的数据（今日统计、用量）放在 meta 里，不进 state 签名。SSE 每个事件只序列化一次。
-- 外部命令按固定节奏调用，并且只在需要时调用：`ps` 每 2 秒一次，CPU 占用也从这次扫描里算，不另起命令；`osascript` 只在跳转时调用，另外在有未读任务时由 `seen.js` 每 1.5 秒调用一次；`lsof` 只在有 agent 的后台命令在跑时按 `background.portScanSec`（默认 10 秒）调用，新命令出现时立刻查一次。
+- 外部命令按固定节奏调用，并且只在需要时调用：`ps` 每 2 秒一次，CPU 占用也从这次扫描里算，不另起命令；`osascript` 只在跳转时调用，另外在有未读任务时由 `seen.js` 每 1.5 秒调用一次；`lsof` 只在有 agent 的后台命令在跑时按 `background.portScanSec`（默认 10 秒）调用，新命令出现时立刻查一次。`claude auth status` 只在服务启动时调用一次，读订阅类型（`Limits.readPlan()`，不在 tick 里）。
 - LLM 调用一律经过 `Summarizer` 的队列，由它负责去重、并发、每小时上限和失败退避；额度探测也有固定间隔，找不到 claude 时不探测。不要在别处直接调 `claude -p` 或 `codex exec`。
 - 常驻内存和存盘的数据都要有上限或过期时间：解析结果只保留最近若干条，用量记录和额度样本只保留 8 天，store 里的历史最长保留 `store.keepDays` 天（见「LLM 总结」的持久化）。
 

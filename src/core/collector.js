@@ -199,7 +199,6 @@ export class Collector extends EventEmitter {
         if (this.aiTitles()) this.maybeSummarize(s, now);
       }
       if (this.aiTitles()) this.summarizer.pump();
-      if (this.tickCount === 1) this.limits.readPlan?.();
       if (this.tickCount % 6 === 0 && this.limits.due(now, this.recentlyActive(now))) this.limits.probe();
       this.publish(now);
     } catch (e) {
