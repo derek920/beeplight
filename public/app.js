@@ -594,7 +594,7 @@ function renderQuota() {
       : L.at
         ? t('Limits updated {time}', { time: clock(L.at) })
         : '';
-  const html = `${quotaCard('5h', t('5-hour limit'), L.fiveHour, u.fiveHour, u.windows.fiveHour, u.buckets5h, now, false)}
+  const html = `${L.plan === 'ultra' ? '' : quotaCard('5h', t('5-hour limit'), L.fiveHour, u.fiveHour, u.windows.fiveHour, u.buckets5h, now, false)}
 ${quotaCard('7d', t('Weekly limit'), L.sevenDay, u.sevenDay, u.windows.sevenDay, u.buckets7d, now, true)}
 <div class="q-card q-top">
   <div class="q-title">${t('Top sessions this week')} <span class="muted">${t('share of weekly limit (est.)')}</span></div>
@@ -1331,7 +1331,7 @@ function renderAmbientQuota() {
     const c = u == null ? 'var(--ink-3)' : u >= 0.8 ? 'var(--a-fail)' : u >= 0.5 ? 'var(--a-wait)' : 'var(--a-ok)';
     return `<div class="q"><span>${label}</span><i style="--p:${Math.min(100, (u || 0) * 100).toFixed(1)}%;--qc:${c}"></i><b>${pct(u)}</b></div>`;
   };
-  const html = row(t('5-hour'), L.fiveHour) + row(t('Weekly'), L.sevenDay);
+  const html = (L.plan === 'ultra' ? '' : row(t('5-hour'), L.fiveHour)) + row(t('Weekly'), L.sevenDay);
   const el = $('#amb-quota');
   if (el._html !== html) {
     el.innerHTML = html;

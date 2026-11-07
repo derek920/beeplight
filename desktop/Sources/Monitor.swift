@@ -120,7 +120,7 @@ final class Monitor {
 
     /// Shown in the menu bar once a window is ≥ 80% used.
     var limitBadge: (label: String, value: Double)? {
-        if let u = limits?.fiveHour?.utilization, u >= 0.8 { return ("5h", u) }
+        if limits?.hasFiveHour ?? true, let u = limits?.fiveHour?.utilization, u >= 0.8 { return ("5h", u) }
         if let u = limits?.sevenDay?.utilization, u >= 0.8 { return (String(localized: "wk"), u) }
         return nil
     }
