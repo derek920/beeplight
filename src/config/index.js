@@ -13,6 +13,9 @@ export const PROJECTS_DIR = path.join(CLAUDE_DIR, 'projects');
 export const JOBS_DIR = path.join(CLAUDE_DIR, 'jobs');
 // OpenAI Codex (the ChatGPT app's Codex and the codex CLI) keeps its threads here.
 export const CODEX_DIR = process.env.CODEX_HOME || path.join(os.homedir(), '.codex');
+// Claude desktop app session records; only its archived-sessions.idx is read (which sessions are archived).
+export const DESKTOP_SESSIONS_DIR =
+  process.env.BEEPLIGHT_DESKTOP_SESSIONS_DIR || path.join(os.homedir(), 'Library', 'Application Support', 'Claude', 'claude-code-sessions');
 
 export const ROOT_DIR = path.resolve(import.meta.dirname, '..', '..');
 export const PUBLIC_DIR = path.join(ROOT_DIR, 'public');
