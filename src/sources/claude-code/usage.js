@@ -8,6 +8,17 @@ import { PROJECTS_DIR } from '../../config/index.js';
 const KEEP_RECORDS_MS = 8 * 86400_000; // a little more than the weekly window
 const CHUNK = 4 * 1024 * 1024;
 
+const MIN = 60_000;
+const HOUR = 60 * MIN;
+// Burn-rate chart ranges: bar width and the span of the smoothed line. `today` runs from local
+// midnight, on an axis fixed to the whole day.
+export const BURN_RANGES = {
+  '5h': { hours: 5, step: MIN, avg: 30 * MIN },
+  '24h': { hours: 24, step: 3 * MIN, avg: HOUR },
+  today: { day: true, step: 3 * MIN, avg: HOUR },
+  '7d': { hours: 7 * 24, step: HOUR, avg: 6 * HOUR },
+};
+
 // USD per million tokens (Anthropic first-party list prices). Only used to weight tokens when
 // estimating each session's share of a limit; subscription limits are not billed this way.
 // `cr` = cache read; cache writes cost 1.25× (5 min) or 2× (1 h) input.
@@ -317,6 +328,72 @@ export class UsageIndex {
       }
     }
     return { buckets, byModel, bySid };
+  }
+
+  // Token burn rate across all sessions, for the burn-rate chart. `range` is one of BURN_RANGES.
+  // Buckets sit on clock boundaries and the last one holds `now`; each gives tokens per hour
+  // split into cache read (cr), cache write (cw), uncached input (in) and output (out), plus the
+  // trailing average of all input and of output over the range's `avg` span. The last bucket is
+  // still filling, so it (and the averages that include it) count only the time it has had so
+  // far. Cost is the API-equivalent estimate (see costOf), not a bill.
+  // `from`–`to` is the axis; bars stop at `now`.
+  burn(range = '24h', now = Date.now()) {
+    if (!BURN_RANGES[range]) range = '24h';
+    const { hours, day, step, avg } = BURN_RANGES[range];
+    const span = Math.round(avg / step); // buckets in the average
+    const end = Math.floor(now / step) * step + step;
+    let from = end - hours * 3600_000;
+    let to = end;
+    if (day) {
+      const d = new Date(now);
+      from = d.setHours(0, 0, 0, 0);
+      to = d.setDate(d.getDate() + 1);
+    }
+    const n = Math.round((end - from) / step);
+    const total = n + span;
+    const start = end - total * step; // the first bars' averages reach back one span
+    const keys = ['cr', 'cw', 'in', 'out', 'cost'];
+    const raw = Object.fromEntries(keys.map((k) => [k, new Array(total).fill(0)]));
+    for (const s of this.sessions.values()) {
+      for (const r of s.records) {
+        if (r.t < start || r.t >= end) continue;
+        const i = Math.floor((r.t - start) / step);
+        raw.cr[i] += r.cr;
+        raw.cw[i] += r.cw5 + r.cw1;
+        raw.in[i] += r.in;
+        raw.out[i] += r.out;
+        raw.cost[i] += r.cost;
+      }
+    }
+    const lastMs = Math.max(30_000, now - (end - step));
+    const out = { range, ready: this.ready, from, to, stepMs: step, avgMs: avg, now, cr: [], cw: [], in: [], out: [], avgIn: [], avgOut: [], costPerHour: 0, totals: { cr: 0, cw: 0, in: 0, out: 0, cost: 0 } };
+    let sumIn = 0;
+    let sumOut = 0;
+    let sumCost = 0;
+    for (let i = 0; i < total; i++) {
+      sumIn += raw.cr[i] + raw.cw[i] + raw.in[i];
+      sumOut += raw.out[i];
+      sumCost += raw.cost[i];
+      if (i >= span) {
+        sumIn -= raw.cr[i - span] + raw.cw[i - span] + raw.in[i - span];
+        sumOut -= raw.out[i - span];
+        sumCost -= raw.cost[i - span];
+      }
+      if (i < span) continue;
+      const last = i === total - 1;
+      const hrs = (last ? lastMs : step) / 3600_000;
+      const avgHrs = (last ? avg - step + lastMs : avg) / 3600_000;
+      for (const k of ['cr', 'cw', 'in', 'out']) {
+        out[k].push(Math.round(raw[k][i] / hrs));
+        out.totals[k] += raw[k][i];
+      }
+      out.totals.cost += raw.cost[i];
+      out.avgIn.push(Math.round(sumIn / avgHrs));
+      out.avgOut.push(Math.round(sumOut / avgHrs));
+      if (last) out.costPerHour = Math.round((sumCost / avgHrs) * 100) / 100;
+    }
+    out.totals.cost = Math.round(out.totals.cost * 100) / 100;
+    return out;
   }
 
   // Sessions ranked by cost-weighted usage since `from`.

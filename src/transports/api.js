@@ -41,6 +41,11 @@ export function apiRoutes({ collector, store, config, lan, relay, limits, stream
       },
     },
     {
+      // Burn-rate chart: ?range=5h|today|24h|7d.
+      method: 'GET', path: '/api/burn', access: 'paired',
+      handle: ({ res, url }) => json(res, 200, collector.usageBurn(url.searchParams.get('range'))),
+    },
+    {
       method: 'POST', path: '/api/limits/refresh', access: 'paired',
       handle: async ({ res }) => {
         await limits.probe();

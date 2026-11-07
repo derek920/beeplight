@@ -606,6 +606,11 @@ export class Collector extends EventEmitter {
     return this.summaryOf(row.sid)?.title || cleanTitle(row.title) || path.basename(row.cwd || '') || row.sid.slice(0, 8);
   }
 
+  /** Tokens per hour for the burn-rate chart (UsageIndex.burn); an unknown range falls back to 24h. */
+  usageBurn(range) {
+    return this.usage.burn(range || '24h');
+  }
+
   /** The limit details view (src/core/usage-detail.js); null for an unknown window or step. */
   usageDetail(window, step, now) {
     if (!Object.hasOwn(STEPS, window)) return null;

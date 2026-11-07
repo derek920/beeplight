@@ -215,7 +215,9 @@
 "No new usage lately" = "最近没有新增消耗";
 "+%@ per hour" = "每小时 +%@";
 "%@, runs out in about %@ (before reset)" = "%@，约 %@后用完（重置前）";
+"Runs out %@ (before reset)" = "预计 %@ 用完（重置前）";
 "%@, lasts until reset" = "%@，重置前用不完";
+"Lasts until reset" = "重置前用不完";
 "Resets %@ · %@ left" = "%@ 重置 · 还剩 %@";
 "No limit data yet" = "还没拿到额度数据";
 "This Mac: %@ tokens · %@ output · ≈%@" = "本机 %@ tokens · 输出 %@ · ≈%@";
@@ -328,3 +330,51 @@
 "This Mac has no Bluetooth LE." = "这台 Mac 不支持低功耗蓝牙。";
 "Bluetooth couldn't start: %@" = "蓝牙启动失败：%@";
 "Over Bluetooth, the paired Beeplight iPhone app gets the same task list when it can't reach this Mac on the network, and keeps it current in the background while the phone is nearby. It's encrypted with the pairing code; the first time, macOS asks to allow Bluetooth." = "配对过的 Beeplight iPhone app 在局域网连不上这台 Mac 时，经蓝牙收到同样的任务列表；手机在附近时，退到后台也保持最新。内容用配对码加密。第一次使用时，macOS 会询问是否允许使用蓝牙。";
+
+/* BurnRate.swift */
+"Burn rate" = "消耗速度";
+"Tokens per hour over the last 5 hours, today, the last 24 hours or 7 days" = "过去 5 小时、今天、过去 24 小时、过去 7 天每小时消耗的 token";
+"5 hours" = "5 小时";
+"Tokens per hour on this Mac, today from midnight · Bars: every 3 minutes · Lines: average of the past 60 minutes" = "这台 Mac 今天 0 点以来每小时消耗的 token · 柱子：每 3 分钟一根 · 曲线：过去 60 分钟的平均";
+"Input, today" = "今天输入";
+"Output, today" = "今天输出";
+"Cost, today" = "今天金额";
+"24 hours" = "24 小时";
+"7 days" = "7 天";
+"Tokens per hour on this Mac, last 5 hours · Bars: every minute · Lines: average of the past 30 minutes" = "这台 Mac 过去 5 小时每小时消耗的 token · 柱子：每分钟一根 · 曲线：过去 30 分钟的平均";
+"Tokens per hour on this Mac, last 24 hours · Bars: every 3 minutes · Lines: average of the past 60 minutes" = "这台 Mac 过去 24 小时每小时消耗的 token · 柱子：每 3 分钟一根 · 曲线：过去 60 分钟的平均";
+"Tokens per hour on this Mac, last 7 days · Bars: every hour · Lines: average of the past 6 hours" = "这台 Mac 过去 7 天每小时消耗的 token · 柱子：每小时一根 · 曲线：过去 6 小时的平均";
+"Input / hr" = "输入 / 小时";
+"Output / hr" = "输出 / 小时";
+"Cost / hr" = "金额 / 小时";
+"Input, 5h" = "5 小时输入";
+"Input, 24h" = "24 小时输入";
+"Input, 7d" = "7 天输入";
+"Output, 5h" = "5 小时输出";
+"Output, 24h" = "24 小时输出";
+"Output, 7d" = "7 天输出";
+"Cost, 5h" = "5 小时金额";
+"Cost, 24h" = "24 小时金额";
+"Cost, 7d" = "7 天金额";
+"Cache hits" = "缓存命中";
+"Estimated at API list prices. A Claude subscription is not billed this way; use it to compare, not as a bill." = "按 API 标价估算。Claude 订阅不按这个计费，只用来比较，不是账单。";
+"Input · cache read" = "输入 · 命中缓存";
+"Input · cache write" = "输入 · 写入缓存";
+"Input · uncached" = "输入 · 未走缓存";
+"30-min average" = "30 分钟平均";
+"60-min average" = "60 分钟平均";
+"6-hour average" = "6 小时平均";
+"Input · %@" = "输入 · %@";
+"Output · %@" = "输出 · %@";
+
+/* Dashboard.swift */
+"Top sessions" = "用量最多的会话";
+"Reset" = "重置";
+"Hide" = "隐藏";
+"Reading Claude's history… the numbers are still filling in" = "正在读取 Claude 的历史记录…数字还在补全";
+
+/* Appearance: board top row */
+"Board top row" = "看板顶部";
+"What the board shows above the task list: the burn-rate dashboard, or the original 5-hour and weekly limit cards" = "任务列表上方显示什么：消耗速度看板，或原来的 5 小时、每周额度卡片";
+"5-hour and weekly limits" = "5 小时和每周额度";
+
