@@ -149,7 +149,6 @@
 /* Panel.swift */
 "Recently done" = "最近完成";
 "New" = "新完成";
-"Live · %@/s" = "实时 · %@ 次/秒";
 "Connecting…" = "连接中…";
 "Remove from board" = "从看板移除";
 "Copy session ID" = "复制会话 ID";
