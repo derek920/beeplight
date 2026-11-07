@@ -196,17 +196,57 @@ private func runOutText(_ w: LimitWindow?) -> (String, Bool) {
     return (String(localized: "Lasts until reset"), false)
 }
 
-/// The limit strips across the top, side by side: the 5-hour window while the account reports
-/// one, and the weekly one.
+/// The limit strips across the top, side by side: the 5-hour window and the weekly one while the
+/// account reports a 5-hour window, otherwise the Fable weekly window and the weekly one.
 private struct LimitStrips: View {
     var body: some View {
         let L = Monitor.shared.usage?.limits
         HStack(spacing: 8) {
             if let five = L?.fiveHour {
                 LimitStrip(name: String(localized: "5-hour limit"), w: five, weekly: false)
+            } else if let w = L?.fable {
+                LimitStrip(name: "Fable", w: w, weekly: true)
+            } else {
+                FableUsageStrip(week: Monitor.shared.usage?.sevenDay)
             }
             LimitStrip(name: String(localized: "Weekly limit"), w: L?.sevenDay, weekly: true)
         }
+    }
+}
+
+/// The account reports no Fable window, so show what Fable used this week on this Mac and its
+/// share of everything used this week (API-price estimate, see UsageIndex.costOf).
+private struct FableUsageStrip: View {
+    let week: UsageTotals?
+
+    var body: some View {
+        let f = week?.fable
+        let weekCost = week?.cost ?? 0
+        let share = f.map { weekCost > 0 ? $0.cost / weekCost : 0 }  // nil: no Fable use at all
+        let full = f.map { String(localized: "\(Fmt.tokens($0.tokens)) tokens · ≈\(usdShort($0.cost)) of this week's usage") } ?? String(localized: "No Fable usage this week")
+        let short = f.map { "\(Fmt.tokens($0.tokens)) · ≈\(usdShort($0.cost))" } ?? "—"
+        // Whatever does not fit is dropped: the wording first, then the text.
+        ViewThatFits(in: .horizontal) {
+            strip(share, full)
+            strip(share, short)
+            strip(share, "")
+        }
+        .padding(.horizontal, 10).padding(.vertical, 6)
+        .frame(maxWidth: .infinity)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(0.05)))
+    }
+
+    private func strip(_ share: Double?, _ text: String) -> some View {
+        HStack(spacing: 12) {
+            Text("Fable").font(.system(size: 11.5, weight: .semibold)).foregroundStyle(.secondary).fixedSize()
+            Text(share.map { Fmt.pct($0) } ?? "—")
+                .font(.system(size: 17, weight: .bold, design: .rounded).monospacedDigit())
+                .foregroundStyle(share == nil ? Color.secondary : Theme.doing)
+            QuotaBar(value: share ?? 0).frame(minWidth: 40)
+            if !text.isEmpty { Text(text).font(.system(size: 11.5).monospacedDigit()).foregroundStyle(.secondary).fixedSize() }
+        }
+        .lineLimit(1)
+        .frame(maxWidth: .infinity)
     }
 }
 

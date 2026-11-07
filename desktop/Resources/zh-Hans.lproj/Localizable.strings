@@ -387,3 +387,5 @@
 "What the board shows above the task list: the burn-rate dashboard, or the original 5-hour and weekly limit cards" = "任务列表上方显示什么：消耗速度看板，或原来的 5 小时、每周额度卡片";
 "5-hour and weekly limits" = "5 小时和每周额度";
 
+"%@ tokens · ≈%@ of this week's usage" = "%@ token · ≈%@ · 占本周用量";
+"No Fable usage this week" = "本周没有用 Fable";

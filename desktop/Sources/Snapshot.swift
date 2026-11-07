@@ -21,11 +21,14 @@ enum DebugSnapshot {
             Appearance.shared.apply(p)
         }
         // `--limits-quota` renders the original 5-hour and weekly cards instead of the burn-rate row.
-        // `--demo-limits five` shows a sample 5-hour strip next to the weekly one.
+        // `--demo-limits five|fable` shows sample numbers for the 5-hour or the Fable strip next to the weekly one.
         if let i = args.firstIndex(of: "--demo-limits"), i + 1 < args.count {
+            let fable = args[i + 1] == "fable"
             let now = Date().timeIntervalSince1970 * 1000
             Monitor.shared.demoLimits = { l in
-                l.fiveHour = LimitWindow(utilization: 0.34, resetsAt: now + 2.6 * 3600_000, status: "allowed", projection: nil)
+                let w = LimitWindow(utilization: fable ? 0.41 : 0.34, resetsAt: now + (fable ? 30 : 2.6) * 3600_000, status: "allowed", projection: nil)
+                l.fiveHour = fable ? nil : w
+                if fable { l.extra = ["seven_day_fable": w] }
             }
         }
         if args.contains("--limits-quota") { Appearance.shared.config.limitsView = .quota }

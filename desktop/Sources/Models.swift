@@ -53,14 +53,20 @@ struct LimitsInfo: Decodable, Equatable {
     var status: String?
     var fiveHour: LimitWindow?
     var sevenDay: LimitWindow?
+    /// Other windows the account reports (seven_day_opus, …).
+    var extra: [String: LimitWindow]?
     var probing: Bool?
     var error: String?
     var monitorSelf: SelfUsage?
 
     enum CodingKeys: String, CodingKey {
-        case known, at, status, fiveHour, sevenDay, probing, error
+        case known, at, status, fiveHour, sevenDay, extra, probing, error
         case monitorSelf = "self"
     }
+
+    /// The weekly window for Fable, if the account reports one. The key name is a guess (matched on
+    /// "fable"): no account here has ever returned such a window, so this is nil in practice today.
+    var fable: LimitWindow? { extra?.first { $0.key.localizedCaseInsensitiveContains("fable") }?.value }
 }
 
 /// Server-reported utilization (0…1) of one limit window.
@@ -95,6 +101,16 @@ struct UsageTotals: Decodable, Equatable {
     var cr: Double?
     var cost: Double
     var requests: Int?
+    /// Per model (window totals only), keyed by model id.
+    var byModel: [String: UsageTotals]?
+
+    /// What the Fable models used in this window, from this Mac's transcripts.
+    var fable: UsageTotals? {
+        let rows = (byModel ?? [:]).filter { $0.key.localizedCaseInsensitiveContains("fable") }.map(\.value)
+        guard !rows.isEmpty else { return nil }
+        return UsageTotals(tokens: rows.reduce(0) { $0 + $1.tokens }, out: rows.reduce(0) { $0 + $1.out }, cr: nil,
+                           cost: rows.reduce(0) { $0 + $1.cost }, requests: rows.reduce(0) { $0 + ($1.requests ?? 0) }, byModel: nil)
+    }
 }
 
 struct TopSession: Decodable, Identifiable, Equatable {
