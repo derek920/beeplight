@@ -29,6 +29,11 @@ struct BeeplightApp: App {
         }
         .defaultSize(width: 860, height: 760)
 
+        Window("Burn rate", id: "burn") {
+            BurnRateView()
+        }
+        .defaultSize(width: 1180, height: 640)
+
         MenuBarExtra {
             PanelView(monitor: monitor)
         } label: {

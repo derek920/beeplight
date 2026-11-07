@@ -146,6 +146,8 @@ const ZH = {
   'The same check when no session has been active for 30 minutes.': '30 分钟内没有会话活动时，用这个间隔检查。',
   'Count token usage (seconds)': '统计 token 用量（秒）',
   'How often transcripts are scanned for new token usage.': '多久扫描一次对话记录，统计新增的 token 用量。',
+  'Token history kept (days)': '保留 token 历史（天）',
+  'How far back token usage is read from transcripts and kept in memory. The 28-day chart needs 28; a shorter span reads less on start.': '从对话记录读取并保留多久的 token 用量。28 天图表需要 28；设短一些，启动时读得更少。',
   'Read of a long transcript (MB)': '长对话记录读取量（MB）',
   'When a session is first seen, only this much of the end of its transcript is read.': '第一次发现某个会话时，只读它对话记录末尾的这么多。',
   'Most read per check (MB)': '每次最多读取（MB）',

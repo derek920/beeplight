@@ -31,6 +31,8 @@ final class Monitor {
     private(set) var today: Today?
     private(set) var summarizer: SummarizerStats?
     private(set) var usage: UsageMeta?
+    /// Snapshots only: rewrites the limits before they are shown (`--demo-limits`).
+    var demoLimits: ((inout LimitsInfo) -> Void)?
     private(set) var limits: LimitsInfo?
     private(set) var cpu: CpuMeta?
     private(set) var titles: String?
@@ -194,7 +196,8 @@ final class Monitor {
             trackTransitions()
             refreshImage()
         case "meta":
-            guard let m = try? decoder.decode(Meta.self, from: data) else { return }
+            guard var m = try? decoder.decode(Meta.self, from: data) else { return }
+            if let demo = demoLimits, var l = m.usage?.limits { demo(&l); m.usage?.limits = l }
             lastMetaAt = Date()
             assign(\.hz, m.hz)
             assign(\.today, m.today)

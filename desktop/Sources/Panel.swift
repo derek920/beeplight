@@ -96,19 +96,18 @@ struct CountPill: View {
     }
 }
 
-/// Connection and tick rate: a leaf of its own, since the rate can change with any meta event.
+/// Connection state: a green dot and "Live", or a red dot while connecting.
 struct LiveBadge: View {
     let monitor: Monitor
 
     var body: some View {
         let connected = monitor.connected
-        let hz = monitor.hz
         HStack(spacing: 5) {
             Circle()
                 .fill(connected ? Theme.success : Theme.failed)
                 .frame(width: 7, height: 7)
                 .shadow(color: connected ? Theme.success.opacity(0.8) : .clear, radius: 3)
-            Text(connected ? String(localized: "Live · \(String(format: "%.1f", hz ?? 0))/s") : String(localized: "Connecting…"))
+            Text(connected ? String(localized: "Live") : String(localized: "Connecting…"))
                 .font(.system(size: 11).monospacedDigit())
                 .foregroundStyle(.secondary)
         }

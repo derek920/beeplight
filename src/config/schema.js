@@ -134,6 +134,11 @@ export const PARAMS = [
     label: 'Count token usage (seconds)',
     help: 'How often transcripts are scanned for new token usage.',
   },
+  {
+    key: 'usage.keepDays', type: 'int', default: 28, min: 8, max: 60,
+    label: 'Token history kept (days)',
+    help: 'How far back token usage is read from transcripts and kept in memory. The 28-day chart needs 28; a shorter span reads less on start.',
+  },
 
   {
     key: 'transcript.initialTailMB', type: 'number', default: 4, min: 0.25, max: 256,

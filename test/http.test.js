@@ -144,6 +144,17 @@ test('limit details: a paired phone may ask, a bad window or step is a 400', asy
   assert.deepEqual(asked, [['5h', '30m'], ['5h', null], ['1y', null]]);
 });
 
+test('burn rate: a paired phone may ask, the range goes through as given', async () => {
+  const lan = fakeLan();
+  const asked = [];
+  const collector = { usageBurn: (range) => (asked.push(range), { range: range || '24h' }) };
+  const h = createHandler({ routes: apiRoutes({ lan, collector }), lan, port: PORT, log: quiet });
+  assert.deepEqual((await call(h, { url: '/api/burn?range=7d' })).json, { range: '7d' });
+  assert.equal((await call(h, phone({ url: '/api/burn?t=tok' }))).status, 200);
+  assert.equal((await call(h, phone({ url: '/api/burn' }))).status, 401);
+  assert.deepEqual(asked, ['7d', null]);
+});
+
 test('pairing by code: refused on this Mac, wrong code answers 401 instead of crashing', async () => {
   const lan = fakeLan();
   const h = createHandler({ routes: apiRoutes({ lan }), lan, port: PORT, log: quiet });
