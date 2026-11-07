@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import { claudeBin, LLM_CWD } from '../config/index.js';
 import { isExecutable, truncate } from '../lib/util.js';
@@ -47,6 +47,21 @@ export class ClaudeRunner {
   /** Whether there is a claude to run. */
   available() {
     return isExecutable(claudeBin());
+  }
+
+  /** The account's subscription type from `claude auth status` (max, ultra, pro…), or null. */
+  plan() {
+    return new Promise((resolve) => {
+      execFile(claudeBin(), ['auth', 'status', '--json'], { timeout: 15_000 }, (err, out) => {
+        if (err) return resolve(null);
+        try {
+          const t = JSON.parse(out).subscriptionType;
+          resolve(typeof t === 'string' && t ? t.toLowerCase() : null);
+        } catch {
+          resolve(null);
+        }
+      });
+    });
   }
 
   /** @returns {Promise<object>} the `result` line */

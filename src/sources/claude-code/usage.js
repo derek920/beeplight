@@ -1,12 +1,23 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { PROJECTS_DIR } from '../../config/index.js';
+import { config as defaultConfig, PROJECTS_DIR } from '../../config/index.js';
 
 // Token usage of every transcript on this machine (main sessions + subagents), queryable by
 // time window so it can be lined up with the account's 5-hour and weekly limits.
 
-const KEEP_RECORDS_MS = 8 * 86400_000; // a little more than the weekly window
+const DAY = 86400_000;
 const CHUNK = 4 * 1024 * 1024;
+
+const MIN = 60_000;
+const HOUR = 60 * MIN;
+// Burn-rate chart ranges: bar width and the span of the smoothed line. `today` runs from local
+// midnight, on an axis fixed to the whole day.
+export const BURN_RANGES = {
+  '5h': { hours: 5, step: MIN, avg: 30 * MIN },
+  '24h': { hours: 24, step: 3 * MIN, avg: HOUR },
+  today: { day: true, step: 3 * MIN, avg: HOUR },
+  '7d': { hours: 7 * 24, step: HOUR, avg: 6 * HOUR },
+};
 
 // USD per million tokens (Anthropic first-party list prices). Only used to weight tokens when
 // estimating each session's share of a limit; subscription limits are not billed this way.
@@ -65,14 +76,20 @@ export function recordFromUsage(model, u, t) {
 }
 
 export class UsageIndex {
-  constructor(dir = PROJECTS_DIR) {
+  constructor(dir = PROJECTS_DIR, config = defaultConfig) {
     this.dir = dir;
+    this.config = config;
     this.files = new Map(); // path -> { size, offset, remainder, seen: Map<key, record>, sid }
     this.sessions = new Map(); // sid -> { sid, cwd, aiTitle, customTitle, total, records[], firstAt, lastAt }
     this.busy = false;
     this.ready = false; // first full pass done
     this.version = 0;
     this.stats = { files: 0, bytes: 0, ms: 0 };
+  }
+
+  // How far back records are kept: usage.keepDays plus a day so the oldest daily bar is whole.
+  keepMs() {
+    return (this.config.get('usage.keepDays') + 1) * DAY;
   }
 
   session(sid) {
@@ -127,7 +144,7 @@ export class UsageIndex {
     } catch {
       return out;
     }
-    const since = now - KEEP_RECORDS_MS;
+    const since = now - this.keepMs();
     for (const p of projects) {
       const pdir = path.join(this.dir, p);
       let entries;
@@ -228,7 +245,7 @@ export class UsageIndex {
     f.seen.set(key, r);
     s.total.requests++;
     addTo(s.total, r);
-    if (t >= Date.now() - KEEP_RECORDS_MS) s.records.push(r);
+    if (t >= Date.now() - this.keepMs()) s.records.push(r);
     if (!s.firstAt || t < s.firstAt) s.firstAt = t;
     if (t > s.lastAt) s.lastAt = t;
     return true;
@@ -246,7 +263,7 @@ export class UsageIndex {
   }
 
   prune(now) {
-    const cutoff = now - KEEP_RECORDS_MS;
+    const cutoff = now - this.keepMs();
     for (const s of this.sessions.values()) {
       if (s.records.length && s.records[0].t < cutoff) s.records = s.records.filter((r) => r.t >= cutoff);
     }
@@ -317,6 +334,118 @@ export class UsageIndex {
       }
     }
     return { buckets, byModel, bySid };
+  }
+
+  // Token burn rate across all sessions, for the burn-rate chart. `range` is one of BURN_RANGES.
+  // Buckets sit on clock boundaries and the last one holds `now`; each gives tokens per hour
+  // split into cache read (cr), cache write (cw), uncached input (in) and output (out), plus the
+  // trailing average of all input and of output over the range's `avg` span. The last bucket is
+  // still filling, so it (and the averages that include it) count only the time it has had so
+  // far. Cost is the API-equivalent estimate (see costOf), not a bill.
+  // `from`–`to` is the axis; bars stop at `now`.
+  burn(range = '24h', now = Date.now()) {
+    if (!BURN_RANGES[range]) range = '24h';
+    const { hours, day, step, avg } = BURN_RANGES[range];
+    const span = Math.round(avg / step); // buckets in the average
+    const end = Math.floor(now / step) * step + step;
+    let from = end - hours * 3600_000;
+    let to = end;
+    if (day) {
+      const d = new Date(now);
+      from = d.setHours(0, 0, 0, 0);
+      to = d.setDate(d.getDate() + 1);
+    }
+    const n = Math.round((end - from) / step);
+    const total = n + span;
+    const start = end - total * step; // the first bars' averages reach back one span
+    const keys = ['cr', 'cw', 'in', 'out', 'cost'];
+    const raw = Object.fromEntries(keys.map((k) => [k, new Array(total).fill(0)]));
+    for (const s of this.sessions.values()) {
+      for (const r of s.records) {
+        if (r.t < start || r.t >= end) continue;
+        const i = Math.floor((r.t - start) / step);
+        raw.cr[i] += r.cr;
+        raw.cw[i] += r.cw5 + r.cw1;
+        raw.in[i] += r.in;
+        raw.out[i] += r.out;
+        raw.cost[i] += r.cost;
+      }
+    }
+    const lastMs = Math.max(30_000, now - (end - step));
+    const out = { range, ready: this.ready, from, to, stepMs: step, avgMs: avg, now, cr: [], cw: [], in: [], out: [], avgIn: [], avgOut: [], costPerHour: 0, totals: { cr: 0, cw: 0, in: 0, out: 0, cost: 0 } };
+    let sumIn = 0;
+    let sumOut = 0;
+    let sumCost = 0;
+    for (let i = 0; i < total; i++) {
+      sumIn += raw.cr[i] + raw.cw[i] + raw.in[i];
+      sumOut += raw.out[i];
+      sumCost += raw.cost[i];
+      if (i >= span) {
+        sumIn -= raw.cr[i - span] + raw.cw[i - span] + raw.in[i - span];
+        sumOut -= raw.out[i - span];
+        sumCost -= raw.cost[i - span];
+      }
+      if (i < span) continue;
+      const last = i === total - 1;
+      const hrs = (last ? lastMs : step) / 3600_000;
+      const avgHrs = (last ? avg - step + lastMs : avg) / 3600_000;
+      for (const k of ['cr', 'cw', 'in', 'out']) {
+        out[k].push(Math.round(raw[k][i] / hrs));
+        out.totals[k] += raw[k][i];
+      }
+      out.totals.cost += raw.cost[i];
+      out.avgIn.push(Math.round(sumIn / avgHrs));
+      out.avgOut.push(Math.round(sumOut / avgHrs));
+      if (last) out.costPerHour = Math.round((sumCost / avgHrs) * 100) / 100;
+    }
+    out.totals.cost = Math.round(out.totals.cost * 100) / 100;
+    return out;
+  }
+
+  // One bar per local calendar day for the last `days` days (today last, still filling), in the same
+  // shape as burn() but with tokens per day instead of per hour: cache read, cache write, uncached
+  // input, output. `avgIn` / `avgOut` are the trailing 7-day mean per day (fewer days at the start),
+  // and `costPerHour` holds the mean cost per day over the last 7 days. Bars sit DAY apart from
+  // local midnight of the first day; across a DST change that is off by an hour, which no bar shows.
+  daily(days = 28, now = Date.now()) {
+    // Never more days than are kept (usage.keepDays, at least 8): a short setting shows fewer bars.
+    days = Math.max(1, Math.min(days, this.config.get('usage.keepDays')));
+    const d0 = new Date(now);
+    const first = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() - (days - 1)).getTime();
+    const to = first + days * DAY;
+    const out = { range: '28d', ready: this.ready, from: first, to, stepMs: DAY, now, cr: [], cw: [], in: [], out: [], avgIn: [], avgOut: [], costPerHour: 0, totals: { cr: 0, cw: 0, in: 0, out: 0, cost: 0 } };
+    const raw = Object.fromEntries(['cr', 'cw', 'in', 'out', 'cost'].map((k) => [k, new Array(days).fill(0)]));
+    for (const s of this.sessions.values()) {
+      if (s.lastAt < first) continue;
+      for (const r of s.records) {
+        if (r.t < first || r.t >= to) continue;
+        const i = Math.min(days - 1, Math.floor((r.t - first) / DAY));
+        raw.cr[i] += r.cr;
+        raw.cw[i] += r.cw5 + r.cw1;
+        raw.in[i] += r.in;
+        raw.out[i] += r.out;
+        raw.cost[i] += r.cost;
+      }
+    }
+    for (const k of ['cr', 'cw', 'in', 'out']) {
+      out[k] = raw[k];
+      out.totals[k] = raw[k].reduce((x, y) => x + y, 0);
+    }
+    for (let i = 0; i < days; i++) {
+      const lo = Math.max(0, i - 6);
+      let a = 0;
+      let b = 0;
+      for (let j = lo; j <= i; j++) {
+        a += raw.cr[j] + raw.cw[j] + raw.in[j];
+        b += raw.out[j];
+      }
+      out.avgIn.push(Math.round(a / (i - lo + 1)));
+      out.avgOut.push(Math.round(b / (i - lo + 1)));
+    }
+    const week = raw.cost.slice(-7);
+    out.costPerHour = Math.round((week.reduce((x, y) => x + y, 0) / week.length) * 100) / 100;
+    out.totals.cost = Math.round(raw.cost.reduce((x, y) => x + y, 0) * 100) / 100;
+    return out;
   }
 
   // Sessions ranked by cost-weighted usage since `from`.

@@ -72,6 +72,7 @@ server.listen(PORT, HOST, () => {
   config.watch();
   store.start();
   collector.start();
+  limits.readPlan(); // once, off the tick: it runs `claude auth status`
   stream.start();
   seen.start();
   lan.start();

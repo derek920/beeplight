@@ -63,6 +63,14 @@ struct AppearanceSettingsView: View {
                         .labelsHidden()
                         .frame(maxWidth: 260)
                     }
+                    section(String(localized: "Board top row"), String(localized: "What the board shows above the task list: the burn-rate dashboard, or the original 5-hour and weekly limit cards")) {
+                        Picker("", selection: $appearance.config.limitsView) {
+                            ForEach(LimitsView.allCases) { Text($0.name).tag($0) }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .frame(maxWidth: 380)
+                    }
                     Button("Restore defaults") { appearance.config = AppearanceConfig() }
                         .buttonStyle(.link)
                         .font(.system(size: 12))
