@@ -91,10 +91,15 @@ private struct BoardHeader: View {
             HStack(alignment: .center, spacing: 14) {
                 AppMark(size: 30)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("Beeplight").font(.system(size: 18, weight: .bold))
+                    HStack(spacing: 10) {
+                        Text("Beeplight").font(.system(size: 18, weight: .bold))
+                        // Nothing while connected; only a lost connection is worth a mark here.
+                        if !monitor.connected { LiveBadge(monitor: monitor) }
+                    }
                     Text("Every coding agent session on this Mac · Click a card to jump to its window")
                         .font(.system(size: 11.5)).foregroundStyle(.secondary)
                 }
+                // The counts sit at the right end, next to the settings menu.
                 Spacer(minLength: 20)
                 HStack(spacing: 8) {
                     BigStat(value: monitor.waiting.count, label: String(localized: "Waiting"), color: monitor.anyUrgent ? Theme.urgent : Theme.waiting)
@@ -102,11 +107,7 @@ private struct BoardHeader: View {
                     BigStat(value: monitor.done.filter { $0.phase == .success }.count, label: String(localized: "Done"), color: Theme.success)
                     BigStat(value: monitor.done.filter { $0.phase == .failed }.count, label: String(localized: "Failed"), color: Theme.failed)
                 }
-                Spacer(minLength: 20)
-                VStack(alignment: .trailing, spacing: 6) {
-                    LiveBadge(monitor: monitor)
-                    SettingsMenu(monitor: monitor)
-                }
+                SettingsMenu(monitor: monitor)
             }
             TodayBanner(monitor: monitor)
         }
