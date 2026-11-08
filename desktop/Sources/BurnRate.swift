@@ -346,7 +346,7 @@ private struct BurnHeader: View {
 }
 
 /// Whole dollars below 1k, then 2.84k, 1.20M.
-private func usdShort(_ x: Double) -> String {
+func usdShort(_ x: Double) -> String {
     if x >= 1_000_000 { return String(format: "$%.2fM", x / 1_000_000) }
     if x >= 1000 { return String(format: "$%.2fk", x / 1000) }
     return String(format: "$%.0f", x)
