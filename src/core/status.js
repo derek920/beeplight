@@ -93,12 +93,16 @@ export function deriveStatus({ live, reg, lastRegStatus, job, a, summary, verdic
   }
   if (turn?.error) return { state: 'done', outcome: 'failed', label: t('API error'), detail: turn.error, since };
   if (turn?.interrupted) return { state: 'done', outcome: 'failed', label: t('Interrupted'), detail: t('You interrupted this turn'), since };
+  // A turn that ended on a question waits for the user only while the session is open. Closing it
+  // leaves the question behind; resuming the session brings it back.
+  const asked = (detail) => live
+    ? { state: 'waiting', kind: 'question', label: t('Awaiting your reply'), detail, since }
+    : { state: 'done', outcome: 'success', label: t('Closed without a reply'), detail, since };
   // An explicit question on the turn's wrap-up card is a hard signal, no LLM needed.
   const wrapAsk = turn?.wrapUp?.ask;
   if (wrapAsk) {
     const options = turn.wrapUp.actions?.join(' / ');
-    const detail = options ? t('{ask} ({options})', { ask: wrapAsk, options }) : wrapAsk;
-    return { state: 'waiting', kind: 'question', label: t('Awaiting your reply'), detail, since };
+    return asked(options ? t('{ask} ({options})', { ask: wrapAsk, options }) : wrapAsk);
   }
 
   const verdict = matchingEndSummary(summary, a, live);
@@ -106,7 +110,7 @@ export function deriveStatus({ live, reg, lastRegStatus, job, a, summary, verdic
     const detail = verdict.reason || '';
     switch (verdict.outcome) {
       case 'blocked':
-        return { state: 'waiting', kind: 'question', label: t('Awaiting your reply'), detail, since };
+        return asked(detail);
       case 'working':
         // Closed with work still going: nothing of it will come back to this session.
         if (!live) return { state: 'done', outcome: 'failed', label: t('Not finished'), detail, since };

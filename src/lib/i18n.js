@@ -56,6 +56,7 @@ const ZH = {
   'A background command is running': '有一条后台命令在运行',
   '{title} and {n} more': '{title}，另有 {n} 条',
   'Not finished': '未完成',
+  'Closed without a reply': '没回复就关闭了',
   'Checking the result…': '结果判定中…',
   // transcript.js
   'Interrupted by the user': '用户中断了执行',

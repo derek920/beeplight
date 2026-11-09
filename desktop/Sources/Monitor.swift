@@ -237,6 +237,8 @@ final class Monitor {
             if v.pending == true || notifiedKey[v.id] == key { continue }
             notifiedKey[v.id] = key
             guard prev != nil || v.phase == .waiting else { continue }
+            // The user closed a session that was waiting on their reply: nothing new to announce.
+            if prev == "waiting" && v.ended == true && v.phase == .success { continue }
             if v.phase != .doing { onTransition?(v) }
             switch v.phase {
             case .waiting where notifyWaiting:

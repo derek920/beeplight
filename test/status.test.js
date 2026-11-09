@@ -64,7 +64,20 @@ test('a verdict from before Claude resumed work does not apply to a live session
   a.lastTs = 200; // more work happened in the same turn
   assert.equal(deriveStatus({ live: true, reg: reg('idle'), a, summary }).pending, true);
   // …but a closed session keeps the last verdict it got for this turn.
-  assert.equal(deriveStatus({ live: false, lastRegStatus: 'idle', a, summary }).state, 'waiting');
+  const closed = deriveStatus({ live: false, lastRegStatus: 'idle', a, summary: { ...summary, reason: '等你确认删旧表' } });
+  assert.deepEqual([closed.state, closed.outcome, closed.label, closed.detail], ['done', 'success', '没回复就关闭了', '等你确认删旧表']);
+});
+
+test('a closed session no longer waits on its question', () => {
+  // The user closed the terminal (or /clear-ed) instead of answering: nobody can reply there now.
+  const a = analysis();
+  const blocked = deriveStatus({ live: false, lastRegStatus: 'idle', a, summary: endSummary(a, 'blocked', '等你确认删旧表') });
+  assert.deepEqual([blocked.state, blocked.outcome, blocked.label], ['done', 'success', '没回复就关闭了']);
+  a.turn.wrapUp = { recap: '', ask: '要接着补 click_id 口径吗？', actions: [] };
+  const asked = deriveStatus({ live: false, lastRegStatus: 'idle', a });
+  assert.deepEqual([asked.state, asked.outcome, asked.label, asked.detail], ['done', 'success', '没回复就关闭了', '要接着补 click_id 口径吗？']);
+  // Resumed, the same session waits on it again.
+  assert.equal(deriveStatus({ live: true, reg: reg('idle'), a }).state, 'waiting');
 });
 
 test('hard failure signals win over the LLM', () => {

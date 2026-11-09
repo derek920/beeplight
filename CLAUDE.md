@@ -167,7 +167,7 @@ Mac 应用：
 
 接入新 agent：在 `src/sources/<agent>/` 写一个实现 `collector.js` 开头那套接口的类（带 `<agent>.monitor` 开关和 `enabled()`）（id 用 `<agent>:` 前缀，解析成统一的对话分析和 registry 形状的实时信号）→ `server.js` 里加进 `sources` → 跳转需要新的 URL 或命令时加进 `focus.js` 的 `URLS`/`CLIS` → 用合成的 fixture 写测试（不放真实对话）→ README 的隐私说明写清楚读哪些文件 → 在 `public/agents.json` 加它的标记（测试会检查每个数据源都有）。
 
-三态规则只在 `deriveStatus()` 一处定义，优先级：registry 的 waiting/busy → 不在线的后台 job 用 daemon 判定 → 硬失败信号（中途退出、API 错误、中断）→ 本轮结束时的 LLM 判定（`blocked` 映射成 Waiting，`working` 映射成 Doing；会话已关闭时 `working` 算未完成）→ 本轮在等的后台命令还在跑（`shell`，后台服务不算）就是 Doing → 还没判定时临时显示为成功，并带 `pending`。`shell` 和 `idle` 一样请求本轮结束的判定，总结器的输入里会列出还在跑的后台命令（只发标题，和工具行一样）。改规则时同步改 `test/status.test.js`。
+三态规则只在 `deriveStatus()` 一处定义，优先级：registry 的 waiting/busy → 不在线的后台 job 用 daemon 判定 → 硬失败信号（中途退出、API 错误、中断）→ 本轮结束时的 LLM 判定（`blocked` 映射成 Waiting，`working` 映射成 Doing；会话已关闭时 `working` 算未完成，`blocked` 和收尾卡片上的提问算「没回复就关闭了」的完成，这次变化不标未读，Mac 端也不通知、不闪灵动岛）→ 本轮在等的后台命令还在跑（`shell`，后台服务不算）就是 Doing → 还没判定时临时显示为成功，并带 `pending`。`shell` 和 `idle` 一样请求本轮结束的判定，总结器的输入里会列出还在跑的后台命令（只发标题，和工具行一样）。改规则时同步改 `test/status.test.js`。
 
 运行参数见「开发约束 → 配置化」。
 
@@ -203,7 +203,7 @@ Token 用量与额度：
 
 新完成（未读）：`Collector.trackState()` 发现某个会话的轨迹从非 done 变成 `done:*`，并且判定已经出来（不是 `p: true`）时，写入 `store.unread[sid]`。下面几种情况会清除：会话回到 doing/waiting（发了新消息，或者 Claude 自己继续干活）；调用 focus 或 read 接口；`POST /api/read-all`；dismiss；`src/actions/seen.js` 检测到这个会话的终端标签页连续两次是前台。`seen.js` 只有在 `store.flags.appleEventsOk` 为真时才轮询，这个标志在第一次通过 AppleScript 跳转成功时写入，所以轮询永远不会成为触发系统授权弹窗的原因。每次标记和清除都会打 `[unread]` / `[focus]` 日志，带上原因和来源（`via=panel|board|notification|web`）。查「徽章为什么没了 / 为什么清不掉」时先看这里。客户端的未读计数都从可见列表里算，菜单栏、面板、看板、Dock 用的是同一个判定。
 
-桌面端的收尾卡片：Claude 桌面端结束一轮时会调用 `mcp__ccd_turn__wrap_up`，参数是 `recap / ask / actions`。向用户的提问只出现在这里，回复正文里看不到，所以 `transcript.js` 把它记到 `turn.wrapUp`。在 `deriveStatus()` 里，有 `ask` 就直接判 Waiting，不交给 LLM。
+桌面端的收尾卡片：Claude 桌面端结束一轮时会调用 `mcp__ccd_turn__wrap_up`，参数是 `recap / ask / actions`。向用户的提问只出现在这里，回复正文里看不到，所以 `transcript.js` 把它记到 `turn.wrapUp`。在 `deriveStatus()` 里，会话还开着时有 `ask` 就直接判 Waiting，不交给 LLM；会话关闭后按上面的三态规则算完成。
 
 后台命令和后台服务（`src/core/background.js` `BackgroundTracker`）：agent 用 `run_in_background` 起、本轮结束后还在跑的命令。对话记录给出启动和结束（`a.background`）；每次 `ps` 扫描后，`refresh()` 把命令配对到 agent 进程下、启动时间对得上的子进程（ps 只有 `comm` 没有参数，所以按时间配），进程没了就算已退出（不等通知）；`lsof` 读这棵进程树监听的端口。命令监听端口、或命令行像开发服务器和监听进程（`SERVICE_COMMAND`：`npm run dev`、`vite`、`--watch`、`tail -f`……）就是**后台服务**：没人等它结束，所以不让任务停在 Doing，也不发提醒。其余还在跑的命令是本轮在等的工作，任务留在 Doing。视图里每个任务带 `background`（`role: service | task`；判定说本轮已完成、命令还在跑的也算 service），客户端把 service 汇总成单独一类：看板三列下面一条、面板最后一节、网页看板同样位置，显示状态、端口（本机点了在浏览器打开）、已运行多久，退出的保留 `background.keepEndedMinutes`。`background` 不在 `shareView()` 白名单里，不同步；灵动岛和手机状态屏暂不显示。
 

@@ -497,8 +497,10 @@ export class Collector extends EventEmitter {
     if (this.timeline.track(s.history, v, now)) {
       this.store.setHistory(s.sid, s.history, this.timeline.daily);
       const last = s.history[s.history.length - 1];
-      // Only finishes we saw happen: a session first seen already done is old news.
-      if (prevKey && last.k.startsWith('done:') && !last.p && (prevKey !== last.k || prevPending)) {
+      // Only finishes we saw happen: a session first seen already done is old news, and so is one
+      // the user closed while it waited on their reply.
+      const closedOnQuestion = s.ended && prevKey === 'waiting:q';
+      if (prevKey && last.k.startsWith('done:') && !last.p && (prevKey !== last.k || prevPending) && !closedOnQuestion) {
         this.store.markUnread(s.sid, last.t, last.k.slice(5));
         console.log(`[unread] ${shortId(s.sid)} ${last.k} → unread`);
       }

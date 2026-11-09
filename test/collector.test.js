@@ -381,6 +381,27 @@ test('a session that exits mid-turn fails, and is resumed with claude --resume',
   });
 });
 
+test('a session closed while it waited on the user’s reply stops waiting, and is not news', async () => {
+  reset();
+  const proc = liveProcess();
+  writeRegistry(proc.pid, { sessionId: SID.wait, status: 'idle', statusUpdatedAt: NOW - 30_000 });
+  writeTranscript(SID.wait, [human('u5', 'Drop the old orders table', 60), reply('The new table is filled. Drop the old one now?', 40), turnEnd(39)]);
+  const answer = { title: 'Retire the old orders table', goal: 'New table filled', outcome: 'blocked', reason: 'Waiting for you to confirm the drop' };
+  const { collector } = makeCollector({ answers: { [SID.wait]: answer } });
+  collector.tick();
+  collector.tick();
+  assert.equal(views(collector)[SID.wait].state, 'waiting');
+
+  await proc.kill();
+  removeRegistry(proc.pid);
+  collector.tick();
+  const v = views(collector)[SID.wait];
+  assert.deepEqual([v.state, v.outcome, v.label, v.detail], ['done', 'success', 'Closed without a reply', 'Waiting for you to confirm the drop']);
+  assert.deepEqual([v.ended, v.endReason], [true, 'closed']);
+  assert.deepEqual(v.history, ['waiting:q', 'done:success']);
+  assert.equal(v.unread, false);
+});
+
 test('/clear in the same terminal ends the old session as switched', () => {
   reset();
   writeRegistry(process.pid, { sessionId: SID.before, status: 'idle' });
