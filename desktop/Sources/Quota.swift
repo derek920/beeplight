@@ -244,8 +244,10 @@ struct QuotaRow: View {
     var body: some View {
         let u = monitor.usage
         HStack(alignment: .top, spacing: 14) {
-            QuotaCard(title: String(localized: "5-hour limit"), window: u?.limits?.fiveHour, local: u?.fiveHour, range: u?.windows?.fiveHour,
-                      buckets: u?.buckets5h ?? [], now: monitor.minute, onOpen: { open("5h") })
+            if u?.limits?.hasFiveHour ?? true {
+                QuotaCard(title: String(localized: "5-hour limit"), window: u?.limits?.fiveHour, local: u?.fiveHour, range: u?.windows?.fiveHour,
+                          buckets: u?.buckets5h ?? [], now: monitor.minute, onOpen: { open("5h") })
+            }
             QuotaCard(title: String(localized: "Weekly limit"), window: u?.limits?.sevenDay, local: u?.sevenDay, range: u?.windows?.sevenDay,
                       buckets: u?.buckets7d ?? [], now: monitor.minute, withDay: true, onOpen: { open("7d") })
             TopSessionsCard(rows: u?.top ?? [], weekly: u?.limits?.sevenDay?.utilization, note: monitor.limitsNote,
@@ -267,8 +269,35 @@ struct CompactQuota: View {
     var body: some View {
         let L = monitor.limits
         VStack(spacing: 5) {
-            line(String(localized: "5h"), L?.fiveHour, withDay: false)
+            // The 5-hour window when the account reports one, otherwise what Fable has used.
+            if let five = L?.fiveHour {
+                line(String(localized: "5h"), five, withDay: false)
+            } else if let fable = L?.fable {
+                line("Fable", fable, withDay: true)
+            } else {
+                fableUse(monitor.usage?.sevenDay)
+            }
             line(String(localized: "Week"), L?.sevenDay, withDay: true)
+        }
+    }
+
+    /// No 5-hour or Fable window reported: Fable's share of this week's usage on this Mac (an API-price
+    /// estimate), with its tokens and cost where the reset time would be.
+    private func fableUse(_ week: UsageTotals?) -> some View {
+        let f = week?.fable
+        let weekCost = week?.cost ?? 0
+        let share = f.map { weekCost > 0 ? $0.cost / weekCost : 0 }
+        return HStack(spacing: 8) {
+            Text("Fable").font(.system(size: 11)).foregroundStyle(.secondary).frame(width: 44, alignment: .leading)
+            QuotaBar(value: share ?? 0, height: 5)
+            Text(share.map { Fmt.pct($0) } ?? "—")
+                .font(.system(size: 11, weight: .semibold).monospacedDigit())
+                .foregroundStyle(share == nil ? Color.secondary : Theme.doing)
+                .frame(width: 34, alignment: .trailing)
+            Text(f.map { "\(Fmt.tokens($0.tokens)) · ≈\(usdShort($0.cost))" } ?? "—")
+                .font(.system(size: 10.5).monospacedDigit())
+                .foregroundStyle(.tertiary)
+                .frame(width: 104, alignment: .trailing)
         }
     }
 

@@ -20,6 +20,18 @@ enum DebugSnapshot {
         if let i = args.firstIndex(of: "--preset"), i + 1 < args.count, let p = Preset.all.first(where: { $0.id == args[i + 1] }) {
             Appearance.shared.apply(p)
         }
+        // `--limits-quota` renders the original 5-hour and weekly cards instead of the burn-rate row.
+        // `--demo-limits five|fable` shows sample numbers for the 5-hour or the Fable strip next to the weekly one.
+        if let i = args.firstIndex(of: "--demo-limits"), i + 1 < args.count {
+            let fable = args[i + 1] == "fable"
+            let now = Date().timeIntervalSince1970 * 1000
+            Monitor.shared.demoLimits = { l in
+                let w = LimitWindow(utilization: fable ? 0.41 : 0.34, resetsAt: now + (fable ? 30 : 2.6) * 3600_000, status: "allowed", projection: nil)
+                l.fiveHour = fable ? nil : w
+                if fable { l.extra = ["seven_day_fable": w] }
+            }
+        }
+        if args.contains("--limits-quota") { Appearance.shared.config.limitsView = .quota }
         if args.contains("--island-open") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 5) { IslandController.shared.model.pinned = true }
         }
@@ -52,6 +64,10 @@ enum DebugSnapshot {
         quota.title = "quota"
         quota.contentView = NSHostingView(rootView: QuotaDetailView(monitor: monitor))
         quota.orderFront(nil)
+        let burn = NSWindow(contentRect: NSRect(x: 280, y: 280, width: 1180, height: 640), styleMask: [.titled], backing: .buffered, defer: false)
+        burn.title = "burn"
+        burn.contentView = NSHostingView(rootView: BurnRateView())
+        burn.orderFront(nil)
         // The menu bar panel cannot be opened programmatically; host it in a plain window.
         let panel = NSWindow(contentRect: NSRect(x: 60, y: 60, width: 400, height: 640), styleMask: [.titled], backing: .buffered, defer: false)
         panel.title = "panel"
@@ -59,7 +75,7 @@ enum DebugSnapshot {
         panel.orderFront(nil)
         DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
             for w in NSApp.windows where w.isVisible && w.frame.width > 200 {
-                let name = ["panel", "settings", "island", "phone", "general", "devices", "advanced", "quota"].contains(w.title) ? w.title : "board"
+                let name = ["panel", "settings", "island", "phone", "general", "devices", "advanced", "quota", "burn"].contains(w.title) ? w.title : "board"
                 save(w, to: dir.appending(path: name + ".png"))
             }
             if let tiff = monitor.menuBarImage.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff) {
