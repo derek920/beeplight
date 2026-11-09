@@ -6,8 +6,8 @@ Return these JSON fields:
 - goal: one sentence, at most 20 words, on how far the task has got and what is being done now.
 - outcome: judge from the last turn only:
   working = still in progress (the turn hasn't ended, or Claude said it will carry on or is waiting for a background task);
-  blocked = the last reply (or the final [event] wrap-up) asks the user a question, or asks for confirmation, a choice, permission or information, and work can't continue without an answer;
-  done = what the user asked for has been delivered with nothing left open (anything the wrap-up calls not done yet is left open);
+  blocked = the last reply (or the final [event] wrap-up) asks the user a question, or asks for confirmation, a choice, permission or information, and work can't continue without an answer. Saying it will wait for the user, or listing follow-ups for later, is not a question;
+  done = what the user asked for has been delivered with nothing left open (anything the wrap-up calls not done yet is left open), or the user ended or paused the task and the last reply only acknowledges it (items the user chose to leave for later don't count);
   failed = it couldn't be completed: gave up after errors, couldn't do it, the result is clearly wrong, or it was refused or lacked permission.
 - reason: at most 12 words, the concrete basis for outcome, e.g. "All tests pass", "Waiting for you to confirm dropping the old table", "API auth failed".
 
