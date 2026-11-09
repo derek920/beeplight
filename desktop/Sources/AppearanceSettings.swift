@@ -68,22 +68,25 @@ struct AppearanceSettingsView: View {
                         .font(.system(size: 12))
                 }
                 .padding(22)
+                // The restyle identity sits on the content, not on the whole page: the ScrollView
+                // itself must survive a change, or every click throws the page back to the top.
+                .id(appearance.revision)
             }
             .frame(width: 560)
 
             AppearancePreview(monitor: monitor)
                 .frame(width: 330)
                 .frame(maxHeight: .infinity)
+                .id(appearance.revision)
         }
         .frame(width: 890, height: 640)
-        .background(ThemedBackdrop().ignoresSafeArea())
+        .background(ThemedBackdrop().id(appearance.revision).ignoresSafeArea())
         .themedPage()
         // The toolbar's glass picks each tab's text color from what lies under it. Over a dark
         // theme's backdrop it got that wrong for the Advanced tab alone (dark on dark, invisible).
         // A toolbar scheme of its own gives the bar its usual solid look, the same as on the other
         // tabs, with every tab legible.
         .toolbarColorScheme(Theme.palette.scheme, for: .windowToolbar)
-        .id(appearance.revision)
     }
 
     private func section<Content: View>(_ title: String, _ hint: String, @ViewBuilder _ content: () -> Content) -> some View {
