@@ -43,6 +43,18 @@ enum Motion: String, CaseIterable, Codable, Identifiable {
     }
 }
 
+/// What the board shows above its task list.
+enum LimitsView: String, CaseIterable, Codable, Identifiable {
+    case burn, quota
+    var id: String { rawValue }
+    var name: String {
+        switch self {
+        case .burn: return String(localized: "Burn rate")
+        case .quota: return String(localized: "5-hour and weekly limits")
+        }
+    }
+}
+
 struct AppearanceConfig: Codable, Equatable {
     /// A theme id from the theme pack (Themes.swift).
     var theme = Themes.native
@@ -57,6 +69,8 @@ struct AppearanceConfig: Codable, Equatable {
     var motion: Motion = .full
     /// `Characters.eyes`, `Characters.classic`, or a drawn character's id from characters.json.
     var character = Characters.eyes
+    /// The board's top row: the burn-rate dashboard, or the original 5-hour and weekly cards.
+    var limitsView: LimitsView = .burn
 }
 
 // Settings saved by an older version lack newer keys; those keep their defaults instead of failing
@@ -73,6 +87,7 @@ extension AppearanceConfig {
         islandAutoHide = try c.decodeIfPresent(Bool.self, forKey: .islandAutoHide) ?? d.islandAutoHide
         motion = try c.decodeIfPresent(Motion.self, forKey: .motion) ?? d.motion
         character = try c.decodeIfPresent(String.self, forKey: .character) ?? d.character
+        limitsView = try c.decodeIfPresent(LimitsView.self, forKey: .limitsView) ?? d.limitsView
     }
 }
 

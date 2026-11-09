@@ -11,7 +11,13 @@ struct BoardView: View {
     var body: some View {
         VStack(spacing: 0) {
             BoardHeader(monitor: monitor)
-            QuotaRow(monitor: monitor)
+            Group {
+                if appearance.config.limitsView == .quota {
+                    QuotaRow(monitor: monitor)
+                } else {
+                    DashboardRow(monitor: monitor)
+                }
+            }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 14)
             if monitor.visible.isEmpty {

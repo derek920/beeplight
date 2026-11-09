@@ -24,6 +24,7 @@ export class Limits {
     this.latest = saved.latest || null;
     this.samples = saved.samples || [];
     this.self = saved.self || { date: null, calls: 0, cost: 0 };
+    this.plan = saved.plan || null; // subscription type; the UI shows only the windows that plan has
     this.probing = false;
     this.lastProbeAt = 0;
     this.lastError = null;
@@ -61,7 +62,7 @@ export class Limits {
   }
 
   save() {
-    this.store.limits = { latest: this.latest, samples: this.samples, self: this.self };
+    this.store.limits = { latest: this.latest, samples: this.samples, self: this.self, plan: this.plan };
     this.store.save();
   }
 
@@ -101,7 +102,7 @@ export class Limits {
   }
 
   snapshot(now) {
-    if (!this.latest) return { known: false, probing: this.probing, error: this.lastError, self: this.self };
+    if (!this.latest) return { known: false, plan: this.plan, probing: this.probing, error: this.lastError, self: this.self };
     const view = (key) => {
       const w = this.latest[key];
       // A window whose reset time has passed no longer describes the current window.
@@ -110,6 +111,7 @@ export class Limits {
     };
     return {
       known: true,
+      plan: this.plan,
       at: this.latest.at,
       status: this.latest.status,
       overage: this.latest.overage,
@@ -131,10 +133,23 @@ export class Limits {
     return rolled || age > (recentlyActive ? active : Math.max(active, this.config.get('limits.idleProbeMinutes') * 60_000));
   }
 
+  // The plan rarely changes; ask once per run (a saved value serves until the answer comes).
+  async readPlan() {
+    if (this.planAsked || !this.runner.plan) return;
+    this.planAsked = true;
+    const plan = await this.runner.plan();
+    if (plan && plan !== this.plan) {
+      this.plan = plan;
+      this.version++;
+      this.save();
+    }
+  }
+
   // One minimal request; the rate_limit_event it produces updates `latest` via the runner hook.
   async probe() {
     // Without claude there is no Claude account to read limits from.
     if (this.probing || this.runner.available?.() === false) return;
+    this.readPlan();
     this.probing = true;
     this.lastProbeAt = Date.now();
     this.version++;

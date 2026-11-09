@@ -526,7 +526,7 @@ struct IslandView: View {
                 if model.pinned { Image(systemName: "pin.fill").font(.system(size: 9)).foregroundStyle(.white.opacity(0.45)) }
                 Spacer()
                 if let L = monitor.limits {
-                    Text("5h \(Fmt.pct(L.fiveHour?.utilization)) · wk \(Fmt.pct(L.sevenDay?.utilization))")
+                    Text(L.hasFiveHour ? "5h \(Fmt.pct(L.fiveHour?.utilization)) · wk \(Fmt.pct(L.sevenDay?.utilization))" : "wk \(Fmt.pct(L.sevenDay?.utilization))")
                         .font(.system(size: 11).monospacedDigit())
                         .foregroundStyle(.white.opacity(0.6))
                 }
