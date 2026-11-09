@@ -254,7 +254,7 @@ struct QuotaRow: View {
         .frame(height: 176)
     }
 
-    private func open(_ window: String) {
+    @MainActor private func open(_ window: String) {
         QuotaDetailModel.shared.window = window
         openWindow(id: "quota")
     }
